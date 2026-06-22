@@ -292,6 +292,14 @@ function fillPredSelect(select, values) {
   select.value = options.some((option) => option.value === current) ? current : "all";
 }
 
+function getPredFilterRows() {
+  if (state.origFilter === "all") {
+    return state.rows;
+  }
+
+  return state.rows.filter((row) => row.original_level === state.origFilter);
+}
+
 function populateFilterOptions() {
   const origLevels = new Set();
   const predLevels = new Set();
@@ -301,14 +309,17 @@ function populateFilterOptions() {
     if (origLevel !== null) {
       origLevels.add(origLevel);
     }
+  }
 
+  fillOrigSelect(els.origFilter, [...origLevels].sort((a, b) => a - b));
+
+  for (const row of getPredFilterRows()) {
     const predLevel = formatPredValue(row.calibrated_pred_skill);
     if (predLevel !== null) {
       predLevels.add(predLevel);
     }
   }
 
-  fillOrigSelect(els.origFilter, [...origLevels].sort((a, b) => a - b));
   fillPredSelect(els.predFilter, [...predLevels].sort((a, b) => Number(a) - Number(b)));
 }
 
@@ -495,6 +506,7 @@ function init() {
 
   els.origFilter.addEventListener("change", () => {
     state.origFilter = els.origFilter.value;
+    populateFilterOptions();
     render();
   });
 
