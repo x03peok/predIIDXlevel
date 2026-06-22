@@ -66,6 +66,10 @@ body .title-lock {
   z-index: 20;
 }
 
+#menuRoot .menu-popover[hidden] {
+  display: none !important;
+}
+
 #menuRoot .menu-item {
   border: 0;
   background: transparent;
