@@ -19,7 +19,7 @@
       <div class="toolbar">
         <label class="search">
           <span>Filter</span>
-          <input id="searchInput" type="search" placeholder="chart_id or title">
+          <input id="searchInput" type="search" placeholder="search title">
         </label>
         <div class="status" id="status">Loading chart data...</div>
       </div>
@@ -29,7 +29,7 @@
           <thead>
             <tr>
               <th><button type="button" data-sort-key="title"><span>title</span><span class="sort-mark"></span></button></th>
-              <th><button type="button" data-sort-key="difficulty"><span>difficulty</span><span class="sort-mark"></span></button></th>
+              <th><button type="button" data-sort-key="difficulty" aria-label="difficulty sort"><span aria-hidden="true"></span><span class="sort-mark"></span></button></th>
               <th><button type="button" data-sort-key="original_level"><span>orig.</span><span class="sort-mark"></span></button></th>
               <th><button type="button" data-sort-key="calibrated_pred_skill"><span>pred.</span><span class="sort-mark"></span></button></th>
             </tr>

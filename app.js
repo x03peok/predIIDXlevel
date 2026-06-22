@@ -18,13 +18,13 @@ const difficultyClasses = {
   ANOTHER: "difficulty--another",
   LEGGENDARIA: "difficulty--leggendaria",
 };
-const searchFields = ["chart_id", "title", "difficulty", "original_level", "calibrated_pred_skill"];
+const searchFields = ["title"];
 const defaultCsv = "sample_predictions_extracted.csv";
 
 const state = {
   rows: [],
   query: "",
-  sortKey: "",
+  sortKey: "calibrated_pred_skill",
   sortDir: "asc",
 };
 
@@ -239,6 +239,11 @@ function renderTable(rows) {
         badge.className = `difficulty ${difficultyClasses[difficulty] ?? ""}`.trim();
         badge.textContent = difficultyLabels[difficulty] ?? difficulty;
         td.appendChild(badge);
+      } else if (column.key === "original_level") {
+        td.textContent = `☆${row[column.key]}`;
+        if (column.className) {
+          td.className = column.className;
+        }
       } else {
         td.textContent = row[column.key];
         if (column.className) {
@@ -276,7 +281,7 @@ function loadCsvText(text) {
   try {
     state.rows = normalizeRows(text);
     state.query = "";
-    state.sortKey = "";
+    state.sortKey = "calibrated_pred_skill";
     state.sortDir = "asc";
     els.searchInput.value = "";
     render();
