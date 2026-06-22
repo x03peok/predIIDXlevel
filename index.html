@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>IIDX&#9734;8-12 非公式難易度予測表</title>
-  <meta name="description" content="IIDX&#9734;8-12 非公式難易度予測表を一覧で確認できる静的サイトです。">
+  <title>SP&#9734;8-&#9734;12 非公式難易度予測表</title>
+  <meta name="description" content="SP&#9734;8-&#9734;12 非公式難易度予測表の一覧サイトです。">
   <link rel="stylesheet" href="styles.css">
   <script defer src="data.js"></script>
   <script defer src="app.js"></script>
@@ -12,45 +12,73 @@
 <body>
   <main class="app">
     <header class="masthead">
-      <h1>IIDX&#9734;8-12<wbr><span class="title-lock">非公式難易度予測表</span></h1>
+      <div class="masthead__bar">
+        <div class="site-menu" id="menuRoot">
+          <button
+            id="menuButton"
+            class="menu-button"
+            type="button"
+            aria-label="メニューを開く"
+            aria-controls="siteMenu"
+            aria-expanded="false"
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <div id="siteMenu" class="menu-popover" hidden>
+            <button type="button" class="menu-item" data-view="main">Main</button>
+            <button type="button" class="menu-item" data-view="about">About</button>
+          </div>
+        </div>
+        <h1>SP&#9734;8-&#9734;12 <span class="title-lock">非公式難易度予測表</span></h1>
+      </div>
     </header>
 
-    <section class="panel" aria-live="polite">
-      <div class="toolbar">
-        <label class="search">
-          <span>Filter</span>
-          <input id="searchInput" type="search" placeholder="search title">
-        </label>
-        <div class="filters">
-          <label class="filter">
-            <span>orig.</span>
-            <select id="origFilter"></select>
+    <section id="mainView" class="view view--main" aria-live="polite">
+      <div class="panel">
+        <div class="toolbar">
+          <label class="search">
+            <span>Filter</span>
+            <input id="searchInput" type="search" placeholder="search title">
           </label>
-          <label class="filter">
-            <span>pred.</span>
-            <select id="predFilter"></select>
-          </label>
+          <div class="filters">
+            <label class="filter">
+              <span>orig.</span>
+              <select id="origFilter"></select>
+            </label>
+            <label class="filter">
+              <span>pred.</span>
+              <select id="predFilter"></select>
+            </label>
+          </div>
+        </div>
+
+        <div class="table-shell">
+          <table>
+            <colgroup>
+              <col class="col-title">
+              <col class="col-difficulty">
+              <col class="col-orig">
+              <col class="col-pred">
+            </colgroup>
+            <thead>
+              <tr>
+                <th><button type="button" data-sort-key="title"><span>title</span><span class="sort-mark"></span></button></th>
+                <th><button type="button" data-sort-key="difficulty" aria-label="difficulty sort"><span class="sort-mark"></span></button></th>
+                <th><button type="button" data-sort-key="original_level"><span>orig.</span><span class="sort-mark"></span></button></th>
+                <th><button type="button" data-sort-key="calibrated_pred_skill"><span>pred.</span><span class="sort-mark"></span></button></th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
         </div>
       </div>
+    </section>
 
-      <div class="table-shell">
-        <table>
-          <colgroup>
-            <col class="col-title">
-            <col class="col-difficulty">
-            <col class="col-orig">
-            <col class="col-pred">
-          </colgroup>
-          <thead>
-            <tr>
-              <th><button type="button" data-sort-key="title"><span>title</span><span class="sort-mark"></span></button></th>
-              <th><button type="button" data-sort-key="difficulty" aria-label="difficulty sort"><span class="sort-mark"></span></button></th>
-              <th><button type="button" data-sort-key="original_level"><span>orig.</span><span class="sort-mark"></span></button></th>
-              <th><button type="button" data-sort-key="calibrated_pred_skill"><span>pred.</span><span class="sort-mark"></span></button></th>
-            </tr>
-          </thead>
-          <tbody id="tableBody"></tbody>
-        </table>
+    <section id="aboutView" class="view view--about" hidden>
+      <div class="panel about-panel">
+        <p>このサイトの説明文です。</p>
       </div>
     </section>
   </main>
