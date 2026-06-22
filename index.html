@@ -6,6 +6,7 @@
   <title>IIDX☆8-12非公式難易度予測表</title>
   <meta name="description" content="IIDX☆8-12非公式難易度予測表を一覧で確認できる静的サイトです。">
   <link rel="stylesheet" href="styles.css">
+  <script defer src="data.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body>
@@ -20,29 +21,17 @@
           <span>Filter</span>
           <input id="searchInput" type="search" placeholder="chart_id or title">
         </label>
-        <div class="status" id="status">Loading bundled CSV...</div>
-      </div>
-
-      <div class="stats">
-        <article>
-          <strong id="totalCount">0</strong>
-          <span>Total charts</span>
-        </article>
-        <article>
-          <strong id="visibleCount">0</strong>
-          <span>Visible charts</span>
-        </article>
+        <div class="status" id="status">Loading chart data...</div>
       </div>
 
       <div class="table-shell">
         <table>
           <thead>
             <tr>
-              <th><button type="button" data-sort-key="chart_id"><span>chart_id</span><span class="sort-mark"></span></button></th>
               <th><button type="button" data-sort-key="title"><span>title</span><span class="sort-mark"></span></button></th>
               <th><button type="button" data-sort-key="difficulty"><span>difficulty</span><span class="sort-mark"></span></button></th>
-              <th><button type="button" data-sort-key="original_level"><span>original_level</span><span class="sort-mark"></span></button></th>
-              <th><button type="button" data-sort-key="calibrated_pred_skill"><span>calibrated_pred_skill</span><span class="sort-mark"></span></button></th>
+              <th><button type="button" data-sort-key="original_level"><span>orig.</span><span class="sort-mark"></span></button></th>
+              <th><button type="button" data-sort-key="calibrated_pred_skill"><span>pred.</span><span class="sort-mark"></span></button></th>
             </tr>
           </thead>
           <tbody id="tableBody"></tbody>

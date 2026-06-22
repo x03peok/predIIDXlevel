@@ -1,5 +1,4 @@
 const columns = [
-  { key: "chart_id", className: "mono" },
   { key: "title" },
   { key: "difficulty" },
   { key: "original_level", className: "mono", numeric: true },
@@ -7,6 +6,19 @@ const columns = [
 ];
 
 const difficultyOrder = ["NORMAL", "HYPER", "ANOTHER", "LEGGENDARIA"];
+const difficultyLabels = {
+  NORMAL: "N",
+  HYPER: "H",
+  ANOTHER: "A",
+  LEGGENDARIA: "L",
+};
+const difficultyClasses = {
+  NORMAL: "difficulty--normal",
+  HYPER: "difficulty--hyper",
+  ANOTHER: "difficulty--another",
+  LEGGENDARIA: "difficulty--leggendaria",
+};
+const searchFields = ["chart_id", "title", "difficulty", "original_level", "calibrated_pred_skill"];
 const defaultCsv = "sample_predictions_extracted.csv";
 
 const state = {
@@ -106,6 +118,12 @@ function normalizeRows(text) {
   const headers = parsed.shift().map((value) => value.trim());
   const headerIndex = new Map(headers.map((header, index) => [header, index]));
 
+  for (const key of searchFields) {
+    if (!headerIndex.has(key)) {
+      throw new Error(`Missing required column: ${key}`);
+    }
+  }
+
   for (const column of columns) {
     if (!headerIndex.has(column.key)) {
       throw new Error(`Missing required column: ${column.key}`);
@@ -119,8 +137,8 @@ function normalizeRows(text) {
       row[column.key] = (cells[headerIndex.get(column.key)] ?? "").trim();
     }
 
-    row.__search = columns
-      .map((column) => row[column.key])
+    row.__search = searchFields
+      .map((key) => row[key])
       .join(" ")
       .toLowerCase();
 
@@ -217,8 +235,9 @@ function renderTable(rows) {
 
       if (column.key === "difficulty") {
         const badge = document.createElement("span");
-        badge.className = "difficulty";
-        badge.textContent = row[column.key];
+        const difficulty = row[column.key];
+        badge.className = `difficulty ${difficultyClasses[difficulty] ?? ""}`.trim();
+        badge.textContent = difficultyLabels[difficulty] ?? difficulty;
         td.appendChild(badge);
       } else {
         td.textContent = row[column.key];
@@ -238,8 +257,6 @@ function renderTable(rows) {
 
 function render() {
   const rows = getVisibleRows();
-  els.totalCount.textContent = state.rows.length.toLocaleString();
-  els.visibleCount.textContent = rows.length.toLocaleString();
   renderTable(rows);
   updateSortMarks();
 
@@ -249,7 +266,7 @@ function render() {
   }
 
   if (state.query.trim()) {
-    setStatus(`Showing ${rows.length.toLocaleString()} of ${state.rows.length.toLocaleString()} rows.`);
+    setStatus(`Showing ${rows.length.toLocaleString()} rows.`);
   } else {
     setStatus(`Loaded ${state.rows.length.toLocaleString()} rows.`);
   }
@@ -272,7 +289,12 @@ function loadCsvText(text) {
 }
 
 async function loadBundledCsv() {
-  setStatus(`Loading ${defaultCsv}...`);
+  if (typeof window.__CSV_BUNDLE__ === "string" && window.__CSV_BUNDLE__.length > 0) {
+    loadCsvText(window.__CSV_BUNDLE__);
+    return;
+  }
+
+  setStatus(`Loading chart data...`);
 
   try {
     const response = await fetch(`./${defaultCsv}`, { cache: "no-store" });
@@ -285,7 +307,7 @@ async function loadBundledCsv() {
     state.rows = [];
     renderTable([]);
     updateSortMarks();
-    setStatus("Could not load the CSV. Serve the folder over HTTP to view the table.", true);
+    setStatus("Could not load the chart data. Serve the folder over HTTP to view the table.", true);
     console.error(error);
   }
 }
@@ -304,8 +326,6 @@ function setSort(key) {
 function init() {
   els.searchInput = document.getElementById("searchInput");
   els.status = document.getElementById("status");
-  els.totalCount = document.getElementById("totalCount");
-  els.visibleCount = document.getElementById("visibleCount");
   els.tableBody = document.getElementById("tableBody");
 
   document.querySelectorAll("thead button[data-sort-key]").forEach((button) => {

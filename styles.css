@@ -198,35 +198,6 @@ thead button:hover {
   font-size: 0.92rem;
 }
 
-.stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.stats article {
-  padding: 14px 16px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--line);
-  background: linear-gradient(180deg, #ffffff, #f8fafc);
-}
-
-.stats strong {
-  display: block;
-  color: var(--text);
-  font-size: 1.22rem;
-  line-height: 1.1;
-  word-break: break-word;
-}
-
-.stats span {
-  display: block;
-  margin-top: 6px;
-  color: var(--muted);
-  font-size: 0.84rem;
-}
-
 .table-shell {
   overflow: auto;
   max-height: min(72vh, 860px);
@@ -289,10 +260,9 @@ tbody tr:hover td {
   background: #f8fbff;
 }
 
-tbody td:nth-child(1),
+tbody td:nth-child(2),
 tbody td:nth-child(3),
-tbody td:nth-child(4),
-tbody td:nth-child(5) {
+tbody td:nth-child(4) {
   white-space: nowrap;
 }
 
@@ -305,12 +275,29 @@ tbody td:nth-child(5) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 96px;
-  padding: 5px 10px;
+  min-width: 2.25rem;
+  padding: 4px 10px;
   border-radius: 999px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  font-weight: 800;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--line);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.difficulty--normal {
+  color: #2563eb;
+}
+
+.difficulty--hyper {
+  color: #ca8a04;
+}
+
+.difficulty--another {
+  color: #dc2626;
+}
+
+.difficulty--leggendaria {
+  color: #7c3aed;
 }
 
 .error {
