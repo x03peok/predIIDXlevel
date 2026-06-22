@@ -20,6 +20,7 @@ const difficultyClasses = {
 };
 const searchFields = ["title"];
 const defaultCsv = "sample_predictions_extracted.csv";
+const htmlEntityDecoder = document.createElement("textarea");
 
 const state = {
   rows: [],
@@ -136,7 +137,8 @@ function normalizeRows(text) {
     const row = { __order: index };
 
     for (const column of columns) {
-      row[column.key] = (cells[headerIndex.get(column.key)] ?? "").trim();
+      const rawValue = (cells[headerIndex.get(column.key)] ?? "").trim();
+      row[column.key] = column.key === "title" ? normalizeTitle(rawValue) : rawValue;
     }
 
     row.__search = searchFields
@@ -146,6 +148,19 @@ function normalizeRows(text) {
 
     return row;
   });
+}
+
+function stripHtmlTags(text) {
+  return text.replace(/<\/?[A-Za-z][^>]*>/g, "");
+}
+
+function decodeHtmlEntities(text) {
+  htmlEntityDecoder.innerHTML = text;
+  return htmlEntityDecoder.value;
+}
+
+function normalizeTitle(value) {
+  return decodeHtmlEntities(stripHtmlTags(value));
 }
 
 function compareValues(a, b, key) {
