@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CSV Lamp Viewer</title>
+  <meta name="description" content="A minimal static site that loads sample_predictions_extracted.csv and displays it as a searchable table.">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+      <p class="eyebrow">Static CSV viewer</p>
+      <h1>sample_predictions_extracted.csv</h1>
+      <p class="lede">
+        The page loads the bundled CSV from the same folder, and you can also open another CSV file with the picker.
+      </p>
+      <div class="controls">
+        <label class="file-button">
+          <input id="fileInput" type="file" accept=".csv,text/csv">
+          Choose CSV
+        </label>
+        <button id="reloadButton" class="secondary" type="button">Reload bundled CSV</button>
+      </div>
+    </section>
+
+    <section class="panel" aria-live="polite">
+      <div class="toolbar">
+        <label class="search">
+          <span>Filter</span>
+          <input id="searchInput" type="search" placeholder="chart_id or title">
+        </label>
+        <div class="status" id="status">Loading bundled CSV...</div>
+      </div>
+
+      <div class="stats">
+        <article>
+          <strong id="totalCount">0</strong>
+          <span>Total charts</span>
+        </article>
+        <article>
+          <strong id="visibleCount">0</strong>
+          <span>Visible charts</span>
+        </article>
+        <article>
+          <strong id="sourceName">sample_predictions_extracted.csv</strong>
+          <span>Source file</span>
+        </article>
+      </div>
+
+      <div class="table-shell">
+        <table>
+          <thead>
+            <tr>
+              <th><button type="button" data-sort-key="chart_id"><span>chart_id</span><span class="sort-mark"></span></button></th>
+              <th><button type="button" data-sort-key="title"><span>title</span><span class="sort-mark"></span></button></th>
+              <th><button type="button" data-sort-key="difficulty"><span>difficulty</span><span class="sort-mark"></span></button></th>
+              <th><button type="button" data-sort-key="original_level"><span>original_level</span><span class="sort-mark"></span></button></th>
+              <th><button type="button" data-sort-key="calibrated_pred_skill"><span>calibrated_pred_skill</span><span class="sort-mark"></span></button></th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
