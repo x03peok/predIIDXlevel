@@ -29,6 +29,8 @@ const state = {
   origFilter: "all",
   predFilter: "all",
   view: "main",
+  searchAnalyticsTimer: null,
+  lastTrackedSearchTerm: "",
 };
 
 const els = {};
@@ -252,6 +254,40 @@ function formatPredValue(value) {
   return (Math.round(numeric * 10) / 10).toFixed(1);
 }
 
+function trackAnalyticsEvent(name, params = {}) {
+  if (typeof window.gtag !== "function") {
+    return;
+  }
+
+  window.gtag("event", name, params);
+}
+
+function scheduleSearchAnalytics() {
+  if (state.searchAnalyticsTimer !== null) {
+    window.clearTimeout(state.searchAnalyticsTimer);
+  }
+
+  state.searchAnalyticsTimer = window.setTimeout(() => {
+    state.searchAnalyticsTimer = null;
+
+    const searchTerm = state.query.trim();
+    if (!searchTerm) {
+      state.lastTrackedSearchTerm = "";
+      return;
+    }
+
+    if (searchTerm === state.lastTrackedSearchTerm) {
+      return;
+    }
+
+    trackAnalyticsEvent("search", {
+      search_term: searchTerm,
+      search_length: searchTerm.length,
+    });
+    state.lastTrackedSearchTerm = searchTerm;
+  }, 600);
+}
+
 function fillOrigSelect(select, levels) {
   const current = select.value || "all";
   const options = [{ value: "all", label: "all" }];
@@ -312,6 +348,7 @@ function populateFilterOptions() {
   }
 
   fillOrigSelect(els.origFilter, [...origLevels].sort((a, b) => a - b));
+  state.origFilter = els.origFilter.value;
 
   for (const row of getPredFilterRows()) {
     const predLevel = formatPredValue(row.calibrated_pred_skill);
@@ -321,6 +358,7 @@ function populateFilterOptions() {
   }
 
   fillPredSelect(els.predFilter, [...predLevels].sort((a, b) => Number(a) - Number(b)));
+  state.predFilter = els.predFilter.value;
 }
 
 function getVisibleRows() {
@@ -424,6 +462,11 @@ function loadCsvText(text) {
     state.sortDir = "asc";
     state.origFilter = "all";
     state.predFilter = "all";
+    state.lastTrackedSearchTerm = "";
+    if (state.searchAnalyticsTimer !== null) {
+      window.clearTimeout(state.searchAnalyticsTimer);
+      state.searchAnalyticsTimer = null;
+    }
     els.searchInput.value = "";
     els.origFilter.value = "all";
     els.predFilter.value = "all";
@@ -502,17 +545,26 @@ function init() {
   els.searchInput.addEventListener("input", () => {
     state.query = els.searchInput.value;
     render();
+    scheduleSearchAnalytics();
   });
 
   els.origFilter.addEventListener("change", () => {
     state.origFilter = els.origFilter.value;
     populateFilterOptions();
     render();
+    trackAnalyticsEvent("filter_change", {
+      filter_name: "orig",
+      selected_value: state.origFilter,
+    });
   });
 
   els.predFilter.addEventListener("change", () => {
     state.predFilter = els.predFilter.value;
     render();
+    trackAnalyticsEvent("filter_change", {
+      filter_name: "pred",
+      selected_value: state.predFilter,
+    });
   });
 
   document.addEventListener("click", closeMenuOnOutsideClick);
