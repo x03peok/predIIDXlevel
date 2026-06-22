@@ -196,6 +196,7 @@ thead th {
 }
 
 thead th button {
+  position: relative;
   width: 100%;
   display: flex;
   align-items: center;
@@ -206,15 +207,13 @@ thead th button {
   color: var(--muted);
   font: inherit;
   font-weight: 700;
-  padding: 11px 12px;
+  padding: 11px 20px 11px 12px;
   white-space: nowrap;
-  overflow: hidden;
+  overflow: visible;
 }
 
 thead th button span:first-child {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 thead th button:focus-visible {
@@ -232,7 +231,7 @@ thead th:nth-child(2) button {
 
 thead th:nth-child(3) button,
 thead th:nth-child(4) button {
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 tbody td {
@@ -268,17 +267,22 @@ tbody td:nth-child(4) {
   font-variant-numeric: tabular-nums;
 }
 
+tbody td:nth-child(3) {
+  padding-left: 18px;
+  padding-right: 8px;
+}
+
 .mono {
   font-variant-numeric: tabular-nums;
 }
 
 .difficulty {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 2.45rem;
-  padding: 0.25rem 0.45rem;
-  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  padding: 0;
+  border-radius: 50%;
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -306,8 +310,11 @@ tbody td:nth-child(4) {
 }
 
 .sort-mark {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
   display: inline-block;
-  min-width: 1ch;
   color: var(--accent);
   font-size: 0.8rem;
   line-height: 1;
