@@ -1,29 +1,18 @@
 <!doctype html>
-<html lang="en">
+<html lang="ja">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CSV Lamp Viewer</title>
-  <meta name="description" content="A minimal static site that loads sample_predictions_extracted.csv and displays it as a searchable table.">
+  <title>IIDX☆8-12非公式難易度予測表</title>
+  <meta name="description" content="IIDX☆8-12非公式難易度予測表を一覧で確認できる静的サイトです。">
   <link rel="stylesheet" href="styles.css">
   <script defer src="app.js"></script>
 </head>
 <body>
   <main class="app">
-    <section class="hero">
-      <p class="eyebrow">Static CSV viewer</p>
-      <h1>sample_predictions_extracted.csv</h1>
-      <p class="lede">
-        The page loads the bundled CSV from the same folder, and you can also open another CSV file with the picker.
-      </p>
-      <div class="controls">
-        <label class="file-button">
-          <input id="fileInput" type="file" accept=".csv,text/csv">
-          Choose CSV
-        </label>
-        <button id="reloadButton" class="secondary" type="button">Reload bundled CSV</button>
-      </div>
-    </section>
+    <header class="masthead">
+      <h1>IIDX☆8-12非公式難易度予測表</h1>
+    </header>
 
     <section class="panel" aria-live="polite">
       <div class="toolbar">
@@ -42,10 +31,6 @@
         <article>
           <strong id="visibleCount">0</strong>
           <span>Visible charts</span>
-        </article>
-        <article>
-          <strong id="sourceName">sample_predictions_extracted.csv</strong>
-          <span>Source file</span>
         </article>
       </div>
 

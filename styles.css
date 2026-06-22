@@ -43,7 +43,21 @@ input {
 .app {
   width: min(1280px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 28px 0 44px;
+  padding: 22px 0 44px;
+}
+
+.masthead {
+  padding: 18px 6px 20px;
+  color: #eff6ff;
+}
+
+.masthead h1 {
+  margin: 0;
+  font-family: "Noto Serif JP", Georgia, serif;
+  font-size: clamp(1.9rem, 4vw, 3.4rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  text-shadow: 0 10px 24px rgba(15, 23, 42, 0.24);
 }
 
 .hero {
@@ -137,7 +151,7 @@ thead button:hover {
 }
 
 .panel {
-  margin-top: 18px;
+  margin-top: 6px;
   padding: 20px;
   border-radius: var(--radius-xl);
   border: 1px solid var(--line);
@@ -186,7 +200,7 @@ thead button:hover {
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 16px;
 }

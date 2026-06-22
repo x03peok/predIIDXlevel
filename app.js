@@ -1,9 +1,9 @@
 const columns = [
-  { key: "chart_id", label: "chart_id", className: "mono" },
-  { key: "title", label: "title" },
-  { key: "difficulty", label: "difficulty" },
-  { key: "original_level", label: "original_level", className: "mono", numeric: true },
-  { key: "calibrated_pred_skill", label: "calibrated_pred_skill", className: "mono", numeric: true },
+  { key: "chart_id", className: "mono" },
+  { key: "title" },
+  { key: "difficulty" },
+  { key: "original_level", className: "mono", numeric: true },
+  { key: "calibrated_pred_skill", className: "mono", numeric: true },
 ];
 
 const difficultyOrder = ["NORMAL", "HYPER", "ANOTHER", "LEGGENDARIA"];
@@ -14,7 +14,6 @@ const state = {
   query: "",
   sortKey: "",
   sortDir: "asc",
-  sourceName: defaultCsv,
 };
 
 const els = {};
@@ -96,14 +95,6 @@ function parseCsv(text) {
   }
 
   return rows;
-}
-
-function escapeHtml(text) {
-  return String(text)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll("\"", "&quot;");
 }
 
 function normalizeRows(text) {
@@ -201,6 +192,7 @@ function updateSortMarks() {
   document.querySelectorAll("thead button[data-sort-key]").forEach((button) => {
     const key = button.dataset.sortKey;
     const mark = button.querySelector(".sort-mark");
+
     if (!mark) {
       return;
     }
@@ -248,7 +240,6 @@ function render() {
   const rows = getVisibleRows();
   els.totalCount.textContent = state.rows.length.toLocaleString();
   els.visibleCount.textContent = rows.length.toLocaleString();
-  els.sourceName.textContent = state.sourceName;
   renderTable(rows);
   updateSortMarks();
 
@@ -260,22 +251,20 @@ function render() {
   if (state.query.trim()) {
     setStatus(`Showing ${rows.length.toLocaleString()} of ${state.rows.length.toLocaleString()} rows.`);
   } else {
-    setStatus(`Loaded ${state.rows.length.toLocaleString()} rows from ${state.sourceName}.`);
+    setStatus(`Loaded ${state.rows.length.toLocaleString()} rows.`);
   }
 }
 
-function loadCsvText(text, sourceName) {
+function loadCsvText(text) {
   try {
     state.rows = normalizeRows(text);
     state.query = "";
     state.sortKey = "";
     state.sortDir = "asc";
-    state.sourceName = sourceName;
     els.searchInput.value = "";
     render();
   } catch (error) {
     state.rows = [];
-    state.sourceName = sourceName;
     renderTable([]);
     updateSortMarks();
     setStatus(error instanceof Error ? error.message : "Failed to parse CSV.", true);
@@ -284,21 +273,19 @@ function loadCsvText(text, sourceName) {
 
 async function loadBundledCsv() {
   setStatus(`Loading ${defaultCsv}...`);
+
   try {
     const response = await fetch(`./${defaultCsv}`, { cache: "no-store" });
     if (!response.ok) {
       throw new Error(`Failed to load ${defaultCsv} (${response.status}).`);
     }
-    const text = await response.text();
-    loadCsvText(text, defaultCsv);
+
+    loadCsvText(await response.text());
   } catch (error) {
     state.rows = [];
     renderTable([]);
     updateSortMarks();
-    setStatus(
-      `Could not load ${defaultCsv}. Use the file picker to open it directly, or serve the folder through a static host.`,
-      true
-    );
+    setStatus("Could not load the CSV. Serve the folder over HTTP to view the table.", true);
     console.error(error);
   }
 }
@@ -314,30 +301,11 @@ function setSort(key) {
   render();
 }
 
-async function handleFileSelection(file) {
-  if (!file) {
-    return;
-  }
-
-  try {
-    const text = await file.text();
-    loadCsvText(text, file.name);
-  } catch (error) {
-    setStatus("Failed to read the selected file.", true);
-    console.error(error);
-  } finally {
-    els.fileInput.value = "";
-  }
-}
-
 function init() {
-  els.fileInput = document.getElementById("fileInput");
-  els.reloadButton = document.getElementById("reloadButton");
   els.searchInput = document.getElementById("searchInput");
   els.status = document.getElementById("status");
   els.totalCount = document.getElementById("totalCount");
   els.visibleCount = document.getElementById("visibleCount");
-  els.sourceName = document.getElementById("sourceName");
   els.tableBody = document.getElementById("tableBody");
 
   document.querySelectorAll("thead button[data-sort-key]").forEach((button) => {
@@ -347,15 +315,6 @@ function init() {
   els.searchInput.addEventListener("input", () => {
     state.query = els.searchInput.value;
     render();
-  });
-
-  els.fileInput.addEventListener("change", (event) => {
-    const [file] = event.target.files ?? [];
-    handleFileSelection(file);
-  });
-
-  els.reloadButton.addEventListener("click", () => {
-    loadBundledCsv();
   });
 
   loadBundledCsv();
