@@ -187,12 +187,41 @@ function toLevelValue(value) {
   return Number.isFinite(numeric) ? numeric : null;
 }
 
-function fillLevelSelect(select, levels) {
+function formatPredValue(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+
+  return (Math.round(numeric * 10) / 10).toFixed(1);
+}
+
+function fillOrigSelect(select, levels) {
   const current = select.value || "all";
   const options = [{ value: "all", label: "all" }];
 
   for (const level of levels) {
     options.push({ value: String(level), label: `\u2606${level}` });
+  }
+
+  const fragment = document.createDocumentFragment();
+  for (const option of options) {
+    const el = document.createElement("option");
+    el.value = option.value;
+    el.textContent = option.label;
+    fragment.appendChild(el);
+  }
+
+  select.replaceChildren(fragment);
+  select.value = options.some((option) => option.value === current) ? current : "all";
+}
+
+function fillPredSelect(select, values) {
+  const current = select.value || "all";
+  const options = [{ value: "all", label: "all" }];
+
+  for (const value of values) {
+    options.push({ value, label: value });
   }
 
   const fragment = document.createDocumentFragment();
@@ -217,14 +246,14 @@ function populateFilterOptions() {
       origLevels.add(origLevel);
     }
 
-    const predLevel = toLevelValue(Math.round(Number(row.calibrated_pred_skill)));
+    const predLevel = formatPredValue(row.calibrated_pred_skill);
     if (predLevel !== null) {
       predLevels.add(predLevel);
     }
   }
 
-  fillLevelSelect(els.origFilter, [...origLevels].sort((a, b) => a - b));
-  fillLevelSelect(els.predFilter, [...predLevels].sort((a, b) => a - b));
+  fillOrigSelect(els.origFilter, [...origLevels].sort((a, b) => a - b));
+  fillPredSelect(els.predFilter, [...predLevels].sort((a, b) => Number(a) - Number(b)));
 }
 
 function getVisibleRows() {
@@ -240,9 +269,7 @@ function getVisibleRows() {
   }
 
   if (state.predFilter !== "all") {
-    rows = rows.filter(
-      (row) => String(Math.round(Number(row.calibrated_pred_skill))) === state.predFilter
-    );
+    rows = rows.filter((row) => formatPredValue(row.calibrated_pred_skill) === state.predFilter);
   }
 
   if (state.sortKey) {
@@ -293,6 +320,11 @@ function renderTable(rows) {
         td.appendChild(badge);
       } else if (column.key === "original_level") {
         td.textContent = `\u2606${row[column.key]}`;
+        if (column.className) {
+          td.className = column.className;
+        }
+      } else if (column.key === "calibrated_pred_skill") {
+        td.textContent = formatPredValue(row[column.key]) ?? row[column.key];
         if (column.className) {
           td.className = column.className;
         }

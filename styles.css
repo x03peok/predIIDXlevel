@@ -54,9 +54,9 @@ body::before {
 
 .app {
   position: relative;
-  width: min(1240px, calc(100% - 32px));
+  width: min(1240px, calc(100% - 24px));
   margin: 0 auto;
-  padding: 40px 0 56px;
+  padding: 34px 0 48px;
 }
 
 .masthead {
@@ -65,12 +65,16 @@ body::before {
 
 .masthead h1 {
   margin: 0;
-  font-size: clamp(1.8rem, 3vw, 3rem);
-  line-height: 1.04;
+  font-size: clamp(1.7rem, 3vw, 2.9rem);
+  line-height: 1.06;
   letter-spacing: -0.05em;
   font-weight: 800;
   color: #0f172a;
   text-wrap: balance;
+}
+
+.title-lock {
+  white-space: nowrap;
 }
 
 .panel {
@@ -80,34 +84,34 @@ body::before {
   box-shadow: var(--shadow);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  padding: 20px;
+  padding: 18px;
 }
 
 .toolbar {
   display: flex;
   align-items: flex-end;
   flex-wrap: wrap;
-  gap: 14px 16px;
-  margin-bottom: 16px;
+  gap: 12px 14px;
+  margin-bottom: 14px;
 }
 
 .search {
   flex: 1 1 320px;
   display: grid;
   gap: 8px;
-  min-width: 240px;
+  min-width: 220px;
 }
 
 .filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
 }
 
 .filter {
   display: grid;
   gap: 8px;
-  min-width: 120px;
+  min-width: 108px;
 }
 
 .search span,
@@ -128,7 +132,7 @@ select {
   background: var(--panel-strong);
   color: var(--ink);
   font: inherit;
-  padding: 12px 14px;
+  padding: 11px 13px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
@@ -140,8 +144,8 @@ select:focus {
 }
 
 .filter select {
-  min-width: 116px;
-  padding-right: 38px;
+  min-width: 108px;
+  padding-right: 36px;
   background-image:
     linear-gradient(45deg, transparent 50%, #64748b 50%),
     linear-gradient(135deg, #64748b 50%, transparent 50%);
@@ -153,7 +157,7 @@ select:focus {
 }
 
 .table-shell {
-  overflow: auto;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.78);
@@ -163,20 +167,22 @@ table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  min-width: 920px;
 }
 
 col.col-title {
-  width: 66%;
+  width: 59%;
 }
 
 col.col-difficulty {
   width: 8%;
 }
 
-col.col-orig,
+col.col-orig {
+  width: 15.5%;
+}
+
 col.col-pred {
-  width: 13%;
+  width: 17.5%;
 }
 
 thead th {
@@ -194,13 +200,13 @@ thead th button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   border: 0;
   background: transparent;
   color: var(--muted);
   font: inherit;
   font-weight: 700;
-  padding: 14px 16px;
+  padding: 11px 12px;
   white-space: nowrap;
   overflow: hidden;
 }
@@ -230,9 +236,10 @@ thead th:nth-child(4) button {
 }
 
 tbody td {
-  padding: 13px 16px;
+  padding: 10px 12px;
   border-bottom: 1px solid rgba(148, 163, 184, 0.16);
   vertical-align: middle;
+  font-size: 0.92rem;
 }
 
 tbody tr:nth-child(2n) td {
@@ -244,10 +251,11 @@ tbody tr:hover td {
 }
 
 tbody td:nth-child(1) {
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: 500;
+  line-height: 1.35;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 tbody td:nth-child(2) {
@@ -271,7 +279,7 @@ tbody td:nth-child(4) {
   min-width: 2.45rem;
   padding: 0.25rem 0.45rem;
   border-radius: 999px;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   line-height: 1;
@@ -309,16 +317,12 @@ tbody td:nth-child(4) {
   .panel {
     padding: 16px;
   }
-
-  table {
-    min-width: 780px;
-  }
 }
 
 @media (max-width: 720px) {
   .app {
-    width: min(100% - 20px, 1240px);
-    padding: 20px 0 32px;
+    width: min(100% - 16px, 1240px);
+    padding: 18px 0 26px;
   }
 
   .toolbar {
@@ -344,15 +348,7 @@ tbody td:nth-child(4) {
 
   thead th button,
   tbody td {
-    padding-left: 12px;
-    padding-right: 12px;
-  }
-
-  tbody {
-    font-size: 0.93rem;
-  }
-
-  .difficulty {
-    font-size: 0.66rem;
+    padding-left: 10px;
+    padding-right: 10px;
   }
 }
