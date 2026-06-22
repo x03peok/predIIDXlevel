@@ -91,13 +91,18 @@ body .title-lock {
 
 #aboutView .about-panel {
   min-height: clamp(12rem, 28vh, 18rem);
-  display: flex;
-  align-items: flex-start;
 }
 
-#aboutView .about-panel p {
+#aboutView .about-copy {
+  display: grid;
+  gap: 1rem;
+  max-width: 72ch;
+  line-height: 1.85;
+  overflow-wrap: anywhere;
+}
+
+#aboutView .about-copy p {
   margin: 0;
-  line-height: 1.9;
   font-size: 1rem;
 }
 
