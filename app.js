@@ -19,7 +19,6 @@ const difficultyClasses = {
   LEGGENDARIA: "difficulty--leggendaria",
 };
 const searchFields = ["title"];
-const defaultCsv = "sample_predictions_extracted.csv";
 const htmlEntityDecoder = document.createElement("textarea");
 
 const state = {
@@ -427,25 +426,31 @@ function loadCsvText(text) {
   }
 }
 
+function getBundledCsvText() {
+  const bundle = window.__CSV_BUNDLE__;
+
+  if (typeof bundle === "string") {
+    return bundle;
+  }
+
+  if (bundle && typeof bundle.value === "string") {
+    return bundle.value;
+  }
+
+  return null;
+}
+
 async function loadBundledCsv() {
-  if (typeof window.__CSV_BUNDLE__ === "string" && window.__CSV_BUNDLE__.length > 0) {
-    loadCsvText(window.__CSV_BUNDLE__);
+  const bundledCsv = getBundledCsvText();
+  if (bundledCsv && bundledCsv.length > 0) {
+    loadCsvText(bundledCsv);
     return;
   }
 
-  try {
-    const response = await fetch(`./${defaultCsv}`, { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error(`Failed to load ${defaultCsv} (${response.status}).`);
-    }
-
-    loadCsvText(await response.text());
-  } catch (error) {
-    state.rows = [];
-    renderTable([]);
-    updateSortMarks();
-    console.error(error);
-  }
+  state.rows = [];
+  renderTable([]);
+  updateSortMarks();
+  console.error("Missing bundled CSV data in data.js");
 }
 
 function setSort(key) {
