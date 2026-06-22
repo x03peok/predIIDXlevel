@@ -106,6 +106,21 @@ body .title-lock {
   font-size: 1rem;
 }
 
+#aboutView .about-chart {
+  display: flex;
+  justify-content: center;
+  margin: 0.25rem 0 0.5rem;
+}
+
+#aboutView .about-chart img {
+  display: block;
+  width: min(100%, 980px);
+  height: auto;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 16px;
+  background: #fff;
+}
+
 @media (max-width: 640px) {
   body .masthead__bar {
     align-items: flex-start;
