@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>IIDX☆8-12非公式難易度予測表</title>
-  <meta name="description" content="IIDX☆8-12非公式難易度予測表を一覧で確認できる静的サイトです。">
+  <title>IIDX&#9734;8-12非公式難易度予測表</title>
+  <meta name="description" content="IIDX&#9734;8-12非公式難易度予測表を一覧で確認できる静的サイトです。">
   <link rel="stylesheet" href="styles.css">
   <script defer src="data.js"></script>
   <script defer src="app.js"></script>
@@ -12,7 +12,7 @@
 <body>
   <main class="app">
     <header class="masthead">
-      <h1>IIDX☆8-12非公式難易度予測表</h1>
+      <h1>IIDX&#9734;8-12非公式難易度予測表</h1>
     </header>
 
     <section class="panel" aria-live="polite">
@@ -21,15 +21,30 @@
           <span>Filter</span>
           <input id="searchInput" type="search" placeholder="search title">
         </label>
-        <div class="status" id="status">Loading chart data...</div>
+        <div class="filters">
+          <label class="filter">
+            <span>orig.</span>
+            <select id="origFilter"></select>
+          </label>
+          <label class="filter">
+            <span>pred.</span>
+            <select id="predFilter"></select>
+          </label>
+        </div>
       </div>
 
       <div class="table-shell">
         <table>
+          <colgroup>
+            <col class="col-title">
+            <col class="col-difficulty">
+            <col class="col-orig">
+            <col class="col-pred">
+          </colgroup>
           <thead>
             <tr>
               <th><button type="button" data-sort-key="title"><span>title</span><span class="sort-mark"></span></button></th>
-              <th><button type="button" data-sort-key="difficulty" aria-label="difficulty sort"><span aria-hidden="true"></span><span class="sort-mark"></span></button></th>
+              <th><button type="button" data-sort-key="difficulty" aria-label="difficulty sort"><span class="sort-mark"></span></button></th>
               <th><button type="button" data-sort-key="original_level"><span>orig.</span><span class="sort-mark"></span></button></th>
               <th><button type="button" data-sort-key="calibrated_pred_skill"><span>pred.</span><span class="sort-mark"></span></button></th>
             </tr>

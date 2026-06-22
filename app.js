@@ -26,6 +26,8 @@ const state = {
   query: "",
   sortKey: "calibrated_pred_skill",
   sortDir: "asc",
+  origFilter: "all",
+  predFilter: "all",
 };
 
 const els = {};
@@ -155,7 +157,7 @@ function compareValues(a, b, key) {
     if (safeLeft !== safeRight) {
       return safeLeft - safeRight;
     }
-    return a[key].localeCompare(b[key]);
+    return String(a[key]).localeCompare(String(b[key]));
   }
 
   const column = columns.find((item) => item.key === key);
@@ -180,12 +182,67 @@ function compareValues(a, b, key) {
   });
 }
 
+function toLevelValue(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function fillLevelSelect(select, levels) {
+  const current = select.value || "all";
+  const options = [{ value: "all", label: "all" }];
+
+  for (const level of levels) {
+    options.push({ value: String(level), label: `\u2606${level}` });
+  }
+
+  const fragment = document.createDocumentFragment();
+  for (const option of options) {
+    const el = document.createElement("option");
+    el.value = option.value;
+    el.textContent = option.label;
+    fragment.appendChild(el);
+  }
+
+  select.replaceChildren(fragment);
+  select.value = options.some((option) => option.value === current) ? current : "all";
+}
+
+function populateFilterOptions() {
+  const origLevels = new Set();
+  const predLevels = new Set();
+
+  for (const row of state.rows) {
+    const origLevel = toLevelValue(row.original_level);
+    if (origLevel !== null) {
+      origLevels.add(origLevel);
+    }
+
+    const predLevel = toLevelValue(Math.round(Number(row.calibrated_pred_skill)));
+    if (predLevel !== null) {
+      predLevels.add(predLevel);
+    }
+  }
+
+  fillLevelSelect(els.origFilter, [...origLevels].sort((a, b) => a - b));
+  fillLevelSelect(els.predFilter, [...predLevels].sort((a, b) => a - b));
+}
+
 function getVisibleRows() {
   const query = state.query.trim().toLowerCase();
   let rows = state.rows;
 
   if (query) {
     rows = rows.filter((row) => row.__search.includes(query));
+  }
+
+  if (state.origFilter !== "all") {
+    rows = rows.filter((row) => row.original_level === state.origFilter);
+  }
+
+  if (state.predFilter !== "all") {
+    rows = rows.filter(
+      (row) => String(Math.round(Number(row.calibrated_pred_skill))) === state.predFilter
+    );
   }
 
   if (state.sortKey) {
@@ -199,11 +256,6 @@ function getVisibleRows() {
   }
 
   return rows;
-}
-
-function setStatus(message, isError = false) {
-  els.status.textContent = message;
-  els.status.classList.toggle("error", isError);
 }
 
 function updateSortMarks() {
@@ -220,7 +272,7 @@ function updateSortMarks() {
       return;
     }
 
-    mark.textContent = state.sortDir === "asc" ? "↑" : "↓";
+    mark.textContent = state.sortDir === "asc" ? "\u25B2" : "\u25BC";
   });
 }
 
@@ -240,7 +292,7 @@ function renderTable(rows) {
         badge.textContent = difficultyLabels[difficulty] ?? difficulty;
         td.appendChild(badge);
       } else if (column.key === "original_level") {
-        td.textContent = `☆${row[column.key]}`;
+        td.textContent = `\u2606${row[column.key]}`;
         if (column.className) {
           td.className = column.className;
         }
@@ -261,20 +313,8 @@ function renderTable(rows) {
 }
 
 function render() {
-  const rows = getVisibleRows();
-  renderTable(rows);
+  renderTable(getVisibleRows());
   updateSortMarks();
-
-  if (!state.rows.length) {
-    setStatus("No data loaded yet.", true);
-    return;
-  }
-
-  if (state.query.trim()) {
-    setStatus(`Showing ${rows.length.toLocaleString()} rows.`);
-  } else {
-    setStatus(`Loaded ${state.rows.length.toLocaleString()} rows.`);
-  }
 }
 
 function loadCsvText(text) {
@@ -283,13 +323,18 @@ function loadCsvText(text) {
     state.query = "";
     state.sortKey = "calibrated_pred_skill";
     state.sortDir = "asc";
+    state.origFilter = "all";
+    state.predFilter = "all";
     els.searchInput.value = "";
+    els.origFilter.value = "all";
+    els.predFilter.value = "all";
+    populateFilterOptions();
     render();
   } catch (error) {
     state.rows = [];
     renderTable([]);
     updateSortMarks();
-    setStatus(error instanceof Error ? error.message : "Failed to parse CSV.", true);
+    console.error(error);
   }
 }
 
@@ -298,8 +343,6 @@ async function loadBundledCsv() {
     loadCsvText(window.__CSV_BUNDLE__);
     return;
   }
-
-  setStatus(`Loading chart data...`);
 
   try {
     const response = await fetch(`./${defaultCsv}`, { cache: "no-store" });
@@ -312,7 +355,6 @@ async function loadBundledCsv() {
     state.rows = [];
     renderTable([]);
     updateSortMarks();
-    setStatus("Could not load the chart data. Serve the folder over HTTP to view the table.", true);
     console.error(error);
   }
 }
@@ -330,7 +372,8 @@ function setSort(key) {
 
 function init() {
   els.searchInput = document.getElementById("searchInput");
-  els.status = document.getElementById("status");
+  els.origFilter = document.getElementById("origFilter");
+  els.predFilter = document.getElementById("predFilter");
   els.tableBody = document.getElementById("tableBody");
 
   document.querySelectorAll("thead button[data-sort-key]").forEach((button) => {
@@ -339,6 +382,16 @@ function init() {
 
   els.searchInput.addEventListener("input", () => {
     state.query = els.searchInput.value;
+    render();
+  });
+
+  els.origFilter.addEventListener("change", () => {
+    state.origFilter = els.origFilter.value;
+    render();
+  });
+
+  els.predFilter.addEventListener("change", () => {
+    state.predFilter = els.predFilter.value;
     render();
   });
 
