@@ -161,7 +161,9 @@ function decodeHtmlEntities(text) {
 }
 
 function normalizeTitle(value) {
-  return decodeHtmlEntities(stripHtmlTags(value));
+  const decoded = decodeHtmlEntities(value);
+  const stripped = stripHtmlTags(decoded);
+  return decodeHtmlEntities(stripped);
 }
 
 function setMenuOpen(open) {
