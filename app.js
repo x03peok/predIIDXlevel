@@ -28,7 +28,6 @@ const state = {
   sortDir: "asc",
   origFilter: "all",
   predFilter: "all",
-  view: "main",
   searchAnalyticsTimer: null,
   lastTrackedSearchTerm: "",
 };
@@ -165,45 +164,6 @@ function normalizeTitle(value) {
   const decoded = decodeHtmlEntities(value);
   const stripped = stripHtmlTags(decoded);
   return decodeHtmlEntities(stripped);
-}
-
-function setMenuOpen(open) {
-  if (!els.menuButton || !els.siteMenu) {
-    return;
-  }
-
-  els.siteMenu.hidden = !open;
-  els.menuButton.setAttribute("aria-expanded", String(open));
-}
-
-function setView(view) {
-  state.view = view;
-  document.body.dataset.view = view;
-
-  if (els.mainView) {
-    els.mainView.hidden = view !== "main";
-  }
-
-  if (els.aboutView) {
-    els.aboutView.hidden = view !== "about";
-  }
-
-  if (els.menuItems) {
-    for (const button of els.menuItems) {
-      button.classList.toggle("is-active", button.dataset.view === view);
-    }
-  }
-
-  setMenuOpen(false);
-  render();
-}
-
-function closeMenuOnOutsideClick(event) {
-  if (!els.menuRoot || els.menuRoot.contains(event.target)) {
-    return;
-  }
-
-  setMenuOpen(false);
 }
 
 function compareValues(a, b, key) {
@@ -519,24 +479,10 @@ function setSort(key) {
 }
 
 function init() {
-  els.menuRoot = document.getElementById("menuRoot");
-  els.menuButton = document.getElementById("menuButton");
-  els.siteMenu = document.getElementById("siteMenu");
   els.searchInput = document.getElementById("searchInput");
   els.origFilter = document.getElementById("origFilter");
   els.predFilter = document.getElementById("predFilter");
-  els.mainView = document.getElementById("mainView");
-  els.aboutView = document.getElementById("aboutView");
   els.tableBody = document.getElementById("tableBody");
-  els.menuItems = Array.from(document.querySelectorAll(".menu-item"));
-
-  els.menuButton.addEventListener("click", () => {
-    setMenuOpen(els.siteMenu.hidden);
-  });
-
-  for (const button of els.menuItems) {
-    button.addEventListener("click", () => setView(button.dataset.view));
-  }
 
   document.querySelectorAll("thead button[data-sort-key]").forEach((button) => {
     button.addEventListener("click", () => setSort(button.dataset.sortKey));
@@ -566,15 +512,6 @@ function init() {
       selected_value: state.predFilter,
     });
   });
-
-  document.addEventListener("click", closeMenuOnOutsideClick);
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      setMenuOpen(false);
-    }
-  });
-
-  setView("main");
 
   loadBundledCsv();
 }
