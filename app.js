@@ -18,6 +18,13 @@ const difficultyClasses = {
   ANOTHER: "difficulty--another",
   LEGGENDARIA: "difficulty--leggendaria",
 };
+const difficultyFilterValues = ["all", "N", "H", "A", "L"];
+const difficultyFilterToDifficulty = {
+  N: "NORMAL",
+  H: "HYPER",
+  A: "ANOTHER",
+  L: "LEGGENDARIA",
+};
 const searchFields = ["title"];
 const htmlEntityDecoder = document.createElement("textarea");
 
@@ -26,6 +33,7 @@ const state = {
   query: "",
   sortKey: "calibrated_pred_skill",
   sortDir: "asc",
+  difficultyFilter: "all",
   origFilter: "all",
   predFilter: "all",
   searchAnalyticsTimer: null,
@@ -168,8 +176,8 @@ function normalizeTitle(value) {
 
 function compareValues(a, b, key) {
   if (key === "difficulty") {
-    const left = difficultyOrder.indexOf(a[key]);
-    const right = difficultyOrder.indexOf(b[key]);
+    const left = difficultyOrder.indexOf(normalizeDifficulty(a[key]));
+    const right = difficultyOrder.indexOf(normalizeDifficulty(b[key]));
     const safeLeft = left === -1 ? Number.MAX_SAFE_INTEGER : left;
     const safeRight = right === -1 ? Number.MAX_SAFE_INTEGER : right;
     if (safeLeft !== safeRight) {
@@ -212,6 +220,14 @@ function formatPredValue(value) {
   }
 
   return (Math.round(numeric * 10) / 10).toFixed(1);
+}
+
+function normalizeDifficulty(value) {
+  if (difficultyClasses[value]) {
+    return value;
+  }
+
+  return difficultyFilterToDifficulty[value] ?? value;
 }
 
 function trackAnalyticsEvent(name, params = {}) {
@@ -288,6 +304,22 @@ function fillPredSelect(select, values) {
   select.value = options.some((option) => option.value === current) ? current : "all";
 }
 
+function fillDifficultySelect(select) {
+  const current = select.value || "all";
+  const options = difficultyFilterValues.map((value) => ({ value, label: value }));
+
+  const fragment = document.createDocumentFragment();
+  for (const option of options) {
+    const el = document.createElement("option");
+    el.value = option.value;
+    el.textContent = option.label;
+    fragment.appendChild(el);
+  }
+
+  select.replaceChildren(fragment);
+  select.value = options.some((option) => option.value === current) ? current : "all";
+}
+
 function getPredFilterRows() {
   if (state.origFilter === "all") {
     return state.rows;
@@ -307,6 +339,8 @@ function populateFilterOptions() {
     }
   }
 
+  fillDifficultySelect(els.difficultyFilter);
+  state.difficultyFilter = els.difficultyFilter.value;
   fillOrigSelect(els.origFilter, [...origLevels].sort((a, b) => a - b));
   state.origFilter = els.origFilter.value;
 
@@ -327,6 +361,11 @@ function getVisibleRows() {
 
   if (query) {
     rows = rows.filter((row) => row.__search.includes(query));
+  }
+
+  if (state.difficultyFilter !== "all") {
+    const targetDifficulty = difficultyFilterToDifficulty[state.difficultyFilter];
+    rows = rows.filter((row) => normalizeDifficulty(row.difficulty) === targetDifficulty);
   }
 
   if (state.origFilter !== "all") {
@@ -379,9 +418,9 @@ function renderTable(rows) {
 
       if (column.key === "difficulty") {
         const badge = document.createElement("span");
-        const difficulty = row[column.key];
+        const difficulty = normalizeDifficulty(row[column.key]);
         badge.className = `difficulty ${difficultyClasses[difficulty] ?? ""}`.trim();
-        badge.textContent = difficultyLabels[difficulty] ?? difficulty;
+        badge.textContent = difficultyLabels[difficulty] ?? row[column.key] ?? difficulty;
         td.appendChild(badge);
       } else if (column.key === "original_level") {
         td.textContent = `\u2606${row[column.key]}`;
@@ -420,6 +459,7 @@ function loadCsvText(text) {
     state.query = "";
     state.sortKey = "calibrated_pred_skill";
     state.sortDir = "asc";
+    state.difficultyFilter = "all";
     state.origFilter = "all";
     state.predFilter = "all";
     state.lastTrackedSearchTerm = "";
@@ -428,6 +468,7 @@ function loadCsvText(text) {
       state.searchAnalyticsTimer = null;
     }
     els.searchInput.value = "";
+    els.difficultyFilter.value = "all";
     els.origFilter.value = "all";
     els.predFilter.value = "all";
     populateFilterOptions();
@@ -480,6 +521,7 @@ function setSort(key) {
 
 function init() {
   els.searchInput = document.getElementById("searchInput");
+  els.difficultyFilter = document.getElementById("difficultyFilter");
   els.origFilter = document.getElementById("origFilter");
   els.predFilter = document.getElementById("predFilter");
   els.tableBody = document.getElementById("tableBody");
@@ -492,6 +534,15 @@ function init() {
     state.query = els.searchInput.value;
     render();
     scheduleSearchAnalytics();
+  });
+
+  els.difficultyFilter.addEventListener("change", () => {
+    state.difficultyFilter = els.difficultyFilter.value;
+    render();
+    trackAnalyticsEvent("filter_change", {
+      filter_name: "difficulty",
+      selected_value: state.difficultyFilter,
+    });
   });
 
   els.origFilter.addEventListener("change", () => {
