@@ -467,3 +467,14 @@ body .title-lock {
     flex-basis: 100%;
   }
 }
+/* About chart sizing */
+.about-chart {
+  max-width: 100%;
+}
+
+.about-chart img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+}
