@@ -2,7 +2,7 @@ body .masthead__bar {
   display: flex;
   align-items: center;
   gap: 0.9rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 body .masthead__bar h1 {
@@ -135,7 +135,7 @@ body .title-lock {
   }
 
   body .masthead__bar h1 {
-    flex-basis: 100%;
+    flex: 1 1 auto;
   }
 
   #aboutView .about-copy {

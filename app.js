@@ -46,6 +46,7 @@ const state = {
   origFilter: null,
   featureFilter: null,
   searchAnalyticsTimer: null,
+  renderTimer: null,
   lastTrackedSearchTerm: "",
 };
 
@@ -338,8 +339,8 @@ function normalizePredFilterValue(value, fallback) {
 function formatBpm(minValue, maxValue) {
   const minText = String(minValue ?? "").trim();
   const maxText = String(maxValue ?? "").trim();
-  const min = getNumericValue(minText);
-  const max = getNumericValue(maxText);
+  const min = minText ? getNumericValue(minText) : null;
+  const max = maxText ? getNumericValue(maxText) : null;
 
   if (min === null && max === null) {
     return "";
@@ -351,6 +352,21 @@ function formatBpm(minValue, maxValue) {
     return minText;
   }
   return minText + "~" + maxText;
+}
+
+function formatBpmCell(minValue, maxValue) {
+  const text = formatBpm(minValue, maxValue);
+  if (!text.includes("~")) {
+    return escapeHtml(text);
+  }
+
+  const [minText, maxText] = text.split("~", 2);
+  return [
+    '<span class="bpm-range">',
+    `<span class="bpm-range__min">${escapeHtml(minText)}~</span>`,
+    `<span class="bpm-range__max">${escapeHtml(maxText)}</span>`,
+    '</span>',
+  ].join("");
 }
 
 function normalizeDifficulty(value) {
@@ -452,7 +468,7 @@ function fillMultiFilterOptions({ stateKey, options, summary, container, filterN
 
   const notifyChange = () => {
     updateMultiFilterSummary(summary, state[stateKey], options);
-    render();
+    scheduleRender();
     trackAnalyticsEvent("filter_change", {
       filter_name: filterName,
       selected_value: state[stateKey].join("|"),
@@ -660,55 +676,79 @@ function updateSortMarks() {
   });
 }
 
-function renderTable(rows) {
-  const fragment = document.createDocumentFragment();
-
-  for (const row of rows) {
-    const tr = document.createElement("tr");
-
-    for (const column of columns) {
-      const td = document.createElement("td");
-
-      if (column.key === "difficulty") {
-        const badge = document.createElement("span");
-        const difficulty = normalizeDifficulty(row[column.key]);
-        badge.className = `difficulty ${difficultyClasses[difficulty] ?? ""}`.trim();
-        badge.textContent = difficultyLabels[difficulty] ?? row[column.key] ?? difficulty;
-        td.appendChild(badge);
-      } else if (column.key === "original_level") {
-        td.textContent = `\u2606${row[column.key]}`;
-        if (column.className) {
-          td.className = column.className;
-        }
-      } else if (column.key === "calibrated_pred_skill") {
-        td.textContent = formatPredValue(row[column.key]) ?? row[column.key];
-        if (column.className) {
-          td.className = column.className;
-        }
-      } else if (column.key === "bpm") {
-        td.textContent = formatBpm(row.bpm_min, row.bpm_max);
-        td.className = "mono";
-      } else {
-        td.textContent = row[column.key];
-        if (column.className) {
-          td.className = column.className;
-        }
-      }
-
-      tr.appendChild(td);
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => {
+    switch (character) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      case "'":
+        return "&#39;";
+      default:
+        return character;
     }
+  });
+}
 
-    fragment.appendChild(tr);
+function renderTable(rows) {
+  const html = rows.map((row) => {
+    const difficulty = normalizeDifficulty(row.difficulty);
+    const difficultyClass = difficultyClasses[difficulty] ?? "";
+    const difficultyText = difficultyLabels[difficulty] ?? row.difficulty ?? difficulty;
+    const originalText = `\u2606${row.original_level ?? ""}`;
+    const predictedText = formatPredValue(row.calibrated_pred_skill) ?? row.calibrated_pred_skill ?? "";
+    const bpmHtml = formatBpmCell(row.bpm_min, row.bpm_max);
+
+    return [
+      "<tr>",
+      `<td>${escapeHtml(row.title)}</td>`,
+      `<td><span class="difficulty ${difficultyClass}">${escapeHtml(difficultyText)}</span></td>`,
+      `<td class="mono">${escapeHtml(originalText)}</td>`,
+      `<td class="mono">${escapeHtml(predictedText)}</td>`,
+      `<td class="mono">${bpmHtml}</td>`,
+      `<td>${escapeHtml(row.features)}</td>`,
+      "</tr>",
+    ].join("");
+  }).join("");
+
+  els.tableBody.innerHTML = html;
+}
+
+function cancelScheduledRender() {
+  if (state.renderTimer !== null) {
+    window.clearTimeout(state.renderTimer);
+    state.renderTimer = null;
   }
+}
 
-  els.tableBody.replaceChildren(fragment);
+function scheduleRender(delay = 60) {
+  cancelScheduledRender();
+  state.renderTimer = window.setTimeout(() => {
+    state.renderTimer = null;
+    render();
+  }, delay);
 }
 
 function render() {
   const visibleRows = getVisibleRows();
   updateRowCount(visibleRows.length, state.rows.length);
   renderTable(visibleRows);
+  updateTableOverflowState();
   updateSortMarks();
+}
+
+function updateTableOverflowState() {
+  if (!els.tableShell) {
+    return;
+  }
+
+  const isOverflowing = els.tableShell.scrollWidth > els.tableShell.clientWidth;
+  els.tableShell.classList.toggle("is-overflowing", isOverflowing);
 }
 
 function updateRowCount(visibleCount, totalCount) {
@@ -740,6 +780,7 @@ function loadCsvText(text) {
       window.clearTimeout(state.searchAnalyticsTimer);
       state.searchAnalyticsTimer = null;
     }
+    cancelScheduledRender();
     els.searchInput.value = "";
     els.bpmMinFilter.value = "0";
     els.bpmMaxFilter.value = "999";
@@ -793,13 +834,14 @@ function setSort(key) {
     state.sortDir = "asc";
   }
 
+  cancelScheduledRender();
   render();
 }
 
 function updateBpmFilters() {
   state.bpmMinFilter = parseFilterNumber(els.bpmMinFilter.value, 0);
   state.bpmMaxFilter = parseFilterNumber(els.bpmMaxFilter.value, 999);
-  render();
+  scheduleRender();
   trackAnalyticsEvent("filter_change", {
     filter_name: "bpm",
     bpm_min: state.bpmMinFilter,
@@ -818,7 +860,7 @@ function updatePredFilters() {
     state.predMaxFilter = maxValue;
   }
 
-  render();
+  scheduleRender();
 }
 
 function commitPredFilters() {
@@ -826,6 +868,7 @@ function commitPredFilters() {
   state.predMaxFilter = normalizePredFilterValue(els.predMaxFilter.value, state.predMaxFilter);
   els.predMinFilter.value = formatPredValue(state.predMinFilter);
   els.predMaxFilter.value = formatPredValue(state.predMaxFilter);
+  cancelScheduledRender();
   render();
   trackAnalyticsEvent("filter_change", {
     filter_name: "pred",
@@ -861,8 +904,10 @@ function init() {
   els.tableBody = document.getElementById("tableBody");
   els.rowCount = document.getElementById("rowCount");
   els.scrollTopButton = document.getElementById("scrollTopButton");
+  els.tableShell = document.getElementById("tableShell");
 
   window.addEventListener("scroll", updateScrollTopButton, { passive: true });
+  window.addEventListener("resize", updateTableOverflowState);
   els.scrollTopButton.addEventListener("click", scrollToTop);
   updateScrollTopButton();
 
@@ -872,7 +917,7 @@ function init() {
 
   els.searchInput.addEventListener("input", () => {
     state.query = els.searchInput.value;
-    render();
+    scheduleRender(100);
     scheduleSearchAnalytics();
   });
 

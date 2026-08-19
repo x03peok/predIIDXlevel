@@ -292,6 +292,19 @@ select:focus {
   background: rgba(255, 255, 255, 0.78);
 }
 
+.bpm-range {
+  display: inline-flex;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
+.table-shell.is-overflowing .bpm-range {
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.1;
+  white-space: normal;
+}
+
 table {
   width: 100%;
   min-width: 720px;
@@ -344,6 +357,7 @@ thead th button {
   background: transparent;
   color: var(--muted);
   font: inherit;
+  font-size: 0.8rem;
   font-weight: 700;
   padding: 11px 20px 11px 12px;
   white-space: nowrap;
@@ -554,7 +568,7 @@ body .masthead__bar {
   display: flex;
   align-items: center;
   gap: 0.9rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 body .masthead__bar h1 {
@@ -655,7 +669,7 @@ body .title-lock {
   }
 
   body .masthead__bar h1 {
-    flex-basis: 100%;
+    flex: 1 1 auto;
   }
 }
 /* About chart sizing */
