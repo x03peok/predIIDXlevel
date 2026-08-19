@@ -284,7 +284,9 @@ select:focus {
 }
 
 .table-shell {
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid var(--line);
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.78);
@@ -292,12 +294,13 @@ select:focus {
 
 table {
   width: 100%;
+  min-width: 720px;
   border-collapse: collapse;
   table-layout: fixed;
 }
 
 col.col-title {
-  width: 38%;
+  width: 27%;
 }
 
 col.col-difficulty {
@@ -317,7 +320,7 @@ col.col-bpm {
 }
 
 col.col-features {
-  width: 26%;
+  width: 37%;
 }
 
 thead th {
