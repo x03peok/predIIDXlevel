@@ -120,6 +120,45 @@ body::before {
   min-width: 180px;
 }
 
+.feature-filter .multi-filter__details,
+.feature-filter .multi-filter__details > summary {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.feature-filter .multi-filter__options {
+  left: 0;
+  right: 0;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.feature-filter__option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px 10px;
+  min-width: 0;
+}
+
+.feature-filter__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.feature-filter__mode {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  white-space: normal;
+}
+
 .multi-filter > span {
   font-size: 0.72rem;
   font-weight: 700;
@@ -427,6 +466,53 @@ tbody td {
   opacity: 0.92;
 }
 
+@media (min-width: 721px) and (max-width: 1119px) {
+  .toolbar {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(104px, 112px));
+    align-items: end;
+  }
+
+  .toolbar .filters {
+    display: contents;
+  }
+
+  .toolbar > .search,
+  .toolbar > .multi-filter,
+  .toolbar > .filter,
+  .toolbar .filters > .multi-filter,
+  .toolbar .filters > .filter {
+    width: 100%;
+    min-width: 0;
+  }
+}
+@media (min-width: 1120px) {
+  .toolbar {
+    display: grid;
+    grid-template-columns: minmax(220px, 2fr) repeat(7, minmax(104px, 1fr));
+    align-items: end;
+  }
+
+  .feature-filter .multi-filter__options {
+    right: auto;
+    width: min(360px, calc(100vw - 48px));
+    max-width: min(360px, calc(100vw - 48px));
+  }
+
+  .toolbar .filters {
+    display: contents;
+  }
+
+  .toolbar > .search,
+  .toolbar > .multi-filter,
+  .toolbar > .filter,
+  .toolbar .filters > .multi-filter,
+  .toolbar .filters > .filter {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
 .scroll-top-button[hidden] {
   display: none;
 }
@@ -541,11 +627,13 @@ tbody td:nth-child(6) {
 
   .feature-filter {
     flex: 1 1 100%;
+    width: 100%;
     min-width: 0;
   }
 
   .feature-filter .multi-filter__options {
-    width: 100%;
+    width: auto;
+    min-width: 0;
     max-width: none;
   }
 

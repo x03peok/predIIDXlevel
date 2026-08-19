@@ -275,7 +275,12 @@ function formatPredValue(value) {
 }
 
 function getNumericValue(value) {
-  const numeric = Number(value);
+  const text = String(value ?? "").trim();
+  if (!text) {
+    return null;
+  }
+
+  const numeric = Number(text);
   return Number.isFinite(numeric) ? numeric : null;
 }
 
@@ -555,14 +560,147 @@ function fillFeatureOptions() {
     value: feature,
     label: feature,
   }));
+  const previousFilter = state.featureFilter && !Array.isArray(state.featureFilter)
+    ? state.featureFilter
+    : null;
+  const nextFilter = Object.create(null);
 
-  fillMultiFilterOptions({
-    stateKey: "featureFilter",
-    options,
-    summary: els.featureFilterSummary,
-    container: els.featureFilterOptions,
-    filterName: "feature",
+  for (const option of options) {
+    const previousModes = previousFilter?.[option.value];
+    nextFilter[option.value] = {
+      include: previousModes ? previousModes.include === true : true,
+      exclude: previousModes ? previousModes.exclude === true : true,
+    };
+  }
+  state.featureFilter = nextFilter;
+
+  const notifyChange = () => {
+    updateFeatureFilterSummary(els.featureFilterSummary, options);
+    scheduleRender();
+    trackAnalyticsEvent("filter_change", {
+      filter_name: "feature",
+      selected_value: getFeatureFilterAnalyticsValue(options),
+    });
+  };
+
+  const syncCheckboxes = () => {
+    const allCheckbox = els.featureFilterOptions.querySelector("input[data-feature-all]");
+    if (allCheckbox) {
+      allCheckbox.checked = areAllFeatureModesSelected(options);
+    }
+
+    els.featureFilterOptions.querySelectorAll("input[data-feature-mode]").forEach((checkbox) => {
+      const modes = state.featureFilter[checkbox.dataset.featureValue];
+      checkbox.checked = Boolean(modes?.[checkbox.dataset.featureMode]);
+    });
+  };
+
+  const fragment = document.createDocumentFragment();
+  const allLabel = document.createElement("label");
+  allLabel.className = "multi-filter__option multi-filter__option--all";
+
+  const allCheckbox = document.createElement("input");
+  allCheckbox.type = "checkbox";
+  allCheckbox.dataset.featureAll = "true";
+  allCheckbox.checked = areAllFeatureModesSelected(options);
+
+  const allText = document.createElement("span");
+  allText.textContent = "all";
+  allLabel.append(allCheckbox, allText);
+  allCheckbox.addEventListener("change", () => {
+    for (const option of options) {
+      state.featureFilter[option.value] = {
+        include: allCheckbox.checked,
+        exclude: allCheckbox.checked,
+      };
+    }
+    syncCheckboxes();
+    notifyChange();
   });
+  fragment.appendChild(allLabel);
+
+  for (const option of options) {
+    const row = document.createElement("div");
+    row.className = "multi-filter__option feature-filter__option";
+
+    const name = document.createElement("span");
+    name.className = "feature-filter__name";
+    name.textContent = option.label;
+    row.appendChild(name);
+
+    for (const [mode, labelText] of [["include", "を含む"], ["exclude", "を含まない"]]) {
+      const label = document.createElement("label");
+      label.className = "feature-filter__mode";
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.dataset.featureMode = mode;
+      checkbox.dataset.featureValue = option.value;
+      checkbox.checked = state.featureFilter[option.value][mode];
+
+      const text = document.createElement("span");
+      text.textContent = labelText;
+      label.append(checkbox, text);
+      row.appendChild(label);
+
+      checkbox.addEventListener("change", () => {
+        state.featureFilter[option.value][mode] = checkbox.checked;
+        syncCheckboxes();
+        notifyChange();
+      });
+    }
+
+    fragment.appendChild(row);
+  }
+
+  els.featureFilterOptions.replaceChildren(fragment);
+  syncCheckboxes();
+  updateFeatureFilterSummary(els.featureFilterSummary, options);
+}
+
+function areAllFeatureModesSelected(options) {
+  return options.every(({ value }) => {
+    const modes = state.featureFilter?.[value];
+    return modes?.include === true && modes?.exclude === true;
+  });
+}
+
+function hasNoFeatureFilters(options) {
+  return options.every(({ value }) => {
+    const modes = state.featureFilter?.[value];
+    return !modes || modes.include === modes.exclude;
+  });
+}
+
+function getFeatureFilterAnalyticsValue(options) {
+  return options.map(({ value }) => {
+    const modes = state.featureFilter[value];
+    const selectedModes = [
+      modes.include ? "include" : "",
+      modes.exclude ? "exclude" : "",
+    ].filter(Boolean);
+    return value + ":" + selectedModes.join(",");
+  }).join("|");
+}
+
+function updateFeatureFilterSummary(summary, options) {
+  if (hasNoFeatureFilters(options)) {
+    summary.textContent = "all";
+    summary.title = "";
+    return;
+  }
+
+  const selectedModes = [];
+  for (const option of options) {
+    const modes = state.featureFilter?.[option.value];
+    if (modes?.include !== modes?.exclude) {
+      selectedModes.push(option.label + ":" + (modes.include ? "含む" : "含まない"));
+    }
+  }
+
+  const summaryText = selectedModes.join(", ");
+  summary.textContent = summaryText;
+  summary.title = summaryText;
 }
 
 function populateFilterOptions() {
@@ -631,17 +769,24 @@ function getVisibleRows() {
   });
 
   const featureOptions = getFeatureOptions();
-  const selectedFeatureValues = state.featureFilter ?? [];
-  const allFeaturesSelected = selectedFeatureValues.length === featureOptions.length
-    && featureOptions.every((feature) => selectedFeatureValues.includes(feature));
-
-  if (selectedFeatureValues.length === 0) {
-    rows = [];
-  } else if (!allFeaturesSelected) {
-    const selectedFeatures = new Set(selectedFeatureValues);
+  if (state.featureFilter !== null && !hasNoFeatureFilters(
+    featureOptions.map((feature) => ({ value: feature })),
+  )) {
     rows = rows.filter((row) => {
-      const rowFeatures = getRowFeatures(row);
-      return rowFeatures.every((feature) => selectedFeatures.has(feature));
+      const rowFeatures = new Set(getRowFeatures(row));
+      return featureOptions.every((feature) => {
+        const modes = state.featureFilter[feature];
+        if (!modes?.include && !modes?.exclude) {
+          return true;
+        }
+        if (modes.include && !modes.exclude) {
+          return rowFeatures.has(feature);
+        }
+        if (!modes.include && modes.exclude) {
+          return !rowFeatures.has(feature);
+        }
+        return true;
+      });
     });
   }
 
@@ -853,19 +998,32 @@ function updatePredFilters() {
   const minValue = getNumericValue(els.predMinFilter.value);
   const maxValue = getNumericValue(els.predMaxFilter.value);
 
-  if (minValue !== null && isPredValueInDataRange(minValue)) {
+  if (minValue === null) {
+    state.predMinFilter = state.predDataMin;
+  } else if (isPredValueInDataRange(minValue)) {
     state.predMinFilter = minValue;
   }
-  if (maxValue !== null && isPredValueInDataRange(maxValue)) {
+  if (maxValue === null) {
+    state.predMaxFilter = state.predDataMax;
+  } else if (isPredValueInDataRange(maxValue)) {
     state.predMaxFilter = maxValue;
   }
 
   scheduleRender();
 }
 
+function commitBpmFilters() {
+  state.bpmMinFilter = parseFilterNumber(els.bpmMinFilter.value, 0);
+  state.bpmMaxFilter = parseFilterNumber(els.bpmMaxFilter.value, 999);
+  els.bpmMinFilter.value = String(state.bpmMinFilter);
+  els.bpmMaxFilter.value = String(state.bpmMaxFilter);
+  cancelScheduledRender();
+  render();
+}
+
 function commitPredFilters() {
-  state.predMinFilter = normalizePredFilterValue(els.predMinFilter.value, state.predMinFilter);
-  state.predMaxFilter = normalizePredFilterValue(els.predMaxFilter.value, state.predMaxFilter);
+  state.predMinFilter = normalizePredFilterValue(els.predMinFilter.value, state.predDataMin);
+  state.predMaxFilter = normalizePredFilterValue(els.predMaxFilter.value, state.predDataMax);
   els.predMinFilter.value = formatPredValue(state.predMinFilter);
   els.predMaxFilter.value = formatPredValue(state.predMaxFilter);
   cancelScheduledRender();
@@ -874,6 +1032,29 @@ function commitPredFilters() {
     filter_name: "pred",
     pred_min: state.predMinFilter,
     pred_max: state.predMaxFilter,
+  });
+}
+
+function closeOtherFilterDetails(activeDetails) {
+  document.querySelectorAll(".multi-filter__details").forEach((details) => {
+    if (details !== activeDetails) {
+      details.open = false;
+    }
+  });
+}
+
+function setupFilterDetails() {
+  document.querySelectorAll(".multi-filter__details").forEach((details) => {
+    details.addEventListener("toggle", () => {
+      if (details.open) {
+        closeOtherFilterDetails(details);
+      }
+    });
+  });
+
+  document.addEventListener("click", (event) => {
+    const activeDetails = event.target.closest?.(".multi-filter__details") ?? null;
+    closeOtherFilterDetails(activeDetails);
   });
 }
 
@@ -906,6 +1087,7 @@ function init() {
   els.scrollTopButton = document.getElementById("scrollTopButton");
   els.tableShell = document.getElementById("tableShell");
 
+  setupFilterDetails();
   window.addEventListener("scroll", updateScrollTopButton, { passive: true });
   window.addEventListener("resize", updateTableOverflowState);
   els.scrollTopButton.addEventListener("click", scrollToTop);
@@ -923,6 +1105,8 @@ function init() {
 
   els.bpmMinFilter.addEventListener("input", updateBpmFilters);
   els.bpmMaxFilter.addEventListener("input", updateBpmFilters);
+  els.bpmMinFilter.addEventListener("blur", commitBpmFilters);
+  els.bpmMaxFilter.addEventListener("blur", commitBpmFilters);
   els.predMinFilter.addEventListener("input", updatePredFilters);
   els.predMaxFilter.addEventListener("input", updatePredFilters);
   els.predMinFilter.addEventListener("blur", commitPredFilters);
