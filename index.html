@@ -50,31 +50,51 @@
       <div class="panel">
         <div class="toolbar">
           <label class="search">
-            <span>Filter</span>
+            <span>Title</span>
             <input id="searchInput" type="search" placeholder="search title">
           </label>
-          <label class="filter">
-            <span>diff.</span>
-            <select id="difficultyFilter">
-              <option value="all">all</option>
-              <option value="N">N</option>
-              <option value="H">H</option>
-              <option value="A">A</option>
-              <option value="L">L</option>
-            </select>
+          <div class="multi-filter bpm-filter">
+            <span>Difficulty</span>
+            <details id="difficultyFilterDetails" class="multi-filter__details">
+              <summary id="difficultyFilterSummary">all</summary>
+              <div id="difficultyFilterOptions" class="multi-filter__options"></div>
+            </details>
+          </div>
+          <label class="filter bpm-filter">
+            <span>BPM_Min</span>
+            <input id="bpmMinFilter" type="number" inputmode="decimal" min="0" step="any" value="0">
           </label>
+          <label class="filter bpm-filter">
+            <span>BPM_Max</span>
+            <input id="bpmMaxFilter" type="number" inputmode="decimal" min="0" step="any" value="999">
+          </label>
+          <div class="multi-filter feature-filter">
+            <span>Feature</span>
+            <details id="featureFilterDetails" class="multi-filter__details">
+              <summary id="featureFilterSummary">all</summary>
+              <div id="featureFilterOptions" class="multi-filter__options"></div>
+            </details>
+          </div>
           <div class="filters">
-            <label class="filter">
-              <span>orig.</span>
-              <select id="origFilter"></select>
+            <div class="multi-filter level-filter">
+              <span>Level</span>
+              <details id="origFilterDetails" class="multi-filter__details">
+                <summary id="origFilterSummary">all</summary>
+                <div id="origFilterOptions" class="multi-filter__options"></div>
+              </details>
+            </div>
+            <label class="filter pred-filter">
+              <span>Pred_Min</span>
+              <input id="predMinFilter" type="number" inputmode="decimal" min="0" max="999" step="0.1" value="0.0">
             </label>
-            <label class="filter">
-              <span>pred.</span>
-              <select id="predFilter"></select>
+            <label class="filter pred-filter">
+              <span>Pred_Max</span>
+              <input id="predMaxFilter" type="number" inputmode="decimal" min="0" max="999" step="0.1" value="999.0">
             </label>
           </div>
         </div>
 
+        <div id="rowCount" class="row-count" aria-live="polite"></div>
         <div class="table-shell">
           <table>
             <colgroup>
@@ -82,13 +102,17 @@
               <col class="col-difficulty">
               <col class="col-orig">
               <col class="col-pred">
+              <col class="col-bpm">
+              <col class="col-features">
             </colgroup>
             <thead>
               <tr>
-                <th><button type="button" data-sort-key="title"><span>title</span><span class="sort-mark"></span></button></th>
+                <th><button type="button" data-sort-key="title"><span>Title</span><span class="sort-mark"></span></button></th>
                 <th><button type="button" data-sort-key="difficulty" aria-label="difficulty sort"><span class="sort-mark"></span></button></th>
-                <th><button type="button" data-sort-key="original_level"><span>orig.</span><span class="sort-mark"></span></button></th>
+                <th><button type="button" data-sort-key="original_level"><span>Level</span><span class="sort-mark"></span></button></th>
                 <th><button type="button" data-sort-key="calibrated_pred_skill"><span>pred.</span><span class="sort-mark"></span></button></th>
+                <th><button type="button" data-sort-key="bpm"><span>BPM</span><span class="sort-mark"></span></button></th>
+                <th><button type="button" data-sort-key="features"><span>Feature</span><span class="sort-mark"></span></button></th>
               </tr>
             </thead>
             <tbody id="tableBody"></tbody>
@@ -97,5 +121,6 @@
       </div>
     </section>
   </main>
+  <button id="scrollTopButton" class="scroll-top-button" type="button" aria-label="ページ上部へ戻る" hidden>↑</button>
 </body>
 </html>

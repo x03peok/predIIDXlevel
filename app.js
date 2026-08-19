@@ -3,6 +3,8 @@ const columns = [
   { key: "difficulty" },
   { key: "original_level", className: "mono", numeric: true },
   { key: "calibrated_pred_skill", className: "mono", numeric: true },
+  { key: "bpm", sourceKeys: ["bpm_min", "bpm_max"] },
+  { key: "features" },
 ];
 
 const difficultyOrder = ["NORMAL", "HYPER", "ANOTHER", "LEGGENDARIA"];
@@ -18,7 +20,7 @@ const difficultyClasses = {
   ANOTHER: "difficulty--another",
   LEGGENDARIA: "difficulty--leggendaria",
 };
-const difficultyFilterValues = ["all", "N", "H", "A", "L"];
+const difficultyFilterValues = ["N", "H", "A", "L"];
 const difficultyFilterToDifficulty = {
   N: "NORMAL",
   H: "HYPER",
@@ -26,6 +28,7 @@ const difficultyFilterToDifficulty = {
   L: "LEGGENDARIA",
 };
 const searchFields = ["title"];
+const FEATURE_NONE = "特徴なし";
 const htmlEntityDecoder = document.createElement("textarea");
 
 const state = {
@@ -33,9 +36,15 @@ const state = {
   query: "",
   sortKey: "calibrated_pred_skill",
   sortDir: "asc",
-  difficultyFilter: "all",
-  origFilter: "all",
-  predFilter: "all",
+  difficultyFilter: null,
+  bpmMinFilter: 0,
+  bpmMaxFilter: 999,
+  predMinFilter: 0,
+  predMaxFilter: 999,
+  predDataMin: 0,
+  predDataMax: 999,
+  origFilter: null,
+  featureFilter: null,
   searchAnalyticsTimer: null,
   lastTrackedSearchTerm: "",
 };
@@ -137,8 +146,11 @@ function normalizeRows(text) {
   }
 
   for (const column of columns) {
-    if (!headerIndex.has(column.key)) {
-      throw new Error(`Missing required column: ${column.key}`);
+    const sourceKeys = column.sourceKeys ?? [column.key];
+    for (const sourceKey of sourceKeys) {
+      if (!headerIndex.has(sourceKey)) {
+        throw new Error("Missing required column: " + sourceKey);
+      }
     }
   }
 
@@ -146,8 +158,20 @@ function normalizeRows(text) {
     const row = { __order: index };
 
     for (const column of columns) {
-      const rawValue = (cells[headerIndex.get(column.key)] ?? "").trim();
-      row[column.key] = column.key === "title" ? normalizeTitle(rawValue) : rawValue;
+      if (column.key === "bpm") {
+        for (const sourceKey of column.sourceKeys) {
+          row[sourceKey] = (cells[headerIndex.get(sourceKey)] ?? "").trim();
+        }
+        continue;
+      }
+
+      const rawValue = cells[headerIndex.get(column.key)] ?? "";
+      if (column.key === "features") {
+        row[column.key] = rawValue;
+      } else {
+        const trimmedValue = rawValue.trim();
+        row[column.key] = column.key === "title" ? normalizeTitle(trimmedValue) : trimmedValue;
+      }
     }
 
     row.__search = searchFields
@@ -174,6 +198,19 @@ function normalizeTitle(value) {
   return decodeHtmlEntities(stripped);
 }
 
+function normalizeFeature(value) {
+  return String(value ?? "").trim().replace(/\++$/, "");
+}
+
+function getRowFeatures(row) {
+  const features = String(row.features ?? "")
+    .split("、")
+    .map(normalizeFeature)
+    .filter(Boolean);
+
+  return features.length > 0 ? features : [FEATURE_NONE];
+}
+
 function compareValues(a, b, key) {
   if (key === "difficulty") {
     const left = difficultyOrder.indexOf(normalizeDifficulty(a[key]));
@@ -186,19 +223,16 @@ function compareValues(a, b, key) {
     return String(a[key]).localeCompare(String(b[key]));
   }
 
+  if (key === "bpm") {
+    const bpmKey = state.sortDir === "desc" ? "bpm_max" : "bpm_min";
+    return compareNumericValues(a[bpmKey], b[bpmKey]);
+  }
+
   const column = columns.find((item) => item.key === key);
   if (column?.numeric) {
-    const left = Number(a[key]);
-    const right = Number(b[key]);
-    const leftValid = Number.isFinite(left);
-    const rightValid = Number.isFinite(right);
-
-    if (leftValid && rightValid && left !== right) {
-      return left - right;
-    }
-
-    if (leftValid !== rightValid) {
-      return leftValid ? -1 : 1;
+    const numericResult = compareNumericValues(a[key], b[key]);
+    if (numericResult !== 0) {
+      return numericResult;
     }
   }
 
@@ -206,6 +240,23 @@ function compareValues(a, b, key) {
     numeric: true,
     sensitivity: "base",
   });
+}
+
+function compareNumericValues(leftValue, rightValue) {
+  const left = getNumericValue(leftValue);
+  const right = getNumericValue(rightValue);
+  const leftValid = left !== null;
+  const rightValid = right !== null;
+
+  if (leftValid && rightValid && left !== right) {
+    return left - right;
+  }
+
+  if (leftValid !== rightValid) {
+    return leftValid ? -1 : 1;
+  }
+
+  return 0;
 }
 
 function toLevelValue(value) {
@@ -220,6 +271,86 @@ function formatPredValue(value) {
   }
 
   return (Math.round(numeric * 10) / 10).toFixed(1);
+}
+
+function getNumericValue(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function parseFilterNumber(value, fallback) {
+  const text = String(value ?? "").trim();
+  if (!text) {
+    return fallback;
+  }
+
+  const numeric = getNumericValue(text);
+  return numeric === null ? fallback : numeric;
+}
+
+function getNumericExtremes(rows, key, fallbackMin, fallbackMax) {
+  let min = null;
+  let max = null;
+
+  for (const row of rows) {
+    const value = getNumericValue(row[key]);
+    if (value === null) {
+      continue;
+    }
+
+    min = min === null ? value : Math.min(min, value);
+    max = max === null ? value : Math.max(max, value);
+  }
+
+  return {
+    min: min ?? fallbackMin,
+    max: max ?? fallbackMax,
+  };
+}
+
+function setPredInputBounds() {
+  if (!els.predMinFilter || !els.predMaxFilter) {
+    return;
+  }
+
+  const min = formatPredValue(state.predDataMin);
+  const max = formatPredValue(state.predDataMax);
+  els.predMinFilter.min = min;
+  els.predMinFilter.max = max;
+  els.predMaxFilter.min = min;
+  els.predMaxFilter.max = max;
+}
+
+function clampPredFilterValue(value, fallback) {
+  const numeric = parseFilterNumber(value, fallback);
+  return Math.min(state.predDataMax, Math.max(state.predDataMin, numeric));
+}
+
+function isPredValueInDataRange(value) {
+  return value >= state.predDataMin && value <= state.predDataMax;
+}
+
+function normalizePredFilterValue(value, fallback) {
+  const clamped = clampPredFilterValue(value, fallback);
+  return Math.round(clamped * 10) / 10;
+}
+
+function formatBpm(minValue, maxValue) {
+  const minText = String(minValue ?? "").trim();
+  const maxText = String(maxValue ?? "").trim();
+  const min = getNumericValue(minText);
+  const max = getNumericValue(maxText);
+
+  if (min === null && max === null) {
+    return "";
+  }
+  if (min === null) {
+    return maxText;
+  }
+  if (max === null || min === max) {
+    return minText;
+  }
+  return minText + "~" + maxText;
 }
 
 function normalizeDifficulty(value) {
@@ -264,95 +395,176 @@ function scheduleSearchAnalytics() {
   }, 600);
 }
 
-function fillOrigSelect(select, levels) {
-  const current = select.value || "all";
-  const options = [{ value: "all", label: "all" }];
-
-  for (const level of levels) {
-    options.push({ value: String(level), label: `\u2606${level}` });
-  }
-
-  const fragment = document.createDocumentFragment();
-  for (const option of options) {
-    const el = document.createElement("option");
-    el.value = option.value;
-    el.textContent = option.label;
-    fragment.appendChild(el);
-  }
-
-  select.replaceChildren(fragment);
-  select.value = options.some((option) => option.value === current) ? current : "all";
+function getDifficultyFilterOptions() {
+  return difficultyFilterValues.map((value) => ({ value, label: value }));
 }
 
-function fillPredSelect(select, values) {
-  const current = select.value || "all";
-  const options = [{ value: "all", label: "all" }];
+function getOrigFilterOptions() {
+  const levels = new Set();
 
-  for (const value of values) {
-    options.push({ value, label: value });
+  for (const row of state.rows) {
+    const level = toLevelValue(row.original_level);
+    if (level !== null) {
+      levels.add(level);
+    }
   }
 
-  const fragment = document.createDocumentFragment();
-  for (const option of options) {
-    const el = document.createElement("option");
-    el.value = option.value;
-    el.textContent = option.label;
-    fragment.appendChild(el);
-  }
-
-  select.replaceChildren(fragment);
-  select.value = options.some((option) => option.value === current) ? current : "all";
+  return [...levels]
+    .sort((a, b) => a - b)
+    .map((level) => ({ value: String(level), label: `\u2606${level}` }));
 }
 
-function fillDifficultySelect(select) {
-  const current = select.value || "all";
-  const options = difficultyFilterValues.map((value) => ({ value, label: value }));
-
-  const fragment = document.createDocumentFragment();
-  for (const option of options) {
-    const el = document.createElement("option");
-    el.value = option.value;
-    el.textContent = option.label;
-    fragment.appendChild(el);
-  }
-
-  select.replaceChildren(fragment);
-  select.value = options.some((option) => option.value === current) ? current : "all";
+function areAllFilterValuesSelected(selected, options) {
+  const values = options.map((option) => option.value);
+  return selected.length === values.length
+    && values.every((value) => selected.includes(value));
 }
 
-function getPredFilterRows() {
-  if (state.origFilter === "all") {
-    return state.rows;
+function updateMultiFilterSummary(summary, selected, options) {
+  const allSelected = areAllFilterValuesSelected(selected, options);
+  if (allSelected) {
+    summary.textContent = "all";
+    summary.title = "";
+    return;
   }
 
-  return state.rows.filter((row) => row.original_level === state.origFilter);
+  if (selected.length === 0) {
+    summary.textContent = "none";
+    summary.title = "";
+    return;
+  }
+
+  const selectedLabels = selected.map((value) => {
+    const option = options.find((item) => item.value === value);
+    return option?.label ?? value;
+  });
+  summary.textContent = selectedLabels.length === 1
+    ? selectedLabels[0]
+    : selectedLabels.length + " selected";
+  summary.title = selectedLabels.join(", ");
+}
+
+function fillMultiFilterOptions({ stateKey, options, summary, container, filterName }) {
+  const values = options.map((option) => option.value);
+  const initialSelection = state[stateKey] === null;
+  const selected = new Set(initialSelection ? values : state[stateKey]);
+  state[stateKey] = values.filter((value) => selected.has(value));
+
+  const notifyChange = () => {
+    updateMultiFilterSummary(summary, state[stateKey], options);
+    render();
+    trackAnalyticsEvent("filter_change", {
+      filter_name: filterName,
+      selected_value: state[stateKey].join("|"),
+    });
+  };
+
+  const syncCheckboxes = () => {
+    const selectedValues = new Set(state[stateKey]);
+    const allCheckbox = container.querySelector("input[data-filter-all]");
+    if (allCheckbox) {
+      allCheckbox.checked = areAllFilterValuesSelected(state[stateKey], options);
+    }
+
+    container.querySelectorAll("input[data-filter-option]").forEach((checkbox) => {
+      checkbox.checked = selectedValues.has(checkbox.value);
+    });
+  };
+
+  const fragment = document.createDocumentFragment();
+  const allLabel = document.createElement("label");
+  allLabel.className = "multi-filter__option multi-filter__option--all";
+
+  const allCheckbox = document.createElement("input");
+  allCheckbox.type = "checkbox";
+  allCheckbox.dataset.filterAll = "true";
+  allCheckbox.checked = areAllFilterValuesSelected(state[stateKey], options);
+
+  const allText = document.createElement("span");
+  allText.textContent = "all";
+  allLabel.append(allCheckbox, allText);
+  allCheckbox.addEventListener("change", () => {
+    state[stateKey] = allCheckbox.checked ? [...values] : [];
+    syncCheckboxes();
+    notifyChange();
+  });
+  fragment.appendChild(allLabel);
+
+  for (const option of options) {
+    const label = document.createElement("label");
+    label.className = "multi-filter__option";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.dataset.filterOption = "true";
+    checkbox.value = option.value;
+    checkbox.checked = state[stateKey].includes(option.value);
+
+    const text = document.createElement("span");
+    text.textContent = option.label;
+    label.append(checkbox, text);
+
+    checkbox.addEventListener("change", () => {
+      state[stateKey] = [...container.querySelectorAll("input[data-filter-option]:checked")]
+        .map((input) => input.value);
+      syncCheckboxes();
+      notifyChange();
+    });
+
+    fragment.appendChild(label);
+  }
+
+  container.replaceChildren(fragment);
+  updateMultiFilterSummary(summary, state[stateKey], options);
+}
+
+function getFeatureOptions() {
+  const values = new Set([FEATURE_NONE]);
+  for (const row of state.rows) {
+    for (const feature of getRowFeatures(row)) {
+      values.add(feature);
+    }
+  }
+
+  return [
+    FEATURE_NONE,
+    ...[...values]
+      .filter((feature) => feature !== FEATURE_NONE)
+      .sort((a, b) => a.localeCompare(b, "ja")),
+  ];
+}
+
+function fillFeatureOptions() {
+  const options = getFeatureOptions().map((feature) => ({
+    value: feature,
+    label: feature,
+  }));
+
+  fillMultiFilterOptions({
+    stateKey: "featureFilter",
+    options,
+    summary: els.featureFilterSummary,
+    container: els.featureFilterOptions,
+    filterName: "feature",
+  });
 }
 
 function populateFilterOptions() {
-  const origLevels = new Set();
-  const predLevels = new Set();
-
-  for (const row of state.rows) {
-    const origLevel = toLevelValue(row.original_level);
-    if (origLevel !== null) {
-      origLevels.add(origLevel);
-    }
-  }
-
-  fillDifficultySelect(els.difficultyFilter);
-  state.difficultyFilter = els.difficultyFilter.value;
-  fillOrigSelect(els.origFilter, [...origLevels].sort((a, b) => a - b));
-  state.origFilter = els.origFilter.value;
-
-  for (const row of getPredFilterRows()) {
-    const predLevel = formatPredValue(row.calibrated_pred_skill);
-    if (predLevel !== null) {
-      predLevels.add(predLevel);
-    }
-  }
-
-  fillPredSelect(els.predFilter, [...predLevels].sort((a, b) => Number(a) - Number(b)));
-  state.predFilter = els.predFilter.value;
+  fillMultiFilterOptions({
+    stateKey: "difficultyFilter",
+    options: getDifficultyFilterOptions(),
+    summary: els.difficultyFilterSummary,
+    container: els.difficultyFilterOptions,
+    filterName: "difficulty",
+  });
+  fillFeatureOptions();
+  fillMultiFilterOptions({
+    stateKey: "origFilter",
+    options: getOrigFilterOptions(),
+    summary: els.origFilterSummary,
+    container: els.origFilterOptions,
+    filterName: "orig",
+  });
 }
 
 function getVisibleRows() {
@@ -363,17 +575,58 @@ function getVisibleRows() {
     rows = rows.filter((row) => row.__search.includes(query));
   }
 
-  if (state.difficultyFilter !== "all") {
-    const targetDifficulty = difficultyFilterToDifficulty[state.difficultyFilter];
-    rows = rows.filter((row) => normalizeDifficulty(row.difficulty) === targetDifficulty);
+  const difficultyOptions = getDifficultyFilterOptions();
+  const selectedDifficultyValues = state.difficultyFilter ?? [];
+  if (selectedDifficultyValues.length === 0) {
+    rows = [];
+  } else if (!areAllFilterValuesSelected(selectedDifficultyValues, difficultyOptions)) {
+    const selectedDifficulties = new Set(
+      selectedDifficultyValues.map((value) => difficultyFilterToDifficulty[value] ?? value),
+    );
+    rows = rows.filter((row) => selectedDifficulties.has(normalizeDifficulty(row.difficulty)));
   }
 
-  if (state.origFilter !== "all") {
-    rows = rows.filter((row) => row.original_level === state.origFilter);
+  rows = rows.filter((row) => {
+    const rowMin = getNumericValue(row.bpm_min);
+    const rowMax = getNumericValue(row.bpm_max);
+    return rowMin !== null
+      && rowMax !== null
+      && rowMin >= state.bpmMinFilter
+      && rowMax <= state.bpmMaxFilter;
+  });
+
+  const levelOptions = getOrigFilterOptions();
+  const selectedLevelValues = state.origFilter ?? [];
+  if (selectedLevelValues.length === 0) {
+    rows = [];
+  } else if (!areAllFilterValuesSelected(selectedLevelValues, levelOptions)) {
+    const selectedLevels = new Set(selectedLevelValues);
+    rows = rows.filter((row) => {
+      const level = toLevelValue(row.original_level);
+      return level !== null && selectedLevels.has(String(level));
+    });
   }
 
-  if (state.predFilter !== "all") {
-    rows = rows.filter((row) => formatPredValue(row.calibrated_pred_skill) === state.predFilter);
+  rows = rows.filter((row) => {
+    const predicted = getNumericValue(row.calibrated_pred_skill);
+    return predicted !== null
+      && predicted >= state.predMinFilter
+      && predicted <= state.predMaxFilter;
+  });
+
+  const featureOptions = getFeatureOptions();
+  const selectedFeatureValues = state.featureFilter ?? [];
+  const allFeaturesSelected = selectedFeatureValues.length === featureOptions.length
+    && featureOptions.every((feature) => selectedFeatureValues.includes(feature));
+
+  if (selectedFeatureValues.length === 0) {
+    rows = [];
+  } else if (!allFeaturesSelected) {
+    const selectedFeatures = new Set(selectedFeatureValues);
+    rows = rows.filter((row) => {
+      const rowFeatures = getRowFeatures(row);
+      return rowFeatures.every((feature) => selectedFeatures.has(feature));
+    });
   }
 
   if (state.sortKey) {
@@ -432,6 +685,9 @@ function renderTable(rows) {
         if (column.className) {
           td.className = column.className;
         }
+      } else if (column.key === "bpm") {
+        td.textContent = formatBpm(row.bpm_min, row.bpm_max);
+        td.className = "mono";
       } else {
         td.textContent = row[column.key];
         if (column.className) {
@@ -449,32 +705,52 @@ function renderTable(rows) {
 }
 
 function render() {
-  renderTable(getVisibleRows());
+  const visibleRows = getVisibleRows();
+  updateRowCount(visibleRows.length, state.rows.length);
+  renderTable(visibleRows);
   updateSortMarks();
+}
+
+function updateRowCount(visibleCount, totalCount) {
+  if (!els.rowCount) {
+    return;
+  }
+
+  els.rowCount.textContent = `${visibleCount.toLocaleString()}件表示 / ${totalCount.toLocaleString()}件中`;
 }
 
 function loadCsvText(text) {
   try {
     state.rows = normalizeRows(text);
+    const predRange = getNumericExtremes(state.rows, "calibrated_pred_skill", 0, 999);
     state.query = "";
     state.sortKey = "calibrated_pred_skill";
     state.sortDir = "asc";
-    state.difficultyFilter = "all";
-    state.origFilter = "all";
-    state.predFilter = "all";
+    state.difficultyFilter = null;
+    state.bpmMinFilter = 0;
+    state.bpmMaxFilter = 999;
+    state.predDataMin = predRange.min;
+    state.predDataMax = predRange.max;
+    state.predMinFilter = predRange.min;
+    state.predMaxFilter = predRange.max;
+    state.origFilter = null;
+    state.featureFilter = null;
     state.lastTrackedSearchTerm = "";
     if (state.searchAnalyticsTimer !== null) {
       window.clearTimeout(state.searchAnalyticsTimer);
       state.searchAnalyticsTimer = null;
     }
     els.searchInput.value = "";
-    els.difficultyFilter.value = "all";
-    els.origFilter.value = "all";
-    els.predFilter.value = "all";
+    els.bpmMinFilter.value = "0";
+    els.bpmMaxFilter.value = "999";
+    setPredInputBounds();
+    els.predMinFilter.value = formatPredValue(predRange.min);
+    els.predMaxFilter.value = formatPredValue(predRange.max);
     populateFilterOptions();
     render();
   } catch (error) {
     state.rows = [];
+    updateRowCount(0, 0);
     renderTable([]);
     updateSortMarks();
     console.error(error);
@@ -503,6 +779,7 @@ async function loadBundledCsv() {
   }
 
   state.rows = [];
+  updateRowCount(0, 0);
   renderTable([]);
   updateSortMarks();
   console.error("Missing bundled CSV data in data.js");
@@ -519,12 +796,75 @@ function setSort(key) {
   render();
 }
 
+function updateBpmFilters() {
+  state.bpmMinFilter = parseFilterNumber(els.bpmMinFilter.value, 0);
+  state.bpmMaxFilter = parseFilterNumber(els.bpmMaxFilter.value, 999);
+  render();
+  trackAnalyticsEvent("filter_change", {
+    filter_name: "bpm",
+    bpm_min: state.bpmMinFilter,
+    bpm_max: state.bpmMaxFilter,
+  });
+}
+
+function updatePredFilters() {
+  const minValue = getNumericValue(els.predMinFilter.value);
+  const maxValue = getNumericValue(els.predMaxFilter.value);
+
+  if (minValue !== null && isPredValueInDataRange(minValue)) {
+    state.predMinFilter = minValue;
+  }
+  if (maxValue !== null && isPredValueInDataRange(maxValue)) {
+    state.predMaxFilter = maxValue;
+  }
+
+  render();
+}
+
+function commitPredFilters() {
+  state.predMinFilter = normalizePredFilterValue(els.predMinFilter.value, state.predMinFilter);
+  state.predMaxFilter = normalizePredFilterValue(els.predMaxFilter.value, state.predMaxFilter);
+  els.predMinFilter.value = formatPredValue(state.predMinFilter);
+  els.predMaxFilter.value = formatPredValue(state.predMaxFilter);
+  render();
+  trackAnalyticsEvent("filter_change", {
+    filter_name: "pred",
+    pred_min: state.predMinFilter,
+    pred_max: state.predMaxFilter,
+  });
+}
+
+function updateScrollTopButton() {
+  if (!els.scrollTopButton) {
+    return;
+  }
+
+  els.scrollTopButton.hidden = window.scrollY <= 0;
+}
+
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
 function init() {
   els.searchInput = document.getElementById("searchInput");
-  els.difficultyFilter = document.getElementById("difficultyFilter");
-  els.origFilter = document.getElementById("origFilter");
-  els.predFilter = document.getElementById("predFilter");
+  els.difficultyFilterSummary = document.getElementById("difficultyFilterSummary");
+  els.difficultyFilterOptions = document.getElementById("difficultyFilterOptions");
+  els.bpmMinFilter = document.getElementById("bpmMinFilter");
+  els.bpmMaxFilter = document.getElementById("bpmMaxFilter");
+  els.predMinFilter = document.getElementById("predMinFilter");
+  els.predMaxFilter = document.getElementById("predMaxFilter");
+  els.origFilterSummary = document.getElementById("origFilterSummary");
+  els.origFilterOptions = document.getElementById("origFilterOptions");
+  els.featureFilterSummary = document.getElementById("featureFilterSummary");
+  els.featureFilterOptions = document.getElementById("featureFilterOptions");
   els.tableBody = document.getElementById("tableBody");
+  els.rowCount = document.getElementById("rowCount");
+  els.scrollTopButton = document.getElementById("scrollTopButton");
+
+  window.addEventListener("scroll", updateScrollTopButton, { passive: true });
+  els.scrollTopButton.addEventListener("click", scrollToTop);
+  updateScrollTopButton();
 
   document.querySelectorAll("thead button[data-sort-key]").forEach((button) => {
     button.addEventListener("click", () => setSort(button.dataset.sortKey));
@@ -536,33 +876,12 @@ function init() {
     scheduleSearchAnalytics();
   });
 
-  els.difficultyFilter.addEventListener("change", () => {
-    state.difficultyFilter = els.difficultyFilter.value;
-    render();
-    trackAnalyticsEvent("filter_change", {
-      filter_name: "difficulty",
-      selected_value: state.difficultyFilter,
-    });
-  });
-
-  els.origFilter.addEventListener("change", () => {
-    state.origFilter = els.origFilter.value;
-    populateFilterOptions();
-    render();
-    trackAnalyticsEvent("filter_change", {
-      filter_name: "orig",
-      selected_value: state.origFilter,
-    });
-  });
-
-  els.predFilter.addEventListener("change", () => {
-    state.predFilter = els.predFilter.value;
-    render();
-    trackAnalyticsEvent("filter_change", {
-      filter_name: "pred",
-      selected_value: state.predFilter,
-    });
-  });
+  els.bpmMinFilter.addEventListener("input", updateBpmFilters);
+  els.bpmMaxFilter.addEventListener("input", updateBpmFilters);
+  els.predMinFilter.addEventListener("input", updatePredFilters);
+  els.predMaxFilter.addEventListener("input", updatePredFilters);
+  els.predMinFilter.addEventListener("blur", commitPredFilters);
+  els.predMaxFilter.addEventListener("blur", commitPredFilters);
 
   loadBundledCsv();
 }
