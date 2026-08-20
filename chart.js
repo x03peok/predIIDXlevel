@@ -236,12 +236,7 @@ function renderChartPredPosition(predPosition, row) {
   histogram.setAttribute("aria-label", "同じ☆" + row.original_level + "内のPred分布。現在のPredは" + formatChartPred(predPosition.targetPred) + "です。");
   renderChartHistogramAxis(predPosition);
 
-  const bar = document.getElementById("chartPredPercentileBar");
-  const marker = document.getElementById("chartPredPercentileMarker");
-  const markerPosition = Math.min(100, Math.max(0, predPosition.percentile));
-  marker.style.left = markerPosition + "%";
-  marker.title = formatChartPredPercentile(predPosition, row);
-  bar.setAttribute("aria-label", formatChartPredPercentile(predPosition, row));
+
   container.hidden = false;
 }
 
@@ -340,12 +335,12 @@ function renderSimilarChartRows(targetRow, rows) {
     const difficultyText = chartDifficultyLabels[difficulty] ?? difficulty;
     const originalText = "☆" + (row.original_level ?? "");
     const predictedText = formatChartPred(row.calibrated_pred_skill) ?? row.calibrated_pred_skill ?? "";
-    const titleText = (row.title ?? "") + (difficultyText ? " [" + difficultyText + "]" : "");
+    const titleText = row.title ?? "";
 
     return [
       "<tr>",
       '<td class="mono">' + escapeChartHtml(originalText) + "</td>",
-      '<td class="chart-title-cell"><a class="chart-link ' + difficultyClass + '" href="chart.html?id=' + encodeURIComponent(row.chart_id) + '">' + escapeChartHtml(titleText) + "</a></td>",
+      '<td class="chart-title-cell"><a class="chart-link ' + difficultyClass + '" href="chart.html?id=' + encodeURIComponent(row.chart_id) + '"><span class="chart-title-cell__name">' + escapeChartHtml(titleText) + '</span>' + (difficultyText ? ' <span class="chart-title-cell__difficulty">[' + escapeChartHtml(difficultyText) + ']</span>' : "") + "</a></td>",
       '<td class="mono">' + escapeChartHtml(predictedText) + "</td>",
       '<td class="mono">' + formatChartBpmCell(row.bpm_min, row.bpm_max) + "</td>",
       "<td>" + renderChartFeatureChips(row) + "</td>",
