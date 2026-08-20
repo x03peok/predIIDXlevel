@@ -112,8 +112,40 @@ function getChartRows(csvText) {
 }
 
 function formatChartPred(value) {
-  const numeric = Number(value);
+  const numeric = toFiniteChartNumber(value);
   return Number.isFinite(numeric) ? (Math.round(numeric * 10) / 10).toFixed(1) : value;
+}
+
+function toFiniteChartNumber(value) {
+  const text = String(value ?? "").trim();
+  if (!text) {
+    return null;
+  }
+  const numeric = Number(text);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function formatChartPredPercentile(row, rows) {
+  const targetPred = toFiniteChartNumber(row.calibrated_pred_skill);
+  if (targetPred === null) {
+    return "";
+  }
+
+  const levelPreds = rows
+    .filter((item) => item.original_level === row.original_level)
+    .map((item) => toFiniteChartNumber(item.calibrated_pred_skill))
+    .filter((value) => value !== null);
+
+  if (!levelPreds.length) {
+    return "";
+  }
+
+  const percentile = Math.round(
+    (levelPreds.filter((value) => value <= targetPred).length / levelPreds.length) * 1000,
+  ) / 10;
+  const position = percentile < 50 ? "下位" : "上位";
+  const percentage = percentile < 50 ? percentile : 100 - percentile;
+  return "（☆" + row.original_level + position + percentage.toFixed(1) + "%）";
 }
 
 function formatChartBpm(minValue, maxValue) {
@@ -145,7 +177,8 @@ function renderChart() {
   }
 
   try {
-    const row = getChartRows(csvText).find((item) => item.chart_id === chartId);
+    const rows = getChartRows(csvText);
+    const row = rows.find((item) => item.chart_id === chartId);
     if (!row) {
       showChartError("譜面が見つかりません。");
       return;
@@ -156,6 +189,7 @@ function renderChart() {
     document.getElementById("chartTitle").textContent = row.title + " " + difficultyLabel;
     document.getElementById("chartLevel").textContent = "☆" + row.original_level;
     document.getElementById("chartPred").textContent = formatChartPred(row.calibrated_pred_skill);
+    document.getElementById("chartPredPercentile").textContent = formatChartPredPercentile(row, rows);
     document.getElementById("chartBpm").textContent = formatChartBpm(row.bpm_min, row.bpm_max);
     document.title = row.title + " | 譜面詳細";
     document.getElementById("chartDetail").hidden = false;
