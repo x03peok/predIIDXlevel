@@ -294,7 +294,7 @@ function renderChart() {
     document.getElementById("chartLevel").textContent = "☆" + row.original_level;
     document.getElementById("chartPred").textContent = formatChartPred(row.calibrated_pred_skill);
     document.getElementById("chartPredPercentile").textContent = formatChartPredPercentile(row, rows);
-    document.getElementById("chartFeatures").textContent = row.features || "未分類";
+    document.getElementById("chartFeatures").textContent = row.features || "特徴なし";
     document.getElementById("chartBpm").textContent = formatChartBpm(row.bpm_min, row.bpm_max);
     document.getElementById("chartDetail").hidden = false;
     renderSimilarChartRows(row, rowsById);
