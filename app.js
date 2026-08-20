@@ -1,4 +1,5 @@
 const columns = [
+  { key: "chart_id", internal: true },
   { key: "title" },
   { key: "difficulty" },
   { key: "original_level", className: "mono", numeric: true },
@@ -851,7 +852,7 @@ function renderTable(rows) {
 
     return [
       "<tr>",
-      `<td>${escapeHtml(row.title)}</td>`,
+      `<td><a class="chart-link" href="chart.html?id=${encodeURIComponent(row.chart_id)}">${escapeHtml(row.title)}</a></td>`,
       `<td><span class="difficulty ${difficultyClass}">${escapeHtml(difficultyText)}</span></td>`,
       `<td class="mono">${escapeHtml(originalText)}</td>`,
       `<td class="mono">${escapeHtml(predictedText)}</td>`,

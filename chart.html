@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>譜面詳細 | SP☆8-☆12 非公式難易度予測表(&beta;)</title>
+  <meta name="description" content="譜面ごとの難易度予測詳細です。">
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-M0BX4638PS"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-M0BX4638PS');
+  </script>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="menu.css">
+  <script defer src="menu.js"></script>
+  <script defer src="data.js"></script>
+  <script defer src="chart.js"></script>
+</head>
+<body data-page="chart">
+  <main class="app">
+    <header class="masthead">
+      <div class="masthead__bar">
+        <div class="site-menu" id="menuRoot">
+          <button
+            id="menuButton"
+            class="menu-button"
+            type="button"
+            aria-label="メニューを開く"
+            aria-controls="siteMenu"
+            aria-expanded="false"
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <div id="siteMenu" class="menu-popover" hidden>
+            <button type="button" class="menu-item" data-page="main" data-href="index.html">Main</button>
+            <button type="button" class="menu-item" data-page="about" data-href="about.html">About</button>
+            <button type="button" class="menu-item" data-page="history" data-href="history.html">更新履歴</button>
+          </div>
+        </div>
+        <h1>譜面詳細</h1>
+      </div>
+    </header>
+
+    <section class="view">
+      <div class="panel chart-detail-panel">
+        <a class="chart-back-link" href="index.html">一覧へ戻る</a>
+        <div id="chartDetail" class="chart-detail" hidden>
+          <h2 id="chartTitle" class="chart-detail__title"></h2>
+          <div class="chart-detail__stats">
+            <div class="chart-detail__line">
+              <div class="chart-detail__metric"><span class="chart-detail__label">Level</span><span id="chartLevel" class="chart-detail__value"></span></div>
+              <div class="chart-detail__metric"><span class="chart-detail__label">BPM</span><span id="chartBpm" class="chart-detail__value"></span></div>
+            </div>
+            <div class="chart-detail__line">
+              <div class="chart-detail__metric"><span class="chart-detail__label">Pred</span><span id="chartPred" class="chart-detail__value"></span></div>
+            </div>
+          </div>
+        </div>
+        <p id="chartError" class="chart-detail__error" hidden></p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
