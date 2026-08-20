@@ -59,6 +59,23 @@
             <div class="chart-detail__line">
               <div class="chart-detail__metric"><span class="chart-detail__label">Pred</span><span id="chartPred" class="chart-detail__value"></span><span id="chartPredPercentile" class="chart-detail__note"></span></div>
             </div>
+            <div id="chartPredPosition" class="chart-pred-position" hidden>
+              <div class="chart-pred-position__title">同じLevel内のPred分布</div>
+              <div id="chartPredHistogram" class="chart-pred-histogram" role="img"></div>
+              <div class="chart-pred-position__axis" aria-hidden="true">
+                <span id="chartPredHistogramMin"></span>
+                <span id="chartPredHistogramMid"></span>
+                <span id="chartPredHistogramMax"></span>
+              </div>
+              <div id="chartPredPercentileBar" class="chart-pred-percentile-bar" role="img">
+                <span id="chartPredPercentileMarker" class="chart-pred-percentile-marker"></span>
+              </div>
+              <div class="chart-pred-position__axis" aria-hidden="true">
+                <span>0%</span>
+                <span>50%</span>
+                <span>100%</span>
+              </div>
+            </div>
             <div class="chart-detail__line">
               <div class="chart-detail__metric"><span class="chart-detail__label">Feature</span><span id="chartFeatures" class="chart-detail__value"></span></div>
             </div>
@@ -68,18 +85,16 @@
             <div id="similarChartsShell" class="table-shell">
               <table>
                 <colgroup>
-                  <col class="col-title">
-                  <col class="col-difficulty">
                   <col class="col-orig">
+                  <col class="col-title">
                   <col class="col-pred">
                   <col class="col-bpm">
                   <col class="col-features">
                 </colgroup>
                 <thead>
                   <tr>
-                    <th>Title</th>
-                    <th aria-label="Difficulty"></th>
                     <th>Level</th>
+                    <th>Title</th>
                     <th>Pred</th>
                     <th>BPM</th>
                     <th>Feature</th>

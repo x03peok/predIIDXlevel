@@ -213,6 +213,25 @@ function getRowFeatures(row) {
   return features.length > 0 ? features : [FEATURE_NONE];
 }
 
+function getRawRowFeatures(row) {
+  return String(row.features ?? "")
+    .split("、")
+    .map((feature) => feature.trim())
+    .filter(Boolean);
+}
+
+function renderFeatureChips(row) {
+  const features = getRawRowFeatures(row);
+  if (features.length === 0) {
+    return "";
+  }
+
+  return `<div class="feature-chips">${features.map((feature) => {
+    const plusCount = (feature.match(/\+/g) ?? []).length;
+    const colorLevel = Math.min(3, plusCount);
+    return `<span class="feature-chip feature-chip--plus-${colorLevel}">${escapeHtml(feature)}</span>`;
+  }).join("")}</div>`;
+}
 function compareValues(a, b, key) {
   if (key === "difficulty") {
     const left = difficultyOrder.indexOf(normalizeDifficulty(a[key]));
@@ -418,7 +437,10 @@ function scheduleSearchAnalytics() {
 }
 
 function getDifficultyFilterOptions() {
-  return difficultyFilterValues.map((value) => ({ value, label: value }));
+  return difficultyFilterValues.map((value) => ({
+    value,
+    label: `[${value}] ${difficultyFilterToDifficulty[value] ?? value}`,
+  }));
 }
 
 function getOrigFilterOptions() {
@@ -849,22 +871,21 @@ function renderTable(rows) {
     const originalText = `\u2606${row.original_level ?? ""}`;
     const predictedText = formatPredValue(row.calibrated_pred_skill) ?? row.calibrated_pred_skill ?? "";
     const bpmHtml = formatBpmCell(row.bpm_min, row.bpm_max);
+    const titleText = `${row.title ?? ""}${difficultyText ? ` [${difficultyText}]` : ""}`;
 
     return [
       "<tr>",
-      `<td><a class="chart-link" href="chart.html?id=${encodeURIComponent(row.chart_id)}">${escapeHtml(row.title)}</a></td>`,
-      `<td><span class="difficulty ${difficultyClass}">${escapeHtml(difficultyText)}</span></td>`,
       `<td class="mono">${escapeHtml(originalText)}</td>`,
+      `<td class="chart-title-cell"><a class="chart-link ${difficultyClass}" href="chart.html?id=${encodeURIComponent(row.chart_id)}">${escapeHtml(titleText)}</a></td>`,
       `<td class="mono">${escapeHtml(predictedText)}</td>`,
       `<td class="mono">${bpmHtml}</td>`,
-      `<td>${escapeHtml(row.features)}</td>`,
+      `<td>${renderFeatureChips(row)}</td>`,
       "</tr>",
     ].join("");
   }).join("");
 
   els.tableBody.innerHTML = html;
 }
-
 function cancelScheduledRender() {
   if (state.renderTimer !== null) {
     window.clearTimeout(state.renderTimer);

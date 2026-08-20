@@ -134,10 +134,10 @@ function toFiniteChartNumber(value) {
   return Number.isFinite(numeric) ? numeric : null;
 }
 
-function formatChartPredPercentile(row, rows) {
+function getChartPredPosition(row, rows) {
   const targetPred = toFiniteChartNumber(row.calibrated_pred_skill);
   if (targetPred === null) {
-    return "";
+    return null;
   }
 
   const levelPreds = rows
@@ -146,15 +146,79 @@ function formatChartPredPercentile(row, rows) {
     .filter((value) => value !== null);
 
   if (!levelPreds.length) {
-    return "";
+    return null;
+  }
+
+  const counts = new Map();
+  levelPreds.forEach((value) => {
+    const bin = Math.round(value * 10) / 10;
+    counts.set(bin, (counts.get(bin) ?? 0) + 1);
+  });
+
+  const minBin = Math.floor(Math.min(...levelPreds) * 10);
+  const maxBin = Math.ceil(Math.max(...levelPreds) * 10);
+  const histogram = [];
+  for (let bin = minBin; bin <= maxBin; bin += 1) {
+    const value = bin / 10;
+    histogram.push({ value, count: counts.get(value) ?? 0 });
   }
 
   const percentile = Math.round(
     (levelPreds.filter((value) => value <= targetPred).length / levelPreds.length) * 1000,
   ) / 10;
-  const position = percentile < 50 ? "下位" : "上位";
+  return {
+    targetPred,
+    targetBin: Math.round(targetPred * 10) / 10,
+    percentile,
+    min: minBin / 10,
+    max: maxBin / 10,
+    maxCount: Math.max(...histogram.map((item) => item.count)),
+    histogram,
+  };
+}
+
+function formatChartPredPercentile(predPosition, row) {
+  if (!predPosition) {
+    return "";
+  }
+
+  const percentile = predPosition.percentile;
+  const side = percentile < 50 ? "下位" : "上位";
   const percentage = percentile < 50 ? percentile : 100 - percentile;
-  return "（☆" + row.original_level + position + percentage.toFixed(1) + "%）";
+  return "（☆" + row.original_level + side + percentage.toFixed(1) + "%）";
+}
+
+function formatChartAxisValue(value) {
+  return Number.isFinite(value) ? value.toFixed(1) : "";
+}
+
+function renderChartPredPosition(predPosition, row) {
+  const container = document.getElementById("chartPredPosition");
+  if (!predPosition) {
+    container.hidden = true;
+    return;
+  }
+
+  const histogram = document.getElementById("chartPredHistogram");
+  const bars = predPosition.histogram.map((item) => {
+    const height = item.count === 0 ? 0 : Math.max(4, (item.count / predPosition.maxCount) * 100);
+    const currentClass = item.value === predPosition.targetBin ? " chart-pred-histogram__bar--current" : "";
+    return '<span class="chart-pred-histogram__bar' + currentClass + '" style="height:' + height.toFixed(2) + '%" title="Pred ' + item.value.toFixed(1) + ': ' + item.count + '譜面"></span>';
+  }).join("");
+
+  histogram.innerHTML = bars;
+  histogram.setAttribute("aria-label", "同じ☆" + row.original_level + "内のPred分布。現在のPredは" + formatChartPred(predPosition.targetPred) + "です。");
+  document.getElementById("chartPredHistogramMin").textContent = formatChartAxisValue(predPosition.min);
+  document.getElementById("chartPredHistogramMid").textContent = formatChartAxisValue((predPosition.min + predPosition.max) / 2);
+  document.getElementById("chartPredHistogramMax").textContent = formatChartAxisValue(predPosition.max);
+
+  const bar = document.getElementById("chartPredPercentileBar");
+  const marker = document.getElementById("chartPredPercentileMarker");
+  const markerPosition = Math.min(100, Math.max(0, predPosition.percentile));
+  marker.style.left = markerPosition + "%";
+  marker.title = formatChartPredPercentile(predPosition, row);
+  bar.setAttribute("aria-label", formatChartPredPercentile(predPosition, row));
+  container.hidden = false;
 }
 
 function formatChartBpm(minValue, maxValue) {
@@ -209,6 +273,21 @@ function formatChartBpmCell(minValue, maxValue) {
   ].join("");
 }
 
+function renderChartFeatureChips(row) {
+  const features = String(row.features ?? "")
+    .split("、")
+    .map((feature) => feature.trim())
+    .filter(Boolean);
+  if (features.length === 0) {
+    return "";
+  }
+
+  return '<div class="feature-chips">' + features.map((feature) => {
+    const plusCount = (feature.match(/\+/g) ?? []).length;
+    const colorLevel = Math.min(3, plusCount);
+    return '<span class="feature-chip feature-chip--plus-' + colorLevel + '">' + escapeChartHtml(feature) + "</span>";
+  }).join("") + "</div>";
+}
 function normalizeChartId(value) {
   const text = String(value ?? "").trim();
   return text.replace(/^0+(?=\d)/, "");
@@ -234,15 +313,15 @@ function renderSimilarChartRows(targetRow, rows) {
     const difficultyText = chartDifficultyLabels[difficulty] ?? difficulty;
     const originalText = "☆" + (row.original_level ?? "");
     const predictedText = formatChartPred(row.calibrated_pred_skill) ?? row.calibrated_pred_skill ?? "";
+    const titleText = (row.title ?? "") + (difficultyText ? " [" + difficultyText + "]" : "");
 
     return [
       "<tr>",
-      '<td><a class="chart-link" href="chart.html?id=' + encodeURIComponent(row.chart_id) + '">' + escapeChartHtml(row.title) + "</a></td>",
-      '<td><span class="difficulty ' + difficultyClass + '">' + escapeChartHtml(difficultyText) + "</span></td>",
       '<td class="mono">' + escapeChartHtml(originalText) + "</td>",
+      '<td class="chart-title-cell"><a class="chart-link ' + difficultyClass + '" href="chart.html?id=' + encodeURIComponent(row.chart_id) + '">' + escapeChartHtml(titleText) + "</a></td>",
       '<td class="mono">' + escapeChartHtml(predictedText) + "</td>",
       '<td class="mono">' + formatChartBpmCell(row.bpm_min, row.bpm_max) + "</td>",
-      "<td>" + escapeChartHtml(row.features) + "</td>",
+      "<td>" + renderChartFeatureChips(row) + "</td>",
       "</tr>",
     ].join("");
   }).join("");
@@ -293,7 +372,9 @@ function renderChart() {
     titleElement.appendChild(difficultyElement);
     document.getElementById("chartLevel").textContent = "☆" + row.original_level;
     document.getElementById("chartPred").textContent = formatChartPred(row.calibrated_pred_skill);
-    document.getElementById("chartPredPercentile").textContent = formatChartPredPercentile(row, rows);
+    const predPosition = getChartPredPosition(row, rows);
+    document.getElementById("chartPredPercentile").textContent = formatChartPredPercentile(predPosition, row);
+    renderChartPredPosition(predPosition, row);
     document.getElementById("chartFeatures").textContent = row.features || "特徴なし";
     document.getElementById("chartBpm").textContent = formatChartBpm(row.bpm_min, row.bpm_max);
     document.getElementById("chartDetail").hidden = false;
