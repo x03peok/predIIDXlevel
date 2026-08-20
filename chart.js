@@ -209,38 +209,18 @@ function formatChartBpmCell(minValue, maxValue) {
   ].join("");
 }
 
-function getSimilarChartRows(targetRow, rows, limit = 5) {
-  const targetPred = toFiniteChartNumber(targetRow.calibrated_pred_skill);
-  if (targetPred === null) {
-    return [];
-  }
+function normalizeChartId(value) {
+  const text = String(value ?? "").trim();
+  return text.replace(/^0+(?=\d)/, "");
+}
 
-  const exact = [];
-  const nearby = [];
-  rows.forEach((candidate, index) => {
-    if (candidate.chart_id === targetRow.chart_id) {
-      return;
-    }
-
-    const candidatePred = toFiniteChartNumber(candidate.calibrated_pred_skill);
-    if (candidatePred === null) {
-      return;
-    }
-
-    const distance = Math.abs(candidatePred - targetPred);
-    if (distance === 0) {
-      exact.push({ candidate, index });
-    } else if (distance <= 0.100000001) {
-      nearby.push({ candidate, index, distance });
-    }
-  });
-
-  if (exact.length >= limit) {
-    return exact.slice(0, limit).map(({ candidate }) => candidate);
-  }
-
-  nearby.sort((left, right) => left.distance - right.distance || left.index - right.index);
-  return exact.concat(nearby).slice(0, limit).map(({ candidate }) => candidate);
+function getSimilarChartRows(targetRow, rowsById) {
+  const similarMap = window.__SIMILAR_CHARTS__ ?? {};
+  const similarIds = similarMap[normalizeChartId(targetRow.chart_id)] ?? [];
+  return similarIds
+    .map((chartId) => rowsById.get(normalizeChartId(chartId)))
+    .filter(Boolean)
+    .slice(0, 10);
 }
 
 function renderSimilarChartRows(targetRow, rows) {
@@ -297,6 +277,7 @@ function renderChart() {
 
   try {
     const rows = getChartRows(csvText);
+    const rowsById = new Map(rows.map((item) => [normalizeChartId(item.chart_id), item]));
     const row = rows.find((item) => item.chart_id === chartId);
     if (!row) {
       showChartError("譜面が見つかりません。");
@@ -316,7 +297,7 @@ function renderChart() {
     document.getElementById("chartFeatures").textContent = row.features || "未分類";
     document.getElementById("chartBpm").textContent = formatChartBpm(row.bpm_min, row.bpm_max);
     document.getElementById("chartDetail").hidden = false;
-    renderSimilarChartRows(row, rows);
+    renderSimilarChartRows(row, rowsById);
     if (typeof window.addEventListener === "function") {
       window.addEventListener("resize", updateSimilarTableOverflowState, { passive: true });
     }
