@@ -1,3 +1,10 @@
+const chartDifficultyNames = {
+  NORMAL: "NORMAL",
+  HYPER: "HYPER",
+  ANOTHER: "ANOTHER",
+  LEGGENDARIA: "LEGGENDARIA",
+};
+
 const chartDifficultyLabels = {
   NORMAL: "N",
   HYPER: "H",
@@ -92,6 +99,7 @@ function getChartRows(csvText) {
     "calibrated_pred_skill",
     "bpm_min",
     "bpm_max",
+    "features",
   ];
 
   for (const header of requiredHeaders) {
@@ -108,6 +116,7 @@ function getChartRows(csvText) {
     calibrated_pred_skill: (cells[headerIndex.get("calibrated_pred_skill")] ?? "").trim(),
     bpm_min: (cells[headerIndex.get("bpm_min")] ?? "").trim(),
     bpm_max: (cells[headerIndex.get("bpm_max")] ?? "").trim(),
+    features: (cells[headerIndex.get("features")] ?? "").trim(),
   }));
 }
 
@@ -151,13 +160,123 @@ function formatChartPredPercentile(row, rows) {
 function formatChartBpm(minValue, maxValue) {
   const min = String(minValue ?? "").trim();
   const max = String(maxValue ?? "").trim();
-  const minNumber = Number(min);
-  const maxNumber = Number(max);
+  const minNumber = toFiniteChartNumber(min);
+  const maxNumber = toFiniteChartNumber(max);
 
-  if (Number.isFinite(minNumber) && Number.isFinite(maxNumber) && minNumber === maxNumber) {
+  if (minNumber === null && maxNumber === null) {
+    return "";
+  }
+  if (minNumber === null) {
+    return max;
+  }
+  if (maxNumber === null || minNumber === maxNumber) {
     return min;
   }
   return min + "~" + max;
+}
+
+function escapeChartHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => {
+    switch (character) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      case "'":
+        return "&#39;";
+      default:
+        return character;
+    }
+  });
+}
+
+function formatChartBpmCell(minValue, maxValue) {
+  const text = formatChartBpm(minValue, maxValue);
+  if (!text.includes("~")) {
+    return escapeChartHtml(text);
+  }
+
+  const [minText, maxText] = text.split("~", 2);
+  return [
+    '<span class="bpm-range">',
+    '<span class="bpm-range__min">' + escapeChartHtml(minText) + "~</span>",
+    '<span class="bpm-range__max">' + escapeChartHtml(maxText) + "</span>",
+    "</span>",
+  ].join("");
+}
+
+function getSimilarChartRows(targetRow, rows, limit = 5) {
+  const targetPred = toFiniteChartNumber(targetRow.calibrated_pred_skill);
+  if (targetPred === null) {
+    return [];
+  }
+
+  const exact = [];
+  const nearby = [];
+  rows.forEach((candidate, index) => {
+    if (candidate.chart_id === targetRow.chart_id) {
+      return;
+    }
+
+    const candidatePred = toFiniteChartNumber(candidate.calibrated_pred_skill);
+    if (candidatePred === null) {
+      return;
+    }
+
+    const distance = Math.abs(candidatePred - targetPred);
+    if (distance === 0) {
+      exact.push({ candidate, index });
+    } else if (distance <= 0.100000001) {
+      nearby.push({ candidate, index, distance });
+    }
+  });
+
+  if (exact.length >= limit) {
+    return exact.slice(0, limit).map(({ candidate }) => candidate);
+  }
+
+  nearby.sort((left, right) => left.distance - right.distance || left.index - right.index);
+  return exact.concat(nearby).slice(0, limit).map(({ candidate }) => candidate);
+}
+
+function renderSimilarChartRows(targetRow, rows) {
+  const section = document.getElementById("similarChartsSection");
+  const body = document.getElementById("similarChartsBody");
+  const similarRows = getSimilarChartRows(targetRow, rows);
+
+  body.innerHTML = similarRows.map((row) => {
+    const difficulty = String(row.difficulty ?? "").trim().toUpperCase();
+    const difficultyClass = chartDifficultyClasses[difficulty] ?? "";
+    const difficultyText = chartDifficultyLabels[difficulty] ?? difficulty;
+    const originalText = "☆" + (row.original_level ?? "");
+    const predictedText = formatChartPred(row.calibrated_pred_skill) ?? row.calibrated_pred_skill ?? "";
+
+    return [
+      "<tr>",
+      '<td><a class="chart-link" href="chart.html?id=' + encodeURIComponent(row.chart_id) + '">' + escapeChartHtml(row.title) + "</a></td>",
+      '<td><span class="difficulty ' + difficultyClass + '">' + escapeChartHtml(difficultyText) + "</span></td>",
+      '<td class="mono">' + escapeChartHtml(originalText) + "</td>",
+      '<td class="mono">' + escapeChartHtml(predictedText) + "</td>",
+      '<td class="mono">' + formatChartBpmCell(row.bpm_min, row.bpm_max) + "</td>",
+      "<td>" + escapeChartHtml(row.features) + "</td>",
+      "</tr>",
+    ].join("");
+  }).join("");
+
+  section.hidden = similarRows.length === 0;
+  updateSimilarTableOverflowState();
+}
+
+function updateSimilarTableOverflowState() {
+  const shell = document.getElementById("similarChartsShell");
+  if (!shell) {
+    return;
+  }
+  shell.classList.toggle("is-overflowing", shell.scrollWidth > shell.clientWidth + 1);
 }
 
 function showChartError(message) {
@@ -184,15 +303,24 @@ function renderChart() {
       return;
     }
 
-    const difficulty = row.difficulty;
-    const difficultyLabel = chartDifficultyLabels[difficulty] ?? difficulty;
-    document.getElementById("chartTitle").textContent = row.title + " " + difficultyLabel;
+    const difficulty = String(row.difficulty ?? "").trim().toUpperCase();
+    const titleElement = document.getElementById("chartTitle");
+    titleElement.textContent = row.title + " ";
+    const difficultyElement = document.createElement("span");
+    difficultyElement.className = "chart-detail__note chart-detail__title-note";
+    difficultyElement.textContent = chartDifficultyNames[difficulty] ?? difficulty;
+    titleElement.appendChild(difficultyElement);
     document.getElementById("chartLevel").textContent = "☆" + row.original_level;
     document.getElementById("chartPred").textContent = formatChartPred(row.calibrated_pred_skill);
     document.getElementById("chartPredPercentile").textContent = formatChartPredPercentile(row, rows);
+    document.getElementById("chartFeatures").textContent = row.features || "未分類";
     document.getElementById("chartBpm").textContent = formatChartBpm(row.bpm_min, row.bpm_max);
-    document.title = row.title + " | 譜面詳細";
     document.getElementById("chartDetail").hidden = false;
+    renderSimilarChartRows(row, rows);
+    if (typeof window.addEventListener === "function") {
+      window.addEventListener("resize", updateSimilarTableOverflowState, { passive: true });
+    }
+    document.title = row.title + " | 譜面詳細";
   } catch (error) {
     console.error(error);
     showChartError("譜面データを読み込めませんでした。");

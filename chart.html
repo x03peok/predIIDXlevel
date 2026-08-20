@@ -59,7 +59,36 @@
             <div class="chart-detail__line">
               <div class="chart-detail__metric"><span class="chart-detail__label">Pred</span><span id="chartPred" class="chart-detail__value"></span><span id="chartPredPercentile" class="chart-detail__note"></span></div>
             </div>
+            <div class="chart-detail__line">
+              <div class="chart-detail__metric"><span class="chart-detail__label">Feature</span><span id="chartFeatures" class="chart-detail__value"></span></div>
+            </div>
           </div>
+          <section id="similarChartsSection" class="chart-detail__similar" aria-labelledby="similarChartsTitle" hidden>
+            <h3 id="similarChartsTitle" class="chart-detail__section-title">Predの近い譜面</h3>
+            <div id="similarChartsShell" class="table-shell">
+              <table>
+                <colgroup>
+                  <col class="col-title">
+                  <col class="col-difficulty">
+                  <col class="col-orig">
+                  <col class="col-pred">
+                  <col class="col-bpm">
+                  <col class="col-features">
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th aria-label="Difficulty"></th>
+                    <th>Level</th>
+                    <th>Pred</th>
+                    <th>BPM</th>
+                    <th>Feature</th>
+                  </tr>
+                </thead>
+                <tbody id="similarChartsBody"></tbody>
+              </table>
+            </div>
+          </section>
         </div>
         <p id="chartError" class="chart-detail__error" hidden></p>
       </div>

@@ -845,6 +845,36 @@ body .title-lock {
   overflow-wrap: anywhere;
 }
 
+.chart-detail__title-note {
+  display: inline-block;
+  margin-left: 0.45em;
+  vertical-align: baseline;
+}
+
+.chart-detail__similar {
+  margin-top: 30px;
+}
+
+.chart-detail__section-title {
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.chart-detail__similar thead th {
+  padding: 11px 12px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.chart-detail__similar thead th:nth-child(2) {
+  text-align: center;
+}
+
 .chart-detail__error {
   margin: 0;
   color: var(--muted);
