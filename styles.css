@@ -846,6 +846,15 @@ body .title-lock {
   overflow-wrap: anywhere;
 }
 
+.chart-detail__pred-block {
+  width: min(100%, 560px);
+  padding: 14px 16px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  background: rgba(248, 250, 252, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+}
+
 .chart-detail__title-note {
   display: inline-block;
   margin-left: 0.45em;
@@ -889,9 +898,28 @@ body .title-lock {
 .chart-pred-position__axis {
   display: flex;
   justify-content: space-between;
+  position: relative;
   color: var(--muted);
   font-size: 0.68rem;
   line-height: 1.2;
+}
+
+.chart-pred-position__axis--histogram {
+  min-height: 1.2em;
+}
+
+.chart-pred-position__axis--histogram > span {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.chart-pred-position__axis--histogram > .chart-pred-position__axis-label--start {
+  transform: none;
+}
+
+.chart-pred-position__axis--histogram > .chart-pred-position__axis-label--end {
+  transform: translateX(-100%);
 }
 
 .chart-pred-percentile-bar {
@@ -1102,4 +1130,105 @@ body .title-lock {
   color: #4c1d95;
   background: rgba(124, 58, 237, 0.46);
   border-color: rgba(91, 33, 182, 0.52);
+}
+
+/* Tune chart detail emphasis and feature presentation. */
+.chart-detail__title {
+  font-size: clamp(1.5rem, 3.5vw, 2.3rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.chart-detail__difficulty {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.55em;
+  padding: 0.28em 0.6em;
+  border-radius: 999px;
+  font-size: 0.42em;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  vertical-align: 0.18em;
+}
+
+#chartLevel,
+#chartBpm {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+#chartPred {
+  color: var(--accent);
+  font-size: 1.45rem;
+  font-weight: 800;
+}
+
+.chart-detail__metric--feature {
+  width: 100%;
+  align-items: flex-start;
+}
+
+.chart-detail__feature-value {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.feature-chip--none {
+  color: #475569;
+  background: rgba(148, 163, 184, 0.14);
+  border-color: rgba(100, 116, 139, 0.18);
+}
+
+.search > span,
+.filter > span,
+.multi-filter > span {
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+  text-transform: none;
+  color: var(--muted);
+}
+
+.toolbar input,
+.toolbar select,
+.multi-filter__details > summary {
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.chart-title-cell {
+  font-weight: 400;
+}
+
+.chart-title-cell__name {
+  font-weight: 700;
+}
+
+.chart-title-cell__difficulty {
+  color: var(--muted);
+  font-size: 0.75em;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+@media (min-width: 721px) {
+  .feature-filter__name {
+    overflow-wrap: normal;
+    white-space: nowrap;
+  }
+
+  .feature-filter__mode {
+    flex: 0 0 auto;
+    min-width: max-content;
+    white-space: nowrap;
+  }
+
+  .feature-filter .multi-filter__options {
+    width: min(360px, calc(100vw - 48px));
+    max-width: min(360px, calc(100vw - 48px));
+  }
 }

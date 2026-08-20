@@ -871,12 +871,12 @@ function renderTable(rows) {
     const originalText = `\u2606${row.original_level ?? ""}`;
     const predictedText = formatPredValue(row.calibrated_pred_skill) ?? row.calibrated_pred_skill ?? "";
     const bpmHtml = formatBpmCell(row.bpm_min, row.bpm_max);
-    const titleText = `${row.title ?? ""}${difficultyText ? ` [${difficultyText}]` : ""}`;
+    const titleText = `${row.title ?? ""}`;
 
     return [
       "<tr>",
       `<td class="mono">${escapeHtml(originalText)}</td>`,
-      `<td class="chart-title-cell"><a class="chart-link ${difficultyClass}" href="chart.html?id=${encodeURIComponent(row.chart_id)}">${escapeHtml(titleText)}</a></td>`,
+      `<td class="chart-title-cell"><a class="chart-link ${difficultyClass}" href="chart.html?id=${encodeURIComponent(row.chart_id)}"><span class="chart-title-cell__name">${escapeHtml(titleText)}</span>${difficultyText ? ` <span class="chart-title-cell__difficulty">[${escapeHtml(difficultyText)}]</span>` : ""}</a></td>`,
       `<td class="mono">${escapeHtml(predictedText)}</td>`,
       `<td class="mono">${bpmHtml}</td>`,
       `<td>${renderFeatureChips(row)}</td>`,

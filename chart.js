@@ -192,6 +192,32 @@ function formatChartAxisValue(value) {
   return Number.isFinite(value) ? value.toFixed(1) : "";
 }
 
+function renderChartHistogramAxis(predPosition) {
+  const axis = document.getElementById("chartPredHistogramAxis");
+  const range = predPosition.max - predPosition.min;
+  if (!axis || !Number.isFinite(range) || range <= 0) {
+    if (axis) {
+      axis.textContent = "";
+    }
+    return;
+  }
+
+  const firstTick = Math.ceil(predPosition.min - 1e-9);
+  const lastTick = Math.floor(predPosition.max + 1e-9);
+  const labels = [];
+  for (let value = firstTick; value <= lastTick; value += 1) {
+    const position = ((value - predPosition.min) / range) * 100;
+    let edgeClass = "";
+    if (position <= 0) {
+      edgeClass = " chart-pred-position__axis-label--start";
+    } else if (position >= 100) {
+      edgeClass = " chart-pred-position__axis-label--end";
+    }
+    labels.push('<span class="chart-pred-position__axis-label' + edgeClass + '" style="left:' + position.toFixed(2) + '%">' + formatChartAxisValue(value) + "</span>");
+  }
+  axis.innerHTML = labels.join("");
+}
+
 function renderChartPredPosition(predPosition, row) {
   const container = document.getElementById("chartPredPosition");
   if (!predPosition) {
@@ -208,9 +234,7 @@ function renderChartPredPosition(predPosition, row) {
 
   histogram.innerHTML = bars;
   histogram.setAttribute("aria-label", "同じ☆" + row.original_level + "内のPred分布。現在のPredは" + formatChartPred(predPosition.targetPred) + "です。");
-  document.getElementById("chartPredHistogramMin").textContent = formatChartAxisValue(predPosition.min);
-  document.getElementById("chartPredHistogramMid").textContent = formatChartAxisValue((predPosition.min + predPosition.max) / 2);
-  document.getElementById("chartPredHistogramMax").textContent = formatChartAxisValue(predPosition.max);
+  renderChartHistogramAxis(predPosition);
 
   const bar = document.getElementById("chartPredPercentileBar");
   const marker = document.getElementById("chartPredPercentileMarker");
@@ -273,13 +297,16 @@ function formatChartBpmCell(minValue, maxValue) {
   ].join("");
 }
 
-function renderChartFeatureChips(row) {
+function renderChartFeatureChips(row, showEmpty = false) {
   const features = String(row.features ?? "")
     .split("、")
     .map((feature) => feature.trim())
     .filter(Boolean);
   if (features.length === 0) {
-    return "";
+    if (!showEmpty) {
+      return "";
+    }
+    return '<div class="feature-chips"><span class="feature-chip feature-chip--none">特徴なし</span></div>';
   }
 
   return '<div class="feature-chips">' + features.map((feature) => {
@@ -367,7 +394,7 @@ function renderChart() {
     const titleElement = document.getElementById("chartTitle");
     titleElement.textContent = row.title + " ";
     const difficultyElement = document.createElement("span");
-    difficultyElement.className = "chart-detail__note chart-detail__title-note";
+    difficultyElement.className = "chart-detail__difficulty " + (chartDifficultyClasses[difficulty] ?? "");
     difficultyElement.textContent = chartDifficultyNames[difficulty] ?? difficulty;
     titleElement.appendChild(difficultyElement);
     document.getElementById("chartLevel").textContent = "☆" + row.original_level;
@@ -375,7 +402,7 @@ function renderChart() {
     const predPosition = getChartPredPosition(row, rows);
     document.getElementById("chartPredPercentile").textContent = formatChartPredPercentile(predPosition, row);
     renderChartPredPosition(predPosition, row);
-    document.getElementById("chartFeatures").textContent = row.features || "特徴なし";
+    document.getElementById("chartFeatures").innerHTML = renderChartFeatureChips(row, true);
     document.getElementById("chartBpm").textContent = formatChartBpm(row.bpm_min, row.bpm_max);
     document.getElementById("chartDetail").hidden = false;
     renderSimilarChartRows(row, rowsById);
