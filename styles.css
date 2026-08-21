@@ -801,12 +801,47 @@ body .title-lock {
   max-width: 920px;
 }
 
+.chart-detail__topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
 .chart-back-link {
   display: inline-block;
-  margin-bottom: 18px;
   color: var(--muted);
   font-size: 0.85rem;
   text-decoration: none;
+}
+
+.chart-share-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  padding: 0.42rem 0.78rem;
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  border-radius: 999px;
+  background: #0f1419;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.chart-share-button:hover,
+.chart-share-button:focus-visible {
+  background: #263340;
+  text-decoration: none;
+}
+
+.chart-share-button[hidden] {
+  display: none;
 }
 
 .chart-back-link:hover,

@@ -499,6 +499,33 @@ function renderChart() {
     renderChartPredPosition(predPosition, row, numericScale);
     document.getElementById("chartFeatures").innerHTML = renderChartFeatureChips(row, true);
     document.getElementById("chartBpm").textContent = formatChartBpm(row.bpm_min, row.bpm_max);
+    const shareButton = document.getElementById("chartShareButton");
+    if (shareButton) {
+      const shareDifficultyLabel = chartDifficultyLabels[difficulty] ?? difficulty;
+      const sharePred = formatChartPred(row.calibrated_pred_skill);
+      const sharePercentile = formatChartPredPercentile(predPosition, row).replace("（", "(").replace("）", ")");
+      const shareFeatureValues = String(row.features ?? "")
+        .split("、")
+        .map((feature) => feature.trim())
+        .filter(Boolean)
+        .join("、");
+      const shareFeatures = !shareFeatureValues || shareFeatureValues === "特徴なし" ? "―" : shareFeatureValues;
+      const shareUrl = /^https?:$/.test(window.location.protocol)
+        ? window.location.href
+        : "https://x03peok.github.io/predIIDXlevel/chart.html?id=" + encodeURIComponent(chartId);
+      const shareText = [
+        "☆" + (row.original_level ?? "") + " " + row.title + (shareDifficultyLabel ? " [" + shareDifficultyLabel + "]" : ""),
+        "",
+        "Pred: " + sharePred + " " + sharePercentile,
+        "",
+        "Feature: " + shareFeatures,
+        "",
+        shareUrl,
+      ].join("\n");
+      const shareParams = new URLSearchParams({ text: shareText });
+      shareButton.href = "https://x.com/intent/tweet?" + shareParams.toString();
+      shareButton.hidden = false;
+    }
     document.getElementById("chartDetail").hidden = false;
     renderSimilarChartRows(row, rowsById);
     if (typeof window.addEventListener === "function") {

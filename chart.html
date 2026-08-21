@@ -13,11 +13,11 @@
     gtag('js', new Date());
     gtag('config', 'G-M0BX4638PS');
   </script>
-  <link rel="stylesheet" href="styles.css?v=20260821-16">
+  <link rel="stylesheet" href="styles.css?v=20260821-17">
   <link rel="stylesheet" href="menu.css">
   <script defer src="menu.js"></script>
   <script defer src="data.js?v=20260821-4"></script>
-  <script defer src="chart.js?v=20260821-6"></script>
+  <script defer src="chart.js?v=20260821-12"></script>
 </head>
 <body data-page="chart">
   <main class="app">
@@ -48,7 +48,10 @@
 
     <section class="view">
       <div class="panel chart-detail-panel">
-        <a class="chart-back-link" href="index.html">一覧へ戻る</a>
+        <div class="chart-detail__topbar">
+          <a class="chart-back-link" href="index.html">一覧へ戻る</a>
+          <a id="chartShareButton" class="chart-share-button" href="#" target="_blank" rel="noopener noreferrer" hidden>Xで共有</a>
+        </div>
         <div id="chartDetail" class="chart-detail" hidden>
           <div class="chart-detail__level-difficulty">
             <span id="chartLevel" class="chart-detail__value numeric-value numeric-value--level"></span>
