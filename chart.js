@@ -390,7 +390,7 @@ function renderChartFeatureChips(row, showEmpty = false) {
       return "";
     }
     const description = chartFeatureDescriptions["特徴なし"];
-    return '<div class="feature-chips"><span class="feature-chip feature-chip--none" title="' + escapeChartHtml(description) + '">特徴なし</span></div>';
+    return '<div class="feature-chips"><span class="feature-chip feature-chip--none" data-tooltip="' + escapeChartHtml(description) + '" tabindex="0" role="button" aria-label="特徴の説明">特徴なし</span></div>';
   }
 
   return '<div class="feature-chips">' + features.map((feature) => {
@@ -398,8 +398,8 @@ function renderChartFeatureChips(row, showEmpty = false) {
     const colorLevel = Math.min(3, plusCount);
     const baseFeature = feature.replace(/\++$/, "");
     const description = chartFeatureDescriptions[baseFeature] ?? "";
-    const title = description ? ' title="' + escapeChartHtml(description) + '"' : "";
-    return '<span class="feature-chip feature-chip--plus-' + colorLevel + '"' + title + '>' + escapeChartHtml(feature) + "</span>";
+    const tooltip = description ? ' data-tooltip="' + escapeChartHtml(description) + '" tabindex="0" role="button" aria-label="特徴の説明"' : "";
+    return '<span class="feature-chip feature-chip--plus-' + colorLevel + '"' + tooltip + '>' + escapeChartHtml(feature) + "</span>";
   }).join("") + "</div>";
 }
 function normalizeChartId(value) {

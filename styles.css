@@ -879,9 +879,11 @@ body .title-lock {
 }
 
 .chart-detail__label-group {
+  position: relative;
   display: inline-flex;
   align-items: baseline;
   gap: 0;
+  cursor: help;
 }
 
 .chart-detail__info-mark {
@@ -894,7 +896,8 @@ body .title-lock {
   cursor: help;
 }
 
-.chart-detail__info-mark::after {
+.chart-detail__label-group[data-tooltip]::after,
+.feature-chip[data-tooltip]::after {
   content: attr(data-tooltip);
   position: absolute;
   z-index: 30;
@@ -916,8 +919,10 @@ body .title-lock {
   pointer-events: none;
 }
 
-.chart-detail__info-mark:hover::after,
-.chart-detail__info-mark:focus::after {
+.chart-detail__label-group[data-tooltip]:hover::after,
+.chart-detail__label-group[data-tooltip]:focus::after,
+.feature-chip[data-tooltip]:hover::after,
+.feature-chip[data-tooltip]:focus::after {
   display: block;
 }
 
@@ -1170,7 +1175,8 @@ body .title-lock {
   overflow-wrap: anywhere;
 }
 
-.feature-chip[title] {
+.feature-chip[data-tooltip] {
+  position: relative;
   cursor: help;
 }
 .feature-chip--plus-0 {

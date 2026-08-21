@@ -13,11 +13,11 @@
     gtag('js', new Date());
     gtag('config', 'G-M0BX4638PS');
   </script>
-  <link rel="stylesheet" href="styles.css?v=20260821-14">
+  <link rel="stylesheet" href="styles.css?v=20260821-16">
   <link rel="stylesheet" href="menu.css">
   <script defer src="menu.js"></script>
   <script defer src="data.js?v=20260821-4"></script>
-  <script defer src="chart.js?v=20260821-5"></script>
+  <script defer src="chart.js?v=20260821-6"></script>
 </head>
 <body data-page="chart">
   <main class="app">
@@ -58,7 +58,7 @@
           <div class="chart-detail__stats">
             <div class="chart-detail__pred-block">
               <div class="chart-detail__line">
-                <div class="chart-detail__metric"><span class="chart-detail__label-group"><span class="chart-detail__label">Pred</span><span class="chart-detail__info-mark" data-tooltip="推定ノマゲ難易度です。譜面から独自手法で計算しています。" tabindex="0" role="button" aria-label="Predの説明">ⓘ</span></span><span id="chartPred" class="chart-detail__value numeric-value numeric-value--pred"></span><span id="chartPredPercentile" class="chart-detail__note"></span></div>
+                <div class="chart-detail__metric"><span class="chart-detail__label-group" data-tooltip="推定ノマゲ難易度です。譜面から独自手法で計算しています。" tabindex="0" role="button" aria-label="Predの説明"><span class="chart-detail__label">Pred</span><span class="chart-detail__info-mark" aria-hidden="true">ⓘ</span></span><span id="chartPred" class="chart-detail__value numeric-value numeric-value--pred"></span><span id="chartPredPercentile" class="chart-detail__note"></span></div>
               </div>
               <div id="chartPredPosition" class="chart-pred-position" hidden>
                 <div class="chart-pred-position__title">同じLevel内のPred分布</div>
@@ -71,7 +71,7 @@
               <div class="chart-detail__metric"><span class="chart-detail__label">BPM</span><span id="chartBpm" class="chart-detail__value"></span></div>
             </div>
             <div class="chart-detail__line">
-              <div class="chart-detail__metric chart-detail__metric--feature"><span class="chart-detail__label-group"><span class="chart-detail__label">Feature</span><span class="chart-detail__info-mark" data-tooltip="同程度のPredの譜面と比較して目立つ特徴です。強まるほど+が増えていきます。" tabindex="0" role="button" aria-label="Featureの説明">ⓘ</span></span><div id="chartFeatures" class="chart-detail__value chart-detail__feature-value"></div></div>
+              <div class="chart-detail__metric chart-detail__metric--feature"><span class="chart-detail__label-group" data-tooltip="同程度のPredの譜面と比較して目立つ特徴です。強まるほど+が増えていきます。" tabindex="0" role="button" aria-label="Featureの説明"><span class="chart-detail__label">Feature</span><span class="chart-detail__info-mark" aria-hidden="true">ⓘ</span></span><div id="chartFeatures" class="chart-detail__value chart-detail__feature-value"></div></div>
             </div>
           </div>
           <section id="similarChartsSection" class="chart-detail__similar" aria-labelledby="similarChartsTitle" hidden>
