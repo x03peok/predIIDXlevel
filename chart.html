@@ -50,12 +50,12 @@
       <div class="panel chart-detail-panel">
         <a class="chart-back-link" href="index.html">一覧へ戻る</a>
         <div id="chartDetail" class="chart-detail" hidden>
+          <div class="chart-detail__level-difficulty">
+            <span id="chartLevel" class="chart-detail__value numeric-value numeric-value--level"></span>
+            <span id="chartDifficulty" class="chart-detail__difficulty"></span>
+          </div>
           <h2 id="chartTitle" class="chart-detail__title"></h2>
           <div class="chart-detail__stats">
-            <div class="chart-detail__line">
-              <div class="chart-detail__metric"><span class="chart-detail__label">Level</span><span id="chartLevel" class="chart-detail__value numeric-value numeric-value--level"></span></div>
-              <div class="chart-detail__metric"><span class="chart-detail__label">BPM</span><span id="chartBpm" class="chart-detail__value"></span></div>
-            </div>
             <div class="chart-detail__pred-block">
               <div class="chart-detail__line">
                 <div class="chart-detail__metric"><span class="chart-detail__label">Pred</span><span id="chartPred" class="chart-detail__value numeric-value numeric-value--pred"></span><span id="chartPredPercentile" class="chart-detail__note"></span></div>
@@ -66,6 +66,9 @@
                 <div id="chartPredHistogramAxis" class="chart-pred-position__axis chart-pred-position__axis--histogram" aria-hidden="true"></div>
 
               </div>
+            </div>
+            <div class="chart-detail__line">
+              <div class="chart-detail__metric"><span class="chart-detail__label">BPM</span><span id="chartBpm" class="chart-detail__value"></span></div>
             </div>
             <div class="chart-detail__line">
               <div class="chart-detail__metric chart-detail__metric--feature"><span class="chart-detail__label">Feature</span><div id="chartFeatures" class="chart-detail__value chart-detail__feature-value"></div></div>

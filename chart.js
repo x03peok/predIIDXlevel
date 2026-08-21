@@ -433,11 +433,11 @@ function renderChart() {
 
     const difficulty = String(row.difficulty ?? "").trim().toUpperCase();
     const titleElement = document.getElementById("chartTitle");
-    titleElement.textContent = row.title + " ";
-    const difficultyElement = document.createElement("span");
+    titleElement.textContent = row.title;
+    const difficultyElement = document.getElementById("chartDifficulty");
     difficultyElement.className = "chart-detail__difficulty " + (chartDifficultyClasses[difficulty] ?? "");
     difficultyElement.textContent = chartDifficultyNames[difficulty] ?? difficulty;
-    titleElement.appendChild(difficultyElement);
+
     const numericScale = getChartNumericScale(rows);
     const chartLevelElement = document.getElementById("chartLevel");
     const chartPredElement = document.getElementById("chartPred");

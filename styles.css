@@ -822,6 +822,14 @@ body .title-lock {
   overflow-wrap: anywhere;
 }
 
+.chart-detail__level-difficulty {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
 .chart-detail__stats {
   display: flex;
   flex-direction: column;
@@ -1153,6 +1161,12 @@ body .title-lock {
   letter-spacing: 0.04em;
   line-height: 1.2;
   vertical-align: 0.18em;
+}
+
+.chart-detail__level-difficulty .chart-detail__difficulty {
+  margin-left: 0;
+  font-size: 0.72rem;
+  vertical-align: baseline;
 }
 
 #chartLevel,
