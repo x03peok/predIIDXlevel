@@ -407,6 +407,29 @@ function normalizeChartId(value) {
   return text.replace(/^0+(?=\d)/, "");
 }
 
+function getTextageTwoPlayerUrl(url) {
+  const text = String(url ?? "");
+  if (text.length < 5 || text.slice(-5, -4) !== "1") {
+    return "";
+  }
+  return text.slice(0, -5) + "2" + text.slice(-4);
+}
+
+function setTextageLink(element, url) {
+  if (!element) {
+    return;
+  }
+  if (url) {
+    element.href = url;
+    element.removeAttribute("aria-disabled");
+    element.removeAttribute("tabindex");
+    return;
+  }
+  element.removeAttribute("href");
+  element.setAttribute("aria-disabled", "true");
+  element.tabIndex = -1;
+}
+
 function getSimilarChartRows(targetRow, rowsById) {
   const similarMap = window.__SIMILAR_CHARTS__ ?? {};
   const similarIds = similarMap[normalizeChartId(targetRow.chart_id)] ?? [];
@@ -499,6 +522,9 @@ function renderChart() {
     renderChartPredPosition(predPosition, row, numericScale);
     document.getElementById("chartFeatures").innerHTML = renderChartFeatureChips(row, true);
     document.getElementById("chartBpm").textContent = formatChartBpm(row.bpm_min, row.bpm_max);
+    const textageOnePlayerUrl = window.__TEXTAGE_URLS__?.[normalizeChartId(row.chart_id)] ?? "";
+    setTextageLink(document.getElementById("textage1pLink"), textageOnePlayerUrl);
+    setTextageLink(document.getElementById("textage2pLink"), getTextageTwoPlayerUrl(textageOnePlayerUrl));
     const shareButton = document.getElementById("chartShareButton");
     if (shareButton) {
       const shareDifficultyLabel = chartDifficultyLabels[difficulty] ?? difficulty;

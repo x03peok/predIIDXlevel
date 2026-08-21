@@ -1044,6 +1044,53 @@ body .title-lock {
   margin-top: 30px;
 }
 
+.chart-detail__textage {
+  margin-top: 24px;
+}
+
+.chart-detail__textage-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.textage-button {
+  min-width: 3.2rem;
+  padding: 0.45rem 0.78rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: #6b7280;
+  color: #fff;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  text-decoration: none;
+}
+
+.textage-button[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.textage-button:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
+.textage-button:not([aria-disabled="true"]):hover,
+.textage-button:not([aria-disabled="true"]):focus-visible {
+  background: #4b5563;
+  text-decoration: none;
+  color: #fff;
+}
+
+.textage-note {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .chart-detail__section-title {
   margin: 0 0 12px;
   color: var(--ink);
