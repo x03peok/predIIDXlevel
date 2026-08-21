@@ -430,7 +430,7 @@ tbody td {
 .table-hint {
   margin: 8px 0 4px 2px;
   color: var(--ink);
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
@@ -885,12 +885,40 @@ body .title-lock {
 }
 
 .chart-detail__info-mark {
+  position: relative;
+  display: inline-block;
   color: var(--muted);
   font-size: 0.55rem;
   line-height: 1;
-  position: relative;
   top: -0.45em;
   cursor: help;
+}
+
+.chart-detail__info-mark::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  left: 0;
+  display: none;
+  width: max-content;
+  max-width: min(320px, calc(100vw - 48px));
+  padding: 8px 10px;
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  border-radius: 8px;
+  background: #0f172a;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.45;
+  text-align: left;
+  white-space: normal;
+  pointer-events: none;
+}
+
+.chart-detail__info-mark:hover::after,
+.chart-detail__info-mark:focus::after {
+  display: block;
 }
 
 .chart-detail__pred-block {
