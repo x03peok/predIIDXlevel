@@ -294,6 +294,31 @@ function formatPredValue(value) {
   return (Math.round(numeric * 10) / 10).toFixed(1);
 }
 
+function getNumericScaleColor(value, scaleMin, scaleMax) {
+  const numeric = Number(value);
+  const min = Number(scaleMin);
+  const max = Number(scaleMax);
+  if (!Number.isFinite(numeric) || !Number.isFinite(min) || !Number.isFinite(max)) {
+    return "";
+  }
+
+  const position = max > min
+    ? Math.min(1, Math.max(0, (numeric - min) / (max - min)))
+    : 0.5;
+  const blue = [37, 99, 235];
+  const red = [220, 38, 38];
+  const purple = [124, 58, 237];
+  const start = position <= 0.5 ? blue : red;
+  const end = position <= 0.5 ? red : purple;
+  const localPosition = position <= 0.5 ? position * 2 : (position - 0.5) * 2;
+  const color = start.map((channel, index) => Math.round(channel + (end[index] - channel) * localPosition));
+  return "rgb(" + color.join(", ") + ")";
+}
+
+function getNumericColorStyle(value, scaleMin, scaleMax) {
+  const color = getNumericScaleColor(value, scaleMin, scaleMax);
+  return color ? ' style="--numeric-color:' + color + '"' : "";
+}
 function getNumericValue(value) {
   const text = String(value ?? "").trim();
   if (!text) {
@@ -314,6 +339,28 @@ function parseFilterNumber(value, fallback) {
   return numeric === null ? fallback : numeric;
 }
 
+function updateAdvancedFilterSummary() {
+  const summary = els.advancedFilterSummary;
+  if (!summary) {
+    return;
+  }
+
+  const activeValues = [];
+  if (state.bpmMinFilter !== 0 || state.bpmMaxFilter !== 999) {
+    activeValues.push("BPM:" + state.bpmMinFilter + "~" + state.bpmMaxFilter);
+  }
+  const predMin = formatPredValue(state.predMinFilter);
+  const predMax = formatPredValue(state.predMaxFilter);
+  const defaultPredMin = formatPredValue(state.predDataMin);
+  const defaultPredMax = formatPredValue(state.predDataMax);
+  if (predMin !== defaultPredMin || predMax !== defaultPredMax) {
+    activeValues.push("Pred:" + predMin + "~" + predMax);
+  }
+
+  summary.textContent = activeValues.join(" / ");
+  summary.title = activeValues.join(" / ");
+  summary.hidden = activeValues.length === 0;
+}
 function getNumericExtremes(rows, key, fallbackMin, fallbackMax) {
   let min = null;
   let max = null;
@@ -872,12 +919,14 @@ function renderTable(rows) {
     const predictedText = formatPredValue(row.calibrated_pred_skill) ?? row.calibrated_pred_skill ?? "";
     const bpmHtml = formatBpmCell(row.bpm_min, row.bpm_max);
     const titleText = `${row.title ?? ""}`;
+    const levelColorStyle = getNumericColorStyle(row.original_level, state.predDataMin, state.predDataMax);
+    const predictedColorStyle = getNumericColorStyle(row.calibrated_pred_skill, state.predDataMin, state.predDataMax);
 
     return [
       "<tr>",
-      `<td class="mono">${escapeHtml(originalText)}</td>`,
+      `<td class="mono numeric-value numeric-value--level"${levelColorStyle}>${escapeHtml(originalText)}</td>`,
       `<td class="chart-title-cell"><a class="chart-link ${difficultyClass}" href="chart.html?id=${encodeURIComponent(row.chart_id)}"><span class="chart-title-cell__name">${escapeHtml(titleText)}</span>${difficultyText ? ` <span class="chart-title-cell__difficulty">[${escapeHtml(difficultyText)}]</span>` : ""}</a></td>`,
-      `<td class="mono">${escapeHtml(predictedText)}</td>`,
+      `<td class="mono numeric-value numeric-value--pred"${predictedColorStyle}>${escapeHtml(predictedText)}</td>`,
       `<td class="mono">${bpmHtml}</td>`,
       `<td>${renderFeatureChips(row)}</td>`,
       "</tr>",
@@ -902,6 +951,7 @@ function scheduleRender(delay = 60) {
 }
 
 function render() {
+  updateAdvancedFilterSummary();
   const visibleRows = getVisibleRows();
   updateRowCount(visibleRows.length, state.rows.length);
   renderTable(visibleRows);
@@ -1100,6 +1150,7 @@ function init() {
   els.bpmMaxFilter = document.getElementById("bpmMaxFilter");
   els.predMinFilter = document.getElementById("predMinFilter");
   els.predMaxFilter = document.getElementById("predMaxFilter");
+  els.advancedFilterSummary = document.getElementById("advancedFilterSummary");
   els.origFilterSummary = document.getElementById("origFilterSummary");
   els.origFilterOptions = document.getElementById("origFilterOptions");
   els.featureFilterSummary = document.getElementById("featureFilterSummary");

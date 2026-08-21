@@ -125,6 +125,38 @@ function formatChartPred(value) {
   return Number.isFinite(numeric) ? (Math.round(numeric * 10) / 10).toFixed(1) : value;
 }
 
+function getChartNumericScale(rows) {
+  const values = [...rows]
+    .map((row) => toFiniteChartNumber(row.calibrated_pred_skill))
+    .filter((value) => value !== null);
+  return values.length
+    ? { min: Math.min(...values), max: Math.max(...values) }
+    : null;
+}
+
+function getChartNumericScaleColor(value, scale) {
+  const numeric = toFiniteChartNumber(value);
+  if (numeric === null || !scale) {
+    return "";
+  }
+
+  const position = scale.max > scale.min
+    ? Math.min(1, Math.max(0, (numeric - scale.min) / (scale.max - scale.min)))
+    : 0.5;
+  const blue = [37, 99, 235];
+  const red = [220, 38, 38];
+  const purple = [124, 58, 237];
+  const start = position <= 0.5 ? blue : red;
+  const end = position <= 0.5 ? red : purple;
+  const localPosition = position <= 0.5 ? position * 2 : (position - 0.5) * 2;
+  const color = start.map((channel, index) => Math.round(channel + (end[index] - channel) * localPosition));
+  return "rgb(" + color.join(", ") + ")";
+}
+
+function getChartNumericColorStyle(value, scale) {
+  const color = getChartNumericScaleColor(value, scale);
+  return color ? ' style="--numeric-color:' + color + '"' : "";
+}
 function toFiniteChartNumber(value) {
   const text = String(value ?? "").trim();
   if (!text) {
@@ -328,6 +360,7 @@ function renderSimilarChartRows(targetRow, rows) {
   const section = document.getElementById("similarChartsSection");
   const body = document.getElementById("similarChartsBody");
   const similarRows = getSimilarChartRows(targetRow, rows);
+  const numericScale = getChartNumericScale(rows.values());
 
   body.innerHTML = similarRows.map((row) => {
     const difficulty = String(row.difficulty ?? "").trim().toUpperCase();
@@ -336,12 +369,14 @@ function renderSimilarChartRows(targetRow, rows) {
     const originalText = "☆" + (row.original_level ?? "");
     const predictedText = formatChartPred(row.calibrated_pred_skill) ?? row.calibrated_pred_skill ?? "";
     const titleText = row.title ?? "";
+    const levelColorStyle = getChartNumericColorStyle(row.original_level, numericScale);
+    const predictedColorStyle = getChartNumericColorStyle(row.calibrated_pred_skill, numericScale);
 
     return [
       "<tr>",
-      '<td class="mono">' + escapeChartHtml(originalText) + "</td>",
+      '<td class="mono numeric-value numeric-value--level"' + levelColorStyle + '>' + escapeChartHtml(originalText) + "</td>",
       '<td class="chart-title-cell"><a class="chart-link ' + difficultyClass + '" href="chart.html?id=' + encodeURIComponent(row.chart_id) + '"><span class="chart-title-cell__name">' + escapeChartHtml(titleText) + '</span>' + (difficultyText ? ' <span class="chart-title-cell__difficulty">[' + escapeChartHtml(difficultyText) + ']</span>' : "") + "</a></td>",
-      '<td class="mono">' + escapeChartHtml(predictedText) + "</td>",
+      '<td class="mono numeric-value numeric-value--pred"' + predictedColorStyle + '>' + escapeChartHtml(predictedText) + "</td>",
       '<td class="mono">' + formatChartBpmCell(row.bpm_min, row.bpm_max) + "</td>",
       "<td>" + renderChartFeatureChips(row) + "</td>",
       "</tr>",
