@@ -407,6 +407,21 @@ function normalizeChartId(value) {
   return text.replace(/^0+(?=\d)/, "");
 }
 
+function getChartPageHref(chartId) {
+  const encodedId = encodeURIComponent(normalizeChartId(chartId));
+  return document.body?.dataset.staticChartPage === "true"
+    ? encodedId + ".html"
+    : "chart-pages/" + encodedId + ".html";
+}
+
+function getPublicChartUrl(chartId) {
+  const encodedId = encodeURIComponent(normalizeChartId(chartId));
+  if (/^https?:$/.test(window.location.protocol)) {
+    return new URL(getChartPageHref(chartId), window.location.href).href;
+  }
+  return "https://x03peok.github.io/predIIDXlevel/chart-pages/" + encodedId + ".html";
+}
+
 function getTextageTwoPlayerUrl(url) {
   const text = String(url ?? "");
   if (text.length < 5 || text.slice(-5, -4) !== "1") {
@@ -458,7 +473,7 @@ function renderSimilarChartRows(targetRow, rows) {
     return [
       "<tr>",
       '<td class="mono numeric-value numeric-value--level"' + levelColorStyle + '>' + escapeChartHtml(originalText) + "</td>",
-      '<td class="chart-title-cell"><a class="chart-link ' + difficultyClass + '" href="chart.html?id=' + encodeURIComponent(row.chart_id) + '"><span class="chart-title-cell__name">' + escapeChartHtml(titleText) + '</span>' + (difficultyText ? ' <span class="chart-title-cell__difficulty">[' + escapeChartHtml(difficultyText) + ']</span>' : "") + "</a></td>",
+      '<td class="chart-title-cell"><a class="chart-link ' + difficultyClass + '" href="' + getChartPageHref(row.chart_id) + '"><span class="chart-title-cell__name">' + escapeChartHtml(titleText) + '</span>' + (difficultyText ? ' <span class="chart-title-cell__difficulty">[' + escapeChartHtml(difficultyText) + ']</span>' : "") + "</a></td>",
       '<td class="mono numeric-value numeric-value--pred"' + predictedColorStyle + '>' + escapeChartHtml(predictedText) + "</td>",
       '<td class="mono">' + formatChartBpmCell(row.bpm_min, row.bpm_max) + "</td>",
       "<td>" + renderChartFeatureChips(row) + "</td>",
@@ -487,7 +502,7 @@ function showChartError(message) {
 
 function renderChart() {
   const csvText = window.__CSV_BUNDLE__;
-  const chartId = new URLSearchParams(window.location.search).get("id");
+  const chartId = new URLSearchParams(window.location.search).get("id") || document.body?.dataset.chartId || "";
 
   if (typeof csvText !== "string" || !chartId) {
     showChartError("譜面が見つかりません。");
@@ -536,9 +551,7 @@ function renderChart() {
         .filter(Boolean)
         .join("、");
       const shareFeatures = !shareFeatureValues || shareFeatureValues === "特徴なし" ? "―" : shareFeatureValues;
-      const shareUrl = /^https?:$/.test(window.location.protocol)
-        ? window.location.href
-        : "https://x03peok.github.io/predIIDXlevel/chart.html?id=" + encodeURIComponent(chartId);
+      const shareUrl = getPublicChartUrl(chartId);
       const shareText = [
         "☆" + (row.original_level ?? "") + " " + row.title + (shareDifficultyLabel ? " [" + shareDifficultyLabel + "]" : ""),
         "",

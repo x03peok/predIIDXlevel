@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>☆12 Ōu Legends [A] | SP☆8-☆12 非公式難易度予測表(β)</title>
+  <meta name="description" content="☆12 Ōu Legends [A]。Pred 12.2 / BPM 191 / Feature チャージノート">
+  <link rel="canonical" href="https://x03peok.github.io/predIIDXlevel/chart-pages/5002.html">
+  <meta name="robots" content="index,follow">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="SP☆8-☆12 非公式難易度予測表(β)">
+  <meta property="og:title" content="☆12 Ōu Legends [A]">
+  <meta property="og:description" content="☆12 Ōu Legends [A]。Pred 12.2 / BPM 191 / Feature チャージノート">
+  <meta property="og:url" content="https://x03peok.github.io/predIIDXlevel/chart-pages/5002.html">
+  <meta property="og:locale" content="ja_JP">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="☆12 Ōu Legends [A]">
+  <meta name="twitter:description" content="☆12 Ōu Legends [A]。Pred 12.2 / BPM 191 / Feature チャージノート">
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-M0BX4638PS"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-M0BX4638PS');
+  </script>
+  <link rel="stylesheet" href="../styles.css?v=20260821-21">
+  <link rel="stylesheet" href="../menu.css">
+  <script defer src="../menu.js"></script>
+  <script defer src="../data.js?v=20260821-5"></script>
+
+  <script defer src="../chart.js?v=20260821-14"></script>
+</head>
+<body data-page="chart" data-static-chart-page="true" data-chart-id="5002">
+  <main class="app">
+    <header class="masthead">
+      <div class="masthead__bar">
+        <div class="site-menu" id="menuRoot">
+          <button
+            id="menuButton"
+            class="menu-button"
+            type="button"
+            aria-label="メニューを開く"
+            aria-controls="siteMenu"
+            aria-expanded="false"
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <div id="siteMenu" class="menu-popover" hidden>
+            <button type="button" class="menu-item" data-page="main" data-href="../index.html">Main</button>
+            <button type="button" class="menu-item" data-page="about" data-href="../about.html">About</button>
+            <button type="button" class="menu-item" data-page="history" data-href="../history.html">更新履歴</button>
+          </div>
+        </div>
+        <h1>譜面詳細</h1>
+      </div>
+    </header>
+
+    <section class="view">
+      <div class="panel chart-detail-panel">
+        <div class="chart-detail__topbar">
+          <a class="chart-back-link" href="../index.html">一覧へ戻る</a>
+          <a id="chartShareButton" class="chart-share-button" href="#" target="_blank" rel="noopener noreferrer" hidden>Xで共有</a>
+        </div>
+        <div id="chartDetail" class="chart-detail" hidden>
+          <div class="chart-detail__level-difficulty">
+            <span id="chartLevel" class="chart-detail__value numeric-value numeric-value--level"></span>
+            <span id="chartDifficulty" class="chart-detail__difficulty"></span>
+          </div>
+          <h2 id="chartTitle" class="chart-detail__title"></h2>
+          <div class="chart-detail__stats">
+            <div class="chart-detail__pred-block">
+              <div class="chart-detail__line">
+                <div class="chart-detail__metric"><span class="chart-detail__label-group" data-tooltip="推定ノマゲ難易度です。譜面から独自手法で計算しています。" tabindex="0" role="button" aria-label="Predの説明"><span class="chart-detail__label">Pred</span><span class="chart-detail__info-mark" aria-hidden="true">ⓘ</span></span><span id="chartPred" class="chart-detail__value numeric-value numeric-value--pred"></span><span id="chartPredPercentile" class="chart-detail__note"></span></div>
+              </div>
+              <div id="chartPredPosition" class="chart-pred-position" hidden>
+                <div class="chart-pred-position__title">同じLevel内のPred分布</div>
+                <div id="chartPredHistogram" class="chart-pred-histogram" role="img"></div>
+                <div id="chartPredHistogramAxis" class="chart-pred-position__axis chart-pred-position__axis--histogram" aria-hidden="true"></div>
+
+              </div>
+            </div>
+            <div class="chart-detail__line">
+              <div class="chart-detail__metric"><span class="chart-detail__label">BPM</span><span id="chartBpm" class="chart-detail__value"></span></div>
+            </div>
+            <div class="chart-detail__line">
+              <div class="chart-detail__metric chart-detail__metric--feature"><span class="chart-detail__label-group" data-tooltip="同程度のPredの譜面と比較して目立つ特徴です。強まるほど+が増えていきます。" tabindex="0" role="button" aria-label="Featureの説明"><span class="chart-detail__label">Feature</span><span class="chart-detail__info-mark" aria-hidden="true">ⓘ</span></span><div id="chartFeatures" class="chart-detail__value chart-detail__feature-value"></div></div>
+            </div>
+          </div>
+          <section id="similarChartsSection" class="chart-detail__similar" aria-labelledby="similarChartsTitle" hidden>
+            <h3 id="similarChartsTitle" class="chart-detail__section-title">難易度・傾向の近い譜面</h3>
+            <div id="similarChartsShell" class="table-shell">
+              <table>
+                <colgroup>
+                  <col class="col-orig">
+                  <col class="col-title">
+                  <col class="col-pred">
+                  <col class="col-bpm">
+                  <col class="col-features">
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>Level</th>
+                    <th>Title</th>
+                    <th>Pred</th>
+                    <th>BPM</th>
+                    <th>Feature</th>
+                  </tr>
+                </thead>
+                <tbody id="similarChartsBody"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="chart-detail__textage" aria-labelledby="textageTitle">
+            <h3 id="textageTitle" class="chart-detail__section-title">譜面サイトTextage</h3>
+            <div class="chart-detail__textage-links">
+              <a id="textage1pLink" class="textage-button" data-textage-side="1p" aria-disabled="true" target="_blank" rel="noopener noreferrer">1P</a>
+              <a id="textage2pLink" class="textage-button" data-textage-side="2p" aria-disabled="true" target="_blank" rel="noopener noreferrer">2P</a>
+              <span class="textage-note">(外部サイトへ移動します)</span>
+            </div>
+          </section>
+        </div>
+        <p id="chartError" class="chart-detail__error" hidden></p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

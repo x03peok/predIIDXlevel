@@ -946,6 +946,10 @@ function escapeHtml(value) {
   });
 }
 
+function getChartPageHref(chartId) {
+  return "chart-pages/" + encodeURIComponent(String(chartId ?? "").trim()) + ".html";
+}
+
 function renderTable(rows) {
   const html = rows.map((row) => {
     const difficulty = normalizeDifficulty(row.difficulty);
@@ -961,7 +965,7 @@ function renderTable(rows) {
     return [
       "<tr>",
       `<td class="mono numeric-value numeric-value--level"${levelColorStyle}>${escapeHtml(originalText)}</td>`,
-      `<td class="chart-title-cell"><a class="chart-link ${difficultyClass}" href="chart.html?id=${encodeURIComponent(row.chart_id)}"><span class="chart-title-cell__name">${escapeHtml(titleText)}</span>${difficultyText ? ` <span class="chart-title-cell__difficulty">[${escapeHtml(difficultyText)}]</span>` : ""}</a></td>`,
+      `<td class="chart-title-cell"><a class="chart-link ${difficultyClass}" href="${getChartPageHref(row.chart_id)}"><span class="chart-title-cell__name">${escapeHtml(titleText)}</span>${difficultyText ? ` <span class="chart-title-cell__difficulty">[${escapeHtml(difficultyText)}]</span>` : ""}</a></td>`,
       `<td class="mono numeric-value numeric-value--pred"${predictedColorStyle}>${escapeHtml(predictedText)}</td>`,
       `<td class="mono">${bpmHtml}</td>`,
       `<td>${renderFeatureChips(row)}</td>`,
