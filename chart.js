@@ -19,6 +19,18 @@ const chartDifficultyClasses = {
   LEGGENDARIA: "difficulty--leggendaria",
 };
 
+const chartFeatureDescriptions = {
+  "特徴なし": "既定の譜面特徴に強く当てはまらない譜面です。",
+  "BPM変化": "激しいBPM変化と、変化周辺の難しい配置が特徴です。",
+  "チャージノート": "CN/HCN/BSS/HBSS/MSSと、同時に来る難しい配置が特徴です。",
+  "ラスト難": "ラスト数十秒の難易度がそれ以前の平均と比べて高いことが特徴です。",
+  "皿複合": "スクラッチと同時に来る鍵盤の難しい配置が特徴です。",
+  "単鍵ラッシュ": "1個～2個押し主体の細かい配置が特徴です。",
+  "同時押し": "3個以上の横に広い同時押し主体の配置が特徴です。",
+  "物量": "曲全体を平均した1秒あたりのノーツ数の多さが特徴です。",
+  "連皿": "短い時間に連続するスクラッチの難しさが特徴です。",
+  "連打": "同じ鍵盤に連続して降ってくるノーツの難しさが特徴です。",
+};
 const chartEntityDecoder = document.createElement("textarea");
 
 function parseChartCsv(text) {
@@ -377,13 +389,17 @@ function renderChartFeatureChips(row, showEmpty = false) {
     if (!showEmpty) {
       return "";
     }
-    return '<div class="feature-chips"><span class="feature-chip feature-chip--none">特徴なし</span></div>';
+    const description = chartFeatureDescriptions["特徴なし"];
+    return '<div class="feature-chips"><span class="feature-chip feature-chip--none" title="' + escapeChartHtml(description) + '">特徴なし</span></div>';
   }
 
   return '<div class="feature-chips">' + features.map((feature) => {
     const plusCount = (feature.match(/\+/g) ?? []).length;
     const colorLevel = Math.min(3, plusCount);
-    return '<span class="feature-chip feature-chip--plus-' + colorLevel + '">' + escapeChartHtml(feature) + "</span>";
+    const baseFeature = feature.replace(/\++$/, "");
+    const description = chartFeatureDescriptions[baseFeature] ?? "";
+    const title = description ? ' title="' + escapeChartHtml(description) + '"' : "";
+    return '<span class="feature-chip feature-chip--plus-' + colorLevel + '"' + title + '>' + escapeChartHtml(feature) + "</span>";
   }).join("") + "</div>";
 }
 function normalizeChartId(value) {

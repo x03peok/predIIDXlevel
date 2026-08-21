@@ -427,6 +427,14 @@ tbody td {
   font-size: 0.85rem;
 }
 
+.table-hint {
+  margin: 8px 0 4px 2px;
+  color: var(--ink);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .row-count {
   margin: 0 0 8px 2px;
   color: var(--muted);
@@ -870,6 +878,21 @@ body .title-lock {
   overflow-wrap: anywhere;
 }
 
+.chart-detail__label-group {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
+}
+
+.chart-detail__info-mark {
+  color: var(--muted);
+  font-size: 0.55rem;
+  line-height: 1;
+  position: relative;
+  top: -0.45em;
+  cursor: help;
+}
+
 .chart-detail__pred-block {
   width: min(100%, 560px);
   padding: 14px 16px 12px;
@@ -1119,6 +1142,9 @@ body .title-lock {
   overflow-wrap: anywhere;
 }
 
+.feature-chip[title] {
+  cursor: help;
+}
 .feature-chip--plus-0 {
   color: #1d4ed8;
   background: rgba(96, 165, 250, 0.2);
@@ -1251,6 +1277,10 @@ body .title-lock {
 }
 .numeric-value {
   color: var(--numeric-color, currentColor);
+}
+
+.numeric-value--level {
+  color: var(--ink);
 }
 
 .numeric-value--pred {
