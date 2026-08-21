@@ -143,17 +143,47 @@ function getChartNumericScaleColor(value, scale) {
   const position = scale.max > scale.min
     ? Math.min(1, Math.max(0, (numeric - scale.min) / (scale.max - scale.min)))
     : 0.5;
-  const blue = [37, 99, 235];
-  const yellow = [180, 110, 0];
-  const red = [220, 38, 38];
-  const purple = [124, 58, 237];
-  const start = position <= 0.25 ? blue : position <= 0.5 ? yellow : red;
-  const end = position <= 0.25 ? yellow : position <= 0.5 ? red : purple;
-  const localPosition = position <= 0.25 ? position * 4 : position <= 0.5 ? (position - 0.25) * 4 : (position - 0.5) * 2;
-  const color = start.map((channel, index) => Math.round(channel + (end[index] - channel) * localPosition));
-  return "rgb(" + color.join(", ") + ")";
+  const stops = [
+    { position: 0, hue: 221, saturation: 83, lightness: 53 },
+    { position: 0.25, hue: 48, saturation: 92, lightness: 42 },
+    { position: 0.5, hue: 0, saturation: 80, lightness: 50 },
+    { position: 1, hue: 262, saturation: 72, lightness: 55 },
+  ];
+  let start = stops[0];
+  let end = stops[stops.length - 1];
+  for (let index = 1; index < stops.length; index += 1) {
+    if (position <= stops[index].position) {
+      start = stops[index - 1];
+      end = stops[index];
+      break;
+    }
+  }
+  const localPosition = end.position > start.position
+    ? (position - start.position) / (end.position - start.position)
+    : 0;
+  const hueDelta = ((end.hue - start.hue + 540) % 360) - 180;
+  const hue = (start.hue + hueDelta * localPosition + 360) % 360;
+  const saturation = start.saturation + (end.saturation - start.saturation) * localPosition;
+  const lightness = start.lightness + (end.lightness - start.lightness) * localPosition;
+  return hslToRgbString(hue, saturation, lightness);
 }
 
+function hslToRgbString(hue, saturation, lightness) {
+  const normalizedHue = ((hue % 360) + 360) % 360;
+  const s = saturation / 100;
+  const l = lightness / 100;
+  const chroma = (1 - Math.abs(2 * l - 1)) * s;
+  const sector = normalizedHue / 60;
+  const x = chroma * (1 - Math.abs((sector % 2) - 1));
+  const rgb = sector < 1 ? [chroma, x, 0]
+    : sector < 2 ? [x, chroma, 0]
+      : sector < 3 ? [0, chroma, x]
+        : sector < 4 ? [0, x, chroma]
+          : sector < 5 ? [x, 0, chroma]
+            : [chroma, 0, x];
+  const match = l - chroma / 2;
+  return "rgb(" + rgb.map((channel) => Math.round((channel + match) * 255)).join(", ") + ")";
+}
 function getChartNumericColorStyle(value, scale) {
   const color = getChartNumericScaleColor(value, scale);
   return color ? ' style="--numeric-color:' + color + '"' : "";

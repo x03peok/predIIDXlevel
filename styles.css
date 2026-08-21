@@ -548,7 +548,7 @@ tbody td:nth-child(5) {
 
 /* Keep the main filter labels and values at shared sizes. */
 .toolbar {
-  --filter-label-size: 0.72rem;
+  --filter-label-size: 0.9rem;
   --filter-value-size: 0.9rem;
 }
 
