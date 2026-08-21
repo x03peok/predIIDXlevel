@@ -144,11 +144,12 @@ function getChartNumericScaleColor(value, scale) {
     ? Math.min(1, Math.max(0, (numeric - scale.min) / (scale.max - scale.min)))
     : 0.5;
   const blue = [37, 99, 235];
+  const yellow = [180, 83, 9];
   const red = [220, 38, 38];
   const purple = [124, 58, 237];
-  const start = position <= 0.5 ? blue : red;
-  const end = position <= 0.5 ? red : purple;
-  const localPosition = position <= 0.5 ? position * 2 : (position - 0.5) * 2;
+  const start = position <= 0.25 ? blue : position <= 0.5 ? yellow : red;
+  const end = position <= 0.25 ? yellow : position <= 0.5 ? red : purple;
+  const localPosition = position <= 0.25 ? position * 4 : position <= 0.5 ? (position - 0.25) * 4 : (position - 0.5) * 2;
   const color = start.map((channel, index) => Math.round(channel + (end[index] - channel) * localPosition));
   return "rgb(" + color.join(", ") + ")";
 }
@@ -156,6 +157,14 @@ function getChartNumericScaleColor(value, scale) {
 function getChartNumericColorStyle(value, scale) {
   const color = getChartNumericScaleColor(value, scale);
   return color ? ' style="--numeric-color:' + color + '"' : "";
+}
+function setChartNumericColor(element, value, scale) {
+  const color = getChartNumericScaleColor(value, scale);
+  if (color) {
+    element.style.setProperty("--numeric-color", color);
+  } else {
+    element.style.removeProperty("--numeric-color");
+  }
 }
 function toFiniteChartNumber(value) {
   const text = String(value ?? "").trim();
@@ -427,8 +436,13 @@ function renderChart() {
     difficultyElement.className = "chart-detail__difficulty " + (chartDifficultyClasses[difficulty] ?? "");
     difficultyElement.textContent = chartDifficultyNames[difficulty] ?? difficulty;
     titleElement.appendChild(difficultyElement);
-    document.getElementById("chartLevel").textContent = "☆" + row.original_level;
-    document.getElementById("chartPred").textContent = formatChartPred(row.calibrated_pred_skill);
+    const numericScale = getChartNumericScale(rows);
+    const chartLevelElement = document.getElementById("chartLevel");
+    const chartPredElement = document.getElementById("chartPred");
+    chartLevelElement.textContent = "☆" + row.original_level;
+    chartPredElement.textContent = formatChartPred(row.calibrated_pred_skill);
+    setChartNumericColor(chartLevelElement, row.original_level, numericScale);
+    setChartNumericColor(chartPredElement, row.calibrated_pred_skill, numericScale);
     const predPosition = getChartPredPosition(row, rows);
     document.getElementById("chartPredPercentile").textContent = formatChartPredPercentile(predPosition, row);
     renderChartPredPosition(predPosition, row);
