@@ -144,7 +144,7 @@ function getChartNumericScaleColor(value, scale) {
     ? Math.min(1, Math.max(0, (numeric - scale.min) / (scale.max - scale.min)))
     : 0.5;
   const blue = [37, 99, 235];
-  const yellow = [161, 98, 7];
+  const yellow = [180, 110, 0];
   const red = [220, 38, 38];
   const purple = [124, 58, 237];
   const start = position <= 0.25 ? blue : position <= 0.5 ? yellow : red;
@@ -233,7 +233,7 @@ function formatChartAxisValue(value) {
   return Number.isFinite(value) ? value.toFixed(1) : "";
 }
 
-function renderChartHistogramAxis(predPosition) {
+function renderChartHistogramAxis(predPosition, numericScale) {
   const axis = document.getElementById("chartPredHistogramAxis");
   const range = predPosition.max - predPosition.min;
   if (!axis || !Number.isFinite(range) || range <= 0) {
@@ -254,12 +254,14 @@ function renderChartHistogramAxis(predPosition) {
     } else if (position >= 100) {
       edgeClass = " chart-pred-position__axis-label--end";
     }
-    labels.push('<span class="chart-pred-position__axis-label' + edgeClass + '" style="left:' + position.toFixed(2) + '%">' + formatChartAxisValue(value) + "</span>");
+    const color = getChartNumericScaleColor(value, numericScale);
+    const colorStyle = color ? ' --numeric-color:' + color + ';' : '';
+    labels.push('<span class="chart-pred-position__axis-label' + edgeClass + '" style="left:' + position.toFixed(2) + '%;' + colorStyle + '">' + formatChartAxisValue(value) + "</span>");
   }
   axis.innerHTML = labels.join("");
 }
 
-function renderChartPredPosition(predPosition, row) {
+function renderChartPredPosition(predPosition, row, numericScale) {
   const container = document.getElementById("chartPredPosition");
   if (!predPosition) {
     container.hidden = true;
@@ -275,7 +277,7 @@ function renderChartPredPosition(predPosition, row) {
 
   histogram.innerHTML = bars;
   histogram.setAttribute("aria-label", "同じ☆" + row.original_level + "内のPred分布。現在のPredは" + formatChartPred(predPosition.targetPred) + "です。");
-  renderChartHistogramAxis(predPosition);
+  renderChartHistogramAxis(predPosition, numericScale);
 
 
   container.hidden = false;
@@ -445,7 +447,7 @@ function renderChart() {
     setChartNumericColor(chartPredElement, row.calibrated_pred_skill, numericScale);
     const predPosition = getChartPredPosition(row, rows);
     document.getElementById("chartPredPercentile").textContent = formatChartPredPercentile(predPosition, row);
-    renderChartPredPosition(predPosition, row);
+    renderChartPredPosition(predPosition, row, numericScale);
     document.getElementById("chartFeatures").innerHTML = renderChartFeatureChips(row, true);
     document.getElementById("chartBpm").textContent = formatChartBpm(row.bpm_min, row.bpm_max);
     document.getElementById("chartDetail").hidden = false;

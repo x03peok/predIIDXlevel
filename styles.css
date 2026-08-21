@@ -546,6 +546,22 @@ tbody td:nth-child(5) {
   font-variant-numeric: tabular-nums;
 }
 
+/* Keep the main filter labels and values at shared sizes. */
+.toolbar {
+  --filter-label-size: 0.72rem;
+  --filter-value-size: 0.9rem;
+}
+
+.toolbar > .search > span,
+.toolbar > .multi-filter > span {
+  font-size: var(--filter-label-size);
+}
+
+.toolbar > .search > input,
+.toolbar > .multi-filter .multi-filter__details > summary {
+  font-size: var(--filter-value-size);
+}
+
 .chart-title-cell {
   font-weight: 500;
   line-height: 1.35;
@@ -911,6 +927,8 @@ body .title-lock {
 .chart-pred-position__axis--histogram > span {
   position: absolute;
   transform: translateX(-50%);
+  color: var(--numeric-color, var(--muted));
+  font-weight: 400;
   white-space: nowrap;
 }
 

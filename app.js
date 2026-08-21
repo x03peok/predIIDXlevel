@@ -306,7 +306,7 @@ function getNumericScaleColor(value, scaleMin, scaleMax) {
     ? Math.min(1, Math.max(0, (numeric - min) / (max - min)))
     : 0.5;
   const blue = [37, 99, 235];
-  const yellow = [161, 98, 7];
+  const yellow = [180, 110, 0];
   const red = [220, 38, 38];
   const purple = [124, 58, 237];
   const start = position <= 0.25 ? blue : position <= 0.5 ? yellow : red;
