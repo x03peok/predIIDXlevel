@@ -1028,6 +1028,10 @@ body .title-lock {
   box-shadow: var(--shadow);
 }
 
+.advanced-filter:not([open]) > .advanced-filter__body {
+  display: none;
+}
+
 .advanced-filter__body .filter {
   min-width: 0;
   flex: 0 1 auto;

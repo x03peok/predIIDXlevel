@@ -306,11 +306,12 @@ function getNumericScaleColor(value, scaleMin, scaleMax) {
     ? Math.min(1, Math.max(0, (numeric - min) / (max - min)))
     : 0.5;
   const blue = [37, 99, 235];
+  const yellow = [161, 98, 7];
   const red = [220, 38, 38];
   const purple = [124, 58, 237];
-  const start = position <= 0.5 ? blue : red;
-  const end = position <= 0.5 ? red : purple;
-  const localPosition = position <= 0.5 ? position * 2 : (position - 0.5) * 2;
+  const start = position <= 0.25 ? blue : position <= 0.5 ? yellow : red;
+  const end = position <= 0.25 ? yellow : position <= 0.5 ? red : purple;
+  const localPosition = position <= 0.25 ? position * 4 : position <= 0.5 ? (position - 0.25) * 4 : (position - 0.5) * 2;
   const color = start.map((channel, index) => Math.round(channel + (end[index] - channel) * localPosition));
   return "rgb(" + color.join(", ") + ")";
 }
@@ -357,9 +358,11 @@ function updateAdvancedFilterSummary() {
     activeValues.push("Pred:" + predMin + "~" + predMax);
   }
 
-  summary.textContent = activeValues.join(" / ");
-  summary.title = activeValues.join(" / ");
-  summary.hidden = activeValues.length === 0;
+  const summaryText = activeValues.length > 0
+    ? activeValues.join(" / ")
+    : "詳細絞り込み";
+  summary.textContent = summaryText;
+  summary.title = summaryText;
 }
 function getNumericExtremes(rows, key, fallbackMin, fallbackMax) {
   let min = null;
