@@ -143,9 +143,12 @@ function getChartNumericScaleColor(value, scale) {
   const position = scale.max > scale.min
     ? Math.min(1, Math.max(0, (numeric - scale.min) / (scale.max - scale.min)))
     : 0.5;
+  const yellowPosition = scale.max > scale.min
+    ? Math.min(0.45, Math.max(0.1, (9 - scale.min) / (scale.max - scale.min)))
+    : 0.25
   const stops = [
     { position: 0, hue: 221, saturation: 83, lightness: 53 },
-    { position: 0.25, hue: 48, saturation: 92, lightness: 42 },
+    { position: yellowPosition, hue: 48, saturation: 92, lightness: 40 },
     { position: 0.5, hue: 0, saturation: 80, lightness: 50 },
     { position: 1, hue: 262, saturation: 72, lightness: 55 },
   ];
