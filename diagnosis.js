@@ -627,14 +627,27 @@ function diagnosisBindStatusDeselect(container, selector, update) {
     event.target.closest?.(selector)
       ?? event.target.closest?.("label")?.control
   );
+  let pendingDeselect = null;
 
   container.addEventListener("pointerdown", (event) => {
     const input = resolveInput(event);
-    if (!input || !input.checked) {
+    pendingDeselect = input?.checked ? input : null;
+  });
+
+  container.addEventListener("pointercancel", () => {
+    pendingDeselect = null;
+  });
+
+  container.addEventListener("click", (event) => {
+    const input = resolveInput(event);
+    if (!input || pendingDeselect !== input) {
+      pendingDeselect = null;
       return;
     }
     event.preventDefault();
+    event.stopPropagation();
     input.checked = false;
+    pendingDeselect = null;
     update();
   });
 

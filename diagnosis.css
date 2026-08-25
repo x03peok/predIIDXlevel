@@ -299,11 +299,12 @@
   }
 
   .diagnosis-actions {
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .diagnosis-actions .diagnosis-button {
-    flex: 1 1 10rem;
+    width: 100%;
   }
 }
 
