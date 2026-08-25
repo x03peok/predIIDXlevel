@@ -338,3 +338,52 @@
   font-size: 0.82rem;
   line-height: 1.6;
 }
+.diagnosis-aptitude-options {
+  grid-template-columns: 1fr;
+}
+
+.diagnosis-aptitude-group {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.diagnosis-status {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.diagnosis-status-option input[value="clear"]:checked + label {
+  border-color: #2563eb;
+  background: rgba(37, 99, 235, 0.14);
+  color: #1d4ed8;
+}
+
+.diagnosis-status-option input[value="not-clear"]:checked + label {
+  border-color: #dc2626;
+  background: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
+}
+
+@media (max-width: 640px) {
+  .diagnosis-aptitude-options {
+    grid-template-columns: 1fr;
+  }
+
+  .diagnosis-aptitude-group {
+    gap: 6px;
+  }
+
+  .diagnosis-status {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+}
+.diagnosis-result-card__level-rates {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.7;
+}

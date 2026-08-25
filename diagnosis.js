@@ -201,16 +201,22 @@ function diagnosisSortRows(left, right) {
   return predDifference || left.title.localeCompare(right.title, "ja");
 }
 
-function diagnosisGetLevelRows(option, excludeAnswered = false) {
+function diagnosisGetAptitudeRows(option) {
   return diagnosisState.rows
     .filter((row) => row.original_level === option.level)
+    .filter((row) => diagnosisPredNumber(row) !== null)
+    .sort(diagnosisSortRows);
+}
+
+function diagnosisGetCandidateRows(excludeAnswered = false) {
+  return diagnosisState.rows
     .filter((row) => diagnosisPredNumber(row) !== null)
     .filter((row) => !excludeAnswered || !diagnosisState.responses.has(diagnosisRowKey(row)))
     .sort(diagnosisSortRows);
 }
 
-function diagnosisGetLevelBounds(option) {
-  const rows = diagnosisGetLevelRows(option);
+function diagnosisGetLevelBounds() {
+  const rows = diagnosisGetCandidateRows();
   if (!rows.length) {
     return { min: 0, max: 999 };
   }
@@ -220,20 +226,19 @@ function diagnosisGetLevelBounds(option) {
   };
 }
 
-function diagnosisClampPred(value, option) {
-  const bounds = diagnosisGetLevelBounds(option);
+function diagnosisClampPred(value) {
+  const bounds = diagnosisGetLevelBounds();
   return Math.min(bounds.max, Math.max(bounds.min, value));
 }
 
 function diagnosisInitialPred(option) {
-  const rows = diagnosisGetLevelRows(option);
+  const rows = diagnosisGetAptitudeRows(option);
   if (!rows.length) {
     return null;
   }
   const targetIndex = Math.round((rows.length - 1) * option.percentile);
   return diagnosisPredNumber(rows[targetIndex]);
 }
-
 function diagnosisClosestRow(pool, target, selectedIds) {
   return pool
     .filter((row) => !selectedIds.has(diagnosisRowKey(row)))
@@ -244,7 +249,7 @@ function diagnosisClosestRow(pool, target, selectedIds) {
 }
 
 function diagnosisSelectCharts(option, provisionalPred) {
-  const rows = diagnosisGetLevelRows(option, true);
+  const rows = diagnosisGetCandidateRows(true);
   const featurelessRows = rows.filter(diagnosisIsFeatureless);
   const featuredRows = rows.filter((row) => !diagnosisIsFeatureless(row));
   const selected = [];
@@ -312,12 +317,25 @@ function diagnosisSelectCharts(option, provisionalPred) {
 }
 function diagnosisRenderAptitudeOptions() {
   const container = document.getElementById("aptitudeOptions");
-  container.innerHTML = diagnosisAptitudeOptions.map((option) => (
-    `<div class="diagnosis-aptitude-option">` +
-      `<input id="aptitude-${option.value}" type="radio" name="aptitude" value="${option.value}">` +
-      `<label for="aptitude-${option.value}">${diagnosisEscapeHtml(option.label)}</label>` +
-    `</div>`
+  const groups = new Map();
+  for (const option of diagnosisAptitudeOptions) {
+    if (!groups.has(option.level)) {
+      groups.set(option.level, []);
+    }
+    groups.get(option.level).push(option);
+  }
+
+  container.innerHTML = [...groups.values()].map((options) => (
+    "<div class=\"diagnosis-aptitude-group\">" +
+      options.map((option) => (
+        "<div class=\"diagnosis-aptitude-option\">" +
+          "<input id=\"aptitude-" + option.value + "\" type=\"radio\" name=\"aptitude\" value=\"" + option.value + "\">" +
+          "<label for=\"aptitude-" + option.value + "\">" + diagnosisEscapeHtml(option.label) + "</label>" +
+        "</div>"
+      )).join("") +
+    "</div>"
   )).join("");
+
   container.addEventListener("change", (event) => {
     if (event.target.name === "aptitude") {
       diagnosisState.selectedAptitude = diagnosisAptitudeOptions.find((option) => option.value === event.target.value) ?? null;
@@ -325,37 +343,26 @@ function diagnosisRenderAptitudeOptions() {
     }
   });
 }
-
 function diagnosisRenderQuestions() {
   const container = document.getElementById("diagnosisChartQuestions");
   container.innerHTML = diagnosisState.selectedCharts.map((row, index) => {
     const difficulty = diagnosisDifficultyLabels[row.difficulty] ?? row.difficulty;
-    const title = row.title + (difficulty ? " [" + difficulty + "]" : "");
-    const feature = diagnosisGetFeatureNames(row).join("・");
+    const title = "☆" + row.original_level + " " + row.title + (difficulty ? " [" + difficulty + "]" : "");
     return [
       "<article class=\"diagnosis-chart\">",
       "  <div class=\"diagnosis-chart__heading\">",
-      "    <span class=\"diagnosis-chart__number\">" + (index + 1) + "</span>",
       "    <div class=\"diagnosis-chart__title\">" + diagnosisEscapeHtml(title) + "</div>",
       "  </div>",
-      "  <div class=\"diagnosis-chart__meta\">",
-      "    <span>Level <strong>☆" + diagnosisEscapeHtml(row.original_level) + "</strong></span>",
-      "    <span>Pred <strong>" + diagnosisEscapeHtml(diagnosisFormatPred(row.calibrated_pred_skill)) + "</strong></span>",
-      "    <span>BPM <strong>" + diagnosisEscapeHtml(diagnosisFormatBpm(row)) + "</strong></span>",
-      "  </div>",
-      "  <div class=\"diagnosis-chart__features\">Feature: " + diagnosisEscapeHtml(feature) + "</div>",
       "  <fieldset class=\"diagnosis-status\">",
       "    <legend class=\"sr-only\">" + diagnosisEscapeHtml(title) + "のクリア状況</legend>",
-      "    <div class=\"diagnosis-status-option\"><input id=\"diagnosis-status-" + index + "-clear\" data-diagnosis-question=\"" + index + "\" type=\"radio\" name=\"diagnosis-status-" + index + "\" value=\"clear\" required><label for=\"diagnosis-status-" + index + "-clear\">クリア</label></div>",
+      "    <div class=\"diagnosis-status-option\"><input id=\"diagnosis-status-" + index + "-clear\" data-diagnosis-question=\"" + index + "\" type=\"radio\" name=\"diagnosis-status-" + index + "\" value=\"clear\"><label for=\"diagnosis-status-" + index + "-clear\">クリア</label></div>",
       "    <div class=\"diagnosis-status-option\"><input id=\"diagnosis-status-" + index + "-not-clear\" data-diagnosis-question=\"" + index + "\" type=\"radio\" name=\"diagnosis-status-" + index + "\" value=\"not-clear\"><label for=\"diagnosis-status-" + index + "-not-clear\">未クリア</label></div>",
-      "    <div class=\"diagnosis-status-option\"><input id=\"diagnosis-status-" + index + "-unknown\" data-diagnosis-question=\"" + index + "\" type=\"radio\" name=\"diagnosis-status-" + index + "\" value=\"unknown\"><label for=\"diagnosis-status-" + index + "-unknown\">未プレイ・不明</label></div>",
       "  </fieldset>",
       "</article>",
     ].join("");
   }).join("");
   diagnosisUpdateProgress();
 }
-
 function diagnosisGetCurrentStatuses() {
   return diagnosisState.selectedCharts.map((row, index) => ({
     row,
@@ -363,15 +370,13 @@ function diagnosisGetCurrentStatuses() {
   }));
 }
 
-function diagnosisGetKnownObservations(option = diagnosisState.selectedAptitude) {
-  const levelKeys = new Set(diagnosisGetLevelRows(option).map(diagnosisRowKey));
+function diagnosisGetKnownObservations() {
   const rowByKey = new Map(diagnosisState.rows.map((row) => [diagnosisRowKey(row), row]));
   return [...diagnosisState.responses.entries()]
-    .filter(([key, status]) => levelKeys.has(key) && (status === "clear" || status === "not-clear"))
+    .filter(([, status]) => status === "clear" || status === "not-clear")
     .map(([key, status]) => ({ row: rowByKey.get(key), status }))
     .filter((observation) => observation.row && diagnosisPredNumber(observation.row) !== null);
 }
-
 function diagnosisGetKnownCounts(option = diagnosisState.selectedAptitude) {
   const observations = diagnosisGetKnownObservations(option);
   return {
@@ -382,26 +387,15 @@ function diagnosisGetKnownCounts(option = diagnosisState.selectedAptitude) {
 }
 
 function diagnosisUpdateProgress() {
-  const answered = diagnosisGetCurrentStatuses().filter(({ status }) => status !== null).length;
   const counts = diagnosisGetKnownCounts();
-  document.getElementById("diagnosisProgress").textContent = answered + " / " + diagnosisState.selectedCharts.length + "回答（有効回答 " + counts.total + "件）";
+  document.getElementById("diagnosisProgress").textContent =
+    "有効回答" + counts.total + "件 / およそ" + diagnosisEnoughKnownAnswers + "件集まると診断に進みます";
 }
-
 function diagnosisShowError(message) {
   const error = document.getElementById("diagnosisError");
   error.textContent = message;
   error.hidden = false;
 }
-function diagnosisUpdateSelectionCaption() {
-  const option = diagnosisState.selectedAptitude;
-  const provisional = diagnosisFormatPred(diagnosisState.provisionalPred);
-  const lower = diagnosisFormatPred(diagnosisClampPred(diagnosisState.provisionalPred - diagnosisPredSpread, option));
-  const upper = diagnosisFormatPred(diagnosisClampPred(diagnosisState.provisionalPred + diagnosisPredSpread, option));
-  const adjustment = diagnosisState.lastAdjustment ? " " + diagnosisState.lastAdjustment : "";
-  document.getElementById("diagnosisSelectionCaption").textContent =
-    (diagnosisState.round + 1) + "回目：暫定Pred " + provisional + "を中心に" + lower + "〜" + upper + "から選出。特徴なしを優先しています。" + adjustment;
-}
-
 function diagnosisShowChartStep() {
   const option = diagnosisState.selectedAptitude;
   diagnosisState.provisionalPred = diagnosisInitialPred(option);
@@ -415,7 +409,6 @@ function diagnosisShowChartStep() {
   }
 
   document.getElementById("diagnosisError").hidden = true;
-  diagnosisUpdateSelectionCaption();
   diagnosisRenderQuestions();
   document.getElementById("diagnosisLevelStep").hidden = true;
   document.getElementById("diagnosisResultStep").hidden = true;
@@ -439,12 +432,20 @@ function diagnosisSigmoid(value) {
   return exponential / (1 + exponential);
 }
 
+function diagnosisFormatPredRange(lower, upper) {
+  const lowerText = diagnosisFormatPred(lower);
+  const upperText = diagnosisFormatPred(upper);
+  return lowerText === upperText ? lowerText : lowerText + "-" + upperText;
+}
+
 function diagnosisFitLogisticRegression(option) {
   const observations = diagnosisGetKnownObservations(option);
   const counts = diagnosisGetKnownCounts(option);
   if (observations.length < 6 || counts.clear === 0 || counts.notClear === 0) {
     return {
       pred: diagnosisState.provisionalPred,
+      range: diagnosisFormatPred(diagnosisState.provisionalPred),
+      model: null,
       usedLogistic: false,
       observations,
       counts,
@@ -496,34 +497,90 @@ function diagnosisFitLogisticRegression(option) {
   // Clear probability should decrease as Pred rises. Keep that domain constraint
   // when a small sample produces an inverted or nearly flat fit.
   slope = Math.min(-0.05, slope);
+  const bounds = diagnosisGetLevelBounds();
   const threshold = center + (-intercept / slope) * scale;
-  const bounds = diagnosisGetLevelBounds(option);
+  const predAt60 = center + (Math.log(0.6 / 0.4) - intercept) / slope * scale;
+  const predAt40 = center + (Math.log(0.4 / 0.6) - intercept) / slope * scale;
+  const rangeValues = [predAt60, predAt40];
+  const hasValidRange = rangeValues.every(Number.isFinite);
+  const lower = hasValidRange
+    ? Math.min(bounds.max, Math.max(bounds.min, Math.min(...rangeValues)))
+    : diagnosisState.provisionalPred;
+  const upper = hasValidRange
+    ? Math.min(bounds.max, Math.max(bounds.min, Math.max(...rangeValues)))
+    : diagnosisState.provisionalPred;
   const pred = Number.isFinite(threshold)
     ? Math.min(bounds.max, Math.max(bounds.min, threshold))
     : diagnosisState.provisionalPred;
 
   return {
     pred,
-    usedLogistic: Number.isFinite(threshold),
+    range: hasValidRange ? diagnosisFormatPredRange(lower, upper) : diagnosisFormatPred(pred),
+    model: Number.isFinite(threshold) && hasValidRange
+      ? { intercept, slope, center, scale }
+      : null,
+    usedLogistic: Number.isFinite(threshold) && hasValidRange,
     observations,
     counts,
   };
 }
-
 function diagnosisShouldFinish() {
   const counts = diagnosisGetKnownCounts();
   return (diagnosisState.round >= diagnosisMinimumRounds && counts.total >= diagnosisEnoughKnownAnswers)
     || diagnosisState.round >= diagnosisMaximumRounds;
 }
 
+function diagnosisBuildLevelClearRateText(model) {
+  if (!model) {
+    return "";
+  }
+
+  const messages = [];
+  for (const level of ["8", "9", "10", "11", "12"]) {
+    const rows = diagnosisState.rows
+      .filter((row) => row.original_level === level)
+      .filter((row) => diagnosisPredNumber(row) !== null);
+
+    if (!rows.length) {
+      continue;
+    }
+
+    const averageProbability = rows.reduce((sum, row) => {
+      const normalizedPred = (diagnosisPredNumber(row) - model.center) / model.scale;
+      return sum + diagnosisSigmoid(model.intercept + model.slope * normalizedPred);
+    }, 0) / rows.length;
+    const roundedPercent = Math.round(averageProbability * 100);
+
+    if (roundedPercent <= 0) {
+      continue;
+    }
+
+    const resultText = roundedPercent >= 100
+      ? "ほぼ全て"
+      : "約" + roundedPercent + "%";
+    messages.push("☆" + level + "が" + resultText);
+  }
+
+  return messages.length > 0
+    ? messages.join("、") + "クリアできる水準です。"
+    : "";
+}
+
 function diagnosisShowResult() {
   const result = diagnosisFitLogisticRegression(diagnosisState.selectedAptitude);
   const counts = result.counts;
   const unknown = diagnosisState.responses.size - counts.total;
-  document.getElementById("diagnosisResultPred").textContent = diagnosisFormatPred(result.pred);
+  const levelRates = document.getElementById("diagnosisLevelClearRates");
+  const levelRateText = result.usedLogistic
+    ? diagnosisBuildLevelClearRateText(result.model)
+    : "";
+
+  document.getElementById("diagnosisResultPred").textContent = result.range;
   document.getElementById("diagnosisResultMethod").textContent = result.usedLogistic
-    ? "クリア状況からロジスティック回帰で算出"
+    ? "クリア確率40%-60%のPred幅（ロジスティック回帰）"
     : "有効回答が少ないため、暫定Predを表示";
+  levelRates.textContent = levelRateText;
+  levelRates.hidden = !levelRateText;
   document.getElementById("diagnosisResultSummary").textContent =
     counts.clear + "件クリア / " + counts.notClear + "件未クリア / " + unknown + "件未プレイ・不明（" + diagnosisState.responses.size + "譜面）";
   document.getElementById("diagnosisChartStep").hidden = true;
@@ -531,26 +588,21 @@ function diagnosisShowResult() {
   document.getElementById("diagnosisResultStep").hidden = false;
   document.getElementById("diagnosisResultTitle").focus();
 }
-
 function diagnosisSubmitBatch() {
   const statuses = diagnosisGetCurrentStatuses();
-  if (statuses.some(({ status }) => status === null)) {
-    diagnosisShowError("10譜面すべてのクリア状況を選んでください。");
-    return;
-  }
 
   for (const { row, status } of statuses) {
-    diagnosisState.responses.set(diagnosisRowKey(row), status);
+    diagnosisState.responses.set(diagnosisRowKey(row), status ?? "unknown");
   }
 
   const batchClear = statuses.filter(({ status }) => status === "clear").length;
   const batchNotClear = statuses.filter(({ status }) => status === "not-clear").length;
   const previousPred = diagnosisState.provisionalPred;
   if (batchClear > batchNotClear) {
-    diagnosisState.provisionalPred = diagnosisClampPred(previousPred + diagnosisAdaptiveStep, diagnosisState.selectedAptitude);
+    diagnosisState.provisionalPred = diagnosisClampPred(previousPred + diagnosisAdaptiveStep);
     diagnosisState.lastAdjustment = "クリア優勢のため暫定Predを" + diagnosisFormatPred(diagnosisState.provisionalPred) + "へ上げました。";
   } else if (batchNotClear > batchClear) {
-    diagnosisState.provisionalPred = diagnosisClampPred(previousPred - diagnosisAdaptiveStep, diagnosisState.selectedAptitude);
+    diagnosisState.provisionalPred = diagnosisClampPred(previousPred - diagnosisAdaptiveStep);
     diagnosisState.lastAdjustment = "未クリア優勢のため暫定Predを" + diagnosisFormatPred(diagnosisState.provisionalPred) + "へ下げました。";
   } else {
     diagnosisState.lastAdjustment = "クリアと未クリアが同数のため暫定Predは据え置きです。";
@@ -572,7 +624,6 @@ function diagnosisSubmitBatch() {
   }
 
   document.getElementById("diagnosisError").hidden = true;
-  diagnosisUpdateSelectionCaption();
   diagnosisRenderQuestions();
   document.getElementById("diagnosisChartTitle").focus();
   window.scrollTo({ top: 0, behavior: "smooth" });
