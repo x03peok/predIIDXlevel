@@ -6,11 +6,11 @@
   <title>診断 | SP☆8-☆12 非公式難易度予測表(&beta;)</title>
   <meta name="description" content="ノマゲ適正と譜面ごとのクリア状況から、適正PredとFeatureの傾向を診断するページです。">
   <link rel="stylesheet" href="styles.css?v=20260821-21">
-  <link rel="stylesheet" href="diagnosis.css?v=20260825-4">
+  <link rel="stylesheet" href="diagnosis.css?v=20260825-6">
   <link rel="stylesheet" href="menu.css">
   <script defer src="menu.js"></script>
   <script defer src="data.js?v=20260821-5"></script>
-  <script defer src="diagnosis.js?v=20260825-8"></script>
+  <script defer src="diagnosis.js?v=20260825-14"></script>
 </head>
 <body data-page="diagnosis">
   <main class="app">
@@ -42,18 +42,17 @@
     <section class="view" aria-live="polite">
       <div class="panel diagnosis-panel">
         <header class="diagnosis-header">
-          <p class="diagnosis-eyebrow">PLAYER DIAGNOSIS</p>
-          <h2>適正Pred・Feature診断</h2>
-          <p>いくつかの質問に答えると、あなたの適正Predと譜面傾向を診断します。回答はこのページを閉じるまでの間だけ保持されます。</p>
+          <h2>適正<span class="diagnosis-info-label" data-tooltip="推定ノマゲ難易度です。譜面から独自手法で計算しています。" tabindex="0" role="button" aria-label="Predの説明"><span>Pred</span><span class="diagnosis-info-mark" aria-hidden="true">ⓘ</span></span>・譜面傾向診断</h2>
+          <p>クリア状況を選択すると、あなたの適正Predと得意な譜面傾向を診断します。入力内容と診断結果は保存されません。</p>
         </header>
 
         <form id="diagnosisForm" autocomplete="off">
           <section id="diagnosisLevelStep" class="diagnosis-step" aria-labelledby="diagnosisLevelTitle">
             <div class="diagnosis-step__heading">
-              <span class="diagnosis-step__number">01</span>
+              <span class="diagnosis-step__number">Q1</span>
               <div>
                 <h3 id="diagnosisLevelTitle">あなたのノマゲ適正レベルは？</h3>
-                <p>大まかな自認で構いません。現在もっとも近いものを1つ選んでください。</p>
+                <p>おおよそ50%の割合でノマゲ以上のランプが点灯している難易度帯を選択してください。<br>大まかな自認でかまいません。</p>
               </div>
             </div>
             <fieldset class="diagnosis-fieldset">
@@ -67,7 +66,7 @@
 
           <section id="diagnosisChartStep" class="diagnosis-step" aria-labelledby="diagnosisChartTitle" hidden>
             <div class="diagnosis-step__heading">
-              <span class="diagnosis-step__number">02</span>
+              <span class="diagnosis-step__number">Q2</span>
               <div>
                 <h3 id="diagnosisChartTitle" tabindex="-1">あなたのクリア状況は？</h3>
                 <p>クリア状況をできるだけ正確に選んでください。未プレイ・不明の場合は、どちらも選択しないでください</p>
@@ -78,28 +77,66 @@
               <span id="diagnosisProgress">有効回答0件 / およそ30件集まると診断に進みます</span>
             </div>
             <div class="diagnosis-actions">
+              <button id="diagnosisSubmitButton" class="diagnosis-button" type="button">回答を送って次へ</button>
               <button id="diagnosisBackButton" class="diagnosis-button diagnosis-button--secondary" type="button">戻る</button>
               <button id="diagnosisResetButton" class="diagnosis-button diagnosis-button--secondary" type="button">最初からやり直す</button>
-              <button id="diagnosisSubmitButton" class="diagnosis-button" type="button">回答を送って次へ</button>
             </div>
           </section>
           <section id="diagnosisResultStep" class="diagnosis-step" aria-labelledby="diagnosisResultTitle" hidden>
             <div class="diagnosis-step__heading">
-              <span class="diagnosis-step__number">03</span>
+              <span class="diagnosis-step__number">Q3</span>
               <div>
                 <h3 id="diagnosisResultTitle" tabindex="-1">診断結果</h3>
                 <p>回答したクリア状況から、適正Predの範囲を推定しました。</p>
               </div>
             </div>
             <div class="diagnosis-result-card">
-              <p class="diagnosis-result-card__label">診断ユーザーPred（40%-60%）</p>
+              <p class="diagnosis-result-card__label">推定適正<span class="diagnosis-info-label" data-tooltip="推定ノマゲ難易度です。譜面から独自手法で計算しています。" tabindex="0" role="button" aria-label="Predの説明"><span>Pred</span><span class="diagnosis-info-mark" aria-hidden="true">ⓘ</span></span></p>
               <p class="diagnosis-result-card__pred"><span id="diagnosisResultPred">-</span></p>
               <p id="diagnosisResultMethod" class="diagnosis-result-card__method"></p>
               <p id="diagnosisLevelClearRates" class="diagnosis-result-card__level-rates" hidden></p>
               <p id="diagnosisResultSummary" class="diagnosis-result-card__summary"></p>
             </div>
             <div class="diagnosis-actions diagnosis-actions--right">
+              <button id="diagnosisFeatureButton" class="diagnosis-button" type="button" disabled>得意傾向診断へ</button>
               <button id="diagnosisResultResetButton" class="diagnosis-button diagnosis-button--secondary" type="button">最初からやり直す</button>
+            </div>
+          </section>
+
+          <section id="diagnosisFeatureStep" class="diagnosis-step" aria-labelledby="diagnosisFeatureTitle" hidden>
+            <div class="diagnosis-step__heading">
+              <span class="diagnosis-step__number">Q4</span>
+              <div>
+                <h3 id="diagnosisFeatureTitle" tabindex="-1">得意傾向診断</h3>
+                <p>クリア状況を選んでください。未プレイ・不明の場合は、どちらも選択しないでください。</p>
+              </div>
+            </div>
+            <div id="diagnosisFeatureQuestions" class="diagnosis-chart-questions"></div>
+            <div class="diagnosis-progress" aria-live="polite">
+              <span id="diagnosisFeatureProgress">有効回答0件 / 最大10回または50件で診断します</span>
+            </div>
+            <div class="diagnosis-actions">
+              <button id="diagnosisFeatureSubmitButton" class="diagnosis-button" type="button">回答を送って次へ</button>
+              <button id="diagnosisFeatureBackButton" class="diagnosis-button diagnosis-button--secondary" type="button">Pred診断結果へ</button>
+              <button id="diagnosisFeatureResetButton" class="diagnosis-button diagnosis-button--secondary" type="button">最初からやり直す</button>
+            </div>
+          </section>
+
+          <section id="diagnosisFeatureResultStep" class="diagnosis-step" aria-labelledby="diagnosisFeatureResultTitle" hidden>
+            <div class="diagnosis-step__heading">
+              <span class="diagnosis-step__number">Q5</span>
+              <div>
+                <h3 id="diagnosisFeatureResultTitle" tabindex="-1">得意傾向診断結果</h3>
+                <p>同程度のPredの譜面と比べた、譜面特徴ごとの得意・不得意の傾向です。</p>
+              </div>
+            </div>
+            <div class="diagnosis-feature-result">
+              <p id="diagnosisFeatureResultNotice" class="diagnosis-feature-result__notice" role="status" hidden></p>
+              <div id="diagnosisFeatureBars" class="diagnosis-feature-bars"></div>
+            </div>
+            <div class="diagnosis-actions">
+              <button id="diagnosisFeatureResultBackButton" class="diagnosis-button diagnosis-button--secondary" type="button">Pred診断結果へ</button>
+              <button id="diagnosisFeatureResultResetButton" class="diagnosis-button diagnosis-button--secondary" type="button">最初からやり直す</button>
             </div>
           </section>
         </form>
