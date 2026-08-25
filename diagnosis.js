@@ -657,7 +657,18 @@ function diagnosisInit() {
     document.getElementById("diagnosisBackButton").addEventListener("click", diagnosisShowLevelStep);
     document.getElementById("diagnosisResetButton").addEventListener("click", diagnosisReset);
     document.getElementById("diagnosisResultResetButton").addEventListener("click", diagnosisReset);
-    document.getElementById("diagnosisChartQuestions").addEventListener("change", diagnosisUpdateProgress);
+    const chartQuestions = document.getElementById("diagnosisChartQuestions");
+    chartQuestions.addEventListener("change", diagnosisUpdateProgress);
+    chartQuestions.addEventListener("click", (event) => {
+      const input = event.target.closest?.("input[data-diagnosis-question]")
+        ?? event.target.closest?.("label")?.control;
+      if (!input || !input.checked) {
+        return;
+      }
+      event.preventDefault();
+      input.checked = false;
+      diagnosisUpdateProgress();
+    });
   } catch (error) {
     console.error(error);
     diagnosisShowError(error.message || "診断ページを読み込めませんでした。");
