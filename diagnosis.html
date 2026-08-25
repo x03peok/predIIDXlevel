@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>診断 | SP☆8-☆12 非公式難易度予測表(&beta;)</title>
+  <meta name="description" content="ノマゲ適正と譜面ごとのクリア状況から、適正PredとFeatureの傾向を診断するページです。">
+  <link rel="stylesheet" href="styles.css?v=20260821-21">
+  <link rel="stylesheet" href="diagnosis.css?v=20260825-2">
+  <link rel="stylesheet" href="menu.css">
+  <script defer src="menu.js"></script>
+  <script defer src="data.js?v=20260821-5"></script>
+  <script defer src="diagnosis.js?v=20260825-2"></script>
+</head>
+<body data-page="diagnosis">
+  <main class="app">
+    <header class="masthead">
+      <div class="masthead__bar">
+        <div class="site-menu" id="menuRoot">
+          <button
+            id="menuButton"
+            class="menu-button"
+            type="button"
+            aria-label="メニューを開く"
+            aria-controls="siteMenu"
+            aria-expanded="false"
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <div id="siteMenu" class="menu-popover" hidden>
+            <button type="button" class="menu-item" data-page="main" data-href="index.html">Main</button>
+            <button type="button" class="menu-item" data-page="about" data-href="about.html">About</button>
+            <button type="button" class="menu-item" data-page="history" data-href="history.html">更新履歴</button>
+          </div>
+        </div>
+        <h1>SP☆8-☆12 <span class="title-lock">非公式難易度予測表(&beta;)</span></h1>
+      </div>
+    </header>
+
+    <section class="view" aria-live="polite">
+      <div class="panel diagnosis-panel">
+        <header class="diagnosis-header">
+          <p class="diagnosis-eyebrow">PLAYER DIAGNOSIS</p>
+          <h2>適正Pred・Feature診断</h2>
+          <p>いくつかの質問に答えると、あなたの適正Predと譜面傾向を診断します。回答はこのページを閉じるまでの間だけ保持されます。</p>
+        </header>
+
+        <form id="diagnosisForm" autocomplete="off">
+          <section id="diagnosisLevelStep" class="diagnosis-step" aria-labelledby="diagnosisLevelTitle">
+            <div class="diagnosis-step__heading">
+              <span class="diagnosis-step__number">01</span>
+              <div>
+                <h3 id="diagnosisLevelTitle">あなたのノマゲ適正レベルは？</h3>
+                <p>大まかな自認で構いません。現在もっとも近いものを1つ選んでください。</p>
+              </div>
+            </div>
+            <fieldset class="diagnosis-fieldset">
+              <legend class="sr-only">ノマゲ適正レベル</legend>
+              <div id="aptitudeOptions" class="diagnosis-aptitude-options"></div>
+            </fieldset>
+            <div class="diagnosis-actions diagnosis-actions--right">
+              <button id="levelNextButton" class="diagnosis-button" type="button" disabled>次へ</button>
+            </div>
+          </section>
+
+          <section id="diagnosisChartStep" class="diagnosis-step" aria-labelledby="diagnosisChartTitle" hidden>
+            <div class="diagnosis-step__heading">
+              <span class="diagnosis-step__number">02</span>
+              <div>
+                <h3 id="diagnosisChartTitle" tabindex="-1">あなたのクリア状況は？</h3>
+                <p>1回につき10譜面を表示します。クリア状況を答えると、次の譜面を自動で選びます。</p>
+              </div>
+            </div>
+            <p id="diagnosisSelectionCaption" class="diagnosis-selection-caption"></p>
+            <div id="diagnosisChartQuestions" class="diagnosis-chart-questions"></div>
+            <div class="diagnosis-progress" aria-live="polite">
+              <span id="diagnosisProgress">0 / 0回答</span>
+            </div>
+            <div class="diagnosis-actions">
+              <button id="diagnosisBackButton" class="diagnosis-button diagnosis-button--secondary" type="button">戻る</button>
+              <button id="diagnosisResetButton" class="diagnosis-button diagnosis-button--secondary" type="button">最初からやり直す</button>
+              <button id="diagnosisSubmitButton" class="diagnosis-button" type="button">回答を送って次へ</button>
+            </div>
+          </section>
+          <section id="diagnosisResultStep" class="diagnosis-step" aria-labelledby="diagnosisResultTitle" hidden>
+            <div class="diagnosis-step__heading">
+              <span class="diagnosis-step__number">03</span>
+              <div>
+                <h3 id="diagnosisResultTitle" tabindex="-1">診断結果</h3>
+                <p>回答したクリア状況から、同じLevel内での適正Predを推定しました。</p>
+              </div>
+            </div>
+            <div class="diagnosis-result-card">
+              <p class="diagnosis-result-card__label">診断ユーザーPred</p>
+              <p class="diagnosis-result-card__pred"><span id="diagnosisResultPred">-</span></p>
+              <p id="diagnosisResultMethod" class="diagnosis-result-card__method"></p>
+              <p id="diagnosisResultSummary" class="diagnosis-result-card__summary"></p>
+            </div>
+            <div class="diagnosis-actions diagnosis-actions--right">
+              <button id="diagnosisResultResetButton" class="diagnosis-button diagnosis-button--secondary" type="button">最初からやり直す</button>
+            </div>
+          </section>
+        </form>
+        <p id="diagnosisError" class="diagnosis-error" role="alert" hidden></p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,340 @@
+.diagnosis-panel {
+  width: min(900px, 100%);
+  margin: 0 auto;
+}
+
+.diagnosis-header {
+  max-width: 46rem;
+  margin-bottom: 28px;
+}
+
+.diagnosis-header h2 {
+  margin: 0 0 10px;
+  font-size: clamp(1.4rem, 2.5vw, 2rem);
+  line-height: 1.2;
+}
+
+.diagnosis-header p:last-child,
+.diagnosis-step__heading p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.diagnosis-eyebrow {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.diagnosis-step {
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.diagnosis-step[hidden] {
+  display: none;
+}
+
+.diagnosis-step__heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 20px;
+}
+
+.diagnosis-step__number {
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.diagnosis-step h3 {
+  margin: 0 0 6px;
+  font-size: 1.18rem;
+  line-height: 1.3;
+}
+
+.diagnosis-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.diagnosis-aptitude-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.diagnosis-aptitude-option,
+.diagnosis-status-option {
+  position: relative;
+  min-width: 0;
+}
+
+.diagnosis-aptitude-option input,
+.diagnosis-status-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.diagnosis-aptitude-option label,
+.diagnosis-status-option label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--panel-strong);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.diagnosis-aptitude-option label:hover,
+.diagnosis-status-option label:hover {
+  border-color: rgba(37, 99, 235, 0.55);
+  background: rgba(219, 234, 254, 0.45);
+}
+
+.diagnosis-aptitude-option input:checked + label,
+.diagnosis-status-option input:checked + label {
+  border-color: var(--accent);
+  background: rgba(37, 99, 235, 0.1);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.diagnosis-aptitude-option input:focus-visible + label,
+.diagnosis-status-option input:focus-visible + label {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.diagnosis-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.diagnosis-actions--right {
+  justify-content: flex-end;
+}
+
+.diagnosis-button {
+  min-height: 42px;
+  padding: 10px 18px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.diagnosis-button:hover,
+.diagnosis-button:focus-visible {
+  background: #1d4ed8;
+}
+
+.diagnosis-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.diagnosis-button--secondary {
+  border-color: var(--line-strong);
+  background: var(--panel-strong);
+  color: var(--ink);
+}
+
+.diagnosis-button--secondary:hover,
+.diagnosis-button--secondary:focus-visible {
+  background: rgba(219, 234, 254, 0.55);
+}
+
+.diagnosis-selection-caption {
+  margin: -4px 0 14px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.diagnosis-chart-questions {
+  display: grid;
+  gap: 12px;
+}
+
+.diagnosis-chart {
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.diagnosis-chart__heading {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 8px;
+}
+
+.diagnosis-chart__number {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.diagnosis-chart__title {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.diagnosis-chart__difficulty {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.diagnosis-chart__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 14px;
+  margin-bottom: 9px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.diagnosis-chart__meta strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.diagnosis-chart__features {
+  min-height: 1.4em;
+  margin-bottom: 13px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.diagnosis-status {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.diagnosis-status-option label {
+  min-height: 40px;
+  padding: 8px 9px;
+  font-size: 0.8rem;
+}
+
+.diagnosis-progress {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: right;
+}
+
+.diagnosis-error {
+  margin: 16px 0 0;
+  color: #b91c1c;
+  font-size: 0.88rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 640px) {
+  .diagnosis-aptitude-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .diagnosis-status {
+    grid-template-columns: 1fr;
+  }
+
+  .diagnosis-actions {
+    flex-wrap: wrap;
+  }
+
+  .diagnosis-actions .diagnosis-button {
+    flex: 1 1 10rem;
+  }
+}
+
+.diagnosis-result-card {
+  margin-top: 8px;
+  padding: 22px;
+  border: 1px solid var(--line-strong);
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(219, 234, 254, 0.62), rgba(255, 255, 255, 0.86));
+  text-align: center;
+}
+
+.diagnosis-result-card__label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.diagnosis-result-card__pred {
+  margin: 4px 0 8px;
+  color: var(--accent);
+  font-size: clamp(2.4rem, 7vw, 4rem);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.diagnosis-result-card__method,
+.diagnosis-result-card__summary {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
