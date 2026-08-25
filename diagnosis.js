@@ -50,6 +50,7 @@ const diagnosisState = {
   selectedAptitude: null,
   selectedCharts: [],
   responses: new Map(),
+  seenChartIds: new Set(),
   provisionalPred: null,
   round: 0,
   lastAdjustment: "",
@@ -208,10 +209,10 @@ function diagnosisGetAptitudeRows(option) {
     .sort(diagnosisSortRows);
 }
 
-function diagnosisGetCandidateRows(excludeAnswered = false) {
+function diagnosisGetCandidateRows(excludeSeen = false) {
   return diagnosisState.rows
     .filter((row) => diagnosisPredNumber(row) !== null)
-    .filter((row) => !excludeAnswered || !diagnosisState.responses.has(diagnosisRowKey(row)))
+    .filter((row) => !excludeSeen || !diagnosisState.seenChartIds.has(diagnosisRowKey(row)))
     .sort(diagnosisSortRows);
 }
 
@@ -313,7 +314,11 @@ function diagnosisSelectCharts(option, provisionalPred) {
     addRow(candidate);
   }
 
-  return selected.sort(diagnosisSortRows);
+  const sorted = selected.sort(diagnosisSortRows);
+  for (const row of sorted) {
+    diagnosisState.seenChartIds.add(diagnosisRowKey(row));
+  }
+  return sorted;
 }
 function diagnosisRenderAptitudeOptions() {
   const container = document.getElementById("aptitudeOptions");
@@ -400,6 +405,7 @@ function diagnosisShowChartStep() {
   const option = diagnosisState.selectedAptitude;
   diagnosisState.provisionalPred = diagnosisInitialPred(option);
   diagnosisState.responses = new Map();
+  diagnosisState.seenChartIds = new Set();
   diagnosisState.round = 0;
   diagnosisState.lastAdjustment = "";
   diagnosisState.selectedCharts = diagnosisSelectCharts(option, diagnosisState.provisionalPred);
@@ -549,13 +555,12 @@ function diagnosisBuildLevelClearRateText(model) {
       const normalizedPred = (diagnosisPredNumber(row) - model.center) / model.scale;
       return sum + diagnosisSigmoid(model.intercept + model.slope * normalizedPred);
     }, 0) / rows.length;
-    const roundedPercent = Math.round(averageProbability * 100);
-
-    if (roundedPercent <= 0) {
+    const rawPercent = averageProbability * 100;
+    if (rawPercent <= 5) {
       continue;
     }
-
-    const resultText = roundedPercent >= 100
+    const roundedPercent = Math.round(rawPercent / 10) * 10;
+    const resultText = rawPercent >= 95
       ? "ほぼ全て"
       : "約" + roundedPercent + "%";
     messages.push("☆" + level + "が" + resultText);
@@ -633,6 +638,7 @@ function diagnosisReset() {
   diagnosisState.selectedAptitude = null;
   diagnosisState.selectedCharts = [];
   diagnosisState.responses = new Map();
+  diagnosisState.seenChartIds = new Set();
   diagnosisState.provisionalPred = null;
   diagnosisState.round = 0;
   diagnosisState.lastAdjustment = "";
