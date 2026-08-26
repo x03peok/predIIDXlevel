@@ -8,6 +8,17 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const currentPage = document.body.dataset.page || "";
+  if (!siteMenu.querySelector('[data-page="diagnosis"]')) {
+    const diagnosisItem = document.createElement("button");
+    diagnosisItem.type = "button";
+    diagnosisItem.className = "menu-item";
+    diagnosisItem.dataset.page = "diagnosis";
+    diagnosisItem.dataset.href = document.body.dataset.staticChartPage === "true"
+      ? "../diagnosis.html"
+      : "diagnosis.html";
+    diagnosisItem.textContent = "適正診断";
+    siteMenu.append(diagnosisItem);
+  }
   const menuItems = Array.from(siteMenu.querySelectorAll(".menu-item"));
 
   function setMenuOpen(open) {

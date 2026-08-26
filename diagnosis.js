@@ -582,8 +582,37 @@ function diagnosisGetKnownFeatureObservations() {
     .filter((observation) => observation.row && diagnosisPredNumber(observation.row) !== null);
 }
 
+function diagnosisGetProgressPercent(rounds, knownCount, maximumRounds, enoughAnswers) {
+  const roundProgress = Math.min(1, Math.max(0, rounds / maximumRounds));
+  const answerProgress = Math.min(1, Math.max(0, knownCount / enoughAnswers));
+  return Math.round(Math.max(roundProgress, answerProgress) * 100);
+}
+
+function diagnosisUpdateProgressBar(elementId, rounds, knownCount, maximumRounds, enoughAnswers) {
+  const progressBar = document.getElementById(elementId);
+  if (!progressBar) {
+    return;
+  }
+
+  const percent = diagnosisGetProgressPercent(
+    rounds,
+    knownCount,
+    maximumRounds,
+    enoughAnswers,
+  );
+  progressBar.style.setProperty("--progress", percent + "%");
+  progressBar.setAttribute("aria-valuenow", String(percent));
+  progressBar.setAttribute("aria-valuetext", percent + "%");
+}
 function diagnosisUpdateFeatureProgress() {
   const count = diagnosisGetKnownFeatureObservations().length;
+  diagnosisUpdateProgressBar(
+    "diagnosisFeatureProgressBar",
+    diagnosisState.featureRound,
+    count,
+    diagnosisFeatureMaximumRounds,
+    diagnosisFeatureEnoughAnswers,
+  );
   document.getElementById("diagnosisFeatureProgress").textContent =
     "有効回答" + count + "件 / 最大" + diagnosisFeatureMaximumRounds + "回または"
       + diagnosisFeatureEnoughAnswers + "件で診断します";
@@ -619,6 +648,13 @@ function diagnosisGetKnownCounts(option = diagnosisState.selectedAptitude) {
 
 function diagnosisUpdateProgress() {
   const counts = diagnosisGetKnownCounts();
+  diagnosisUpdateProgressBar(
+    "diagnosisProgressBar",
+    diagnosisState.round,
+    counts.total,
+    diagnosisMaximumRounds,
+    diagnosisEnoughKnownAnswers,
+  );
   document.getElementById("diagnosisProgress").textContent =
     "有効回答" + counts.total + "件 / およそ" + diagnosisEnoughKnownAnswers + "件集まると診断に進みます";
 }
@@ -719,10 +755,43 @@ function diagnosisFormatPredRange(lower, upper) {
   return lowerText === upperText ? lowerText : lowerText + "-" + upperText;
 }
 
+function diagnosisRenderResultPred(element, result, bounds) {
+  element.textContent = "";
+  if (!Number.isFinite(result.rangeLower)) {
+    element.textContent = result.range || "ー";
+    return;
+  }
+
+  const appendValue = (value) => {
+    const valueElement = document.createElement("span");
+    valueElement.className = "diagnosis-result-pred__value";
+    valueElement.textContent = diagnosisFormatPred(value);
+    const color = diagnosisGetNumericScaleColor(value, bounds.min, bounds.max);
+    if (color) {
+      valueElement.style.setProperty("--numeric-color", color);
+    }
+    element.append(valueElement);
+  };
+
+  appendValue(result.rangeLower);
+  if (Number.isFinite(result.rangeUpper) && result.rangeUpper !== result.rangeLower) {
+    const separator = document.createElement("span");
+    separator.className = "diagnosis-result-pred__separator";
+    separator.textContent = "-";
+    element.append(separator);
+    appendValue(result.rangeUpper);
+  }
+  if (result.rangeQualifier) {
+    element.append(document.createTextNode(result.rangeQualifier));
+  }
+}
 function diagnosisBuildInsufficientResult(observations, counts) {
   return {
     pred: null,
     range: "ー",
+    rangeLower: null,
+    rangeUpper: null,
+    rangeQualifier: "",
     fallbackMessage: "プレイ曲数不足により推定できませんでした",
     model: null,
     usedLogistic: false,
@@ -730,9 +799,7 @@ function diagnosisBuildInsufficientResult(observations, counts) {
     counts,
   };
 }
-
 function diagnosisBuildFallbackResult(observations, counts) {
-  const bounds = diagnosisGetLevelBounds();
   if (counts.total < 6) {
     return diagnosisBuildInsufficientResult(observations, counts);
   }
@@ -742,6 +809,9 @@ function diagnosisBuildFallbackResult(observations, counts) {
     return {
       pred: diagnosisState.provisionalPred,
       range: provisionalPred + "未満",
+      rangeLower: diagnosisState.provisionalPred,
+      rangeUpper: null,
+      rangeQualifier: "未満",
       fallbackMessage: "クリア曲数不足により推定できませんでした",
       model: null,
       usedLogistic: false,
@@ -755,6 +825,9 @@ function diagnosisBuildFallbackResult(observations, counts) {
     return {
       pred: diagnosisState.provisionalPred,
       range: provisionalPred + "以上",
+      rangeLower: diagnosisState.provisionalPred,
+      rangeUpper: null,
+      rangeQualifier: "以上",
       fallbackMessage: diagnosisState.provisionalPred < 13
         ? "プレイ曲数不足により推定できませんでした"
         : "当サイトではこれ以上のクリア力を推定できません",
@@ -768,6 +841,9 @@ function diagnosisBuildFallbackResult(observations, counts) {
   return {
     pred: diagnosisState.provisionalPred,
     range: diagnosisFormatPred(diagnosisState.provisionalPred),
+    rangeLower: diagnosisState.provisionalPred,
+    rangeUpper: null,
+    rangeQualifier: "",
     fallbackMessage: "有効回答不足により暫定値を表示",
     model: null,
     usedLogistic: false,
@@ -868,6 +944,9 @@ function diagnosisFitLogisticRegression(option) {
   return {
     pred,
     range: hasValidRange ? diagnosisFormatPredRange(lower, upper) : diagnosisFormatPred(pred),
+    rangeLower: hasValidRange ? lower : pred,
+    rangeUpper: hasValidRange ? upper : null,
+    rangeQualifier: "",
     model: Number.isFinite(threshold) && hasValidRange
       ? { intercept, slope, center, scale }
       : null,
@@ -881,13 +960,12 @@ function diagnosisShouldFinish() {
   return (diagnosisState.round >= diagnosisMinimumRounds && counts.total >= diagnosisEnoughKnownAnswers)
     || diagnosisState.round >= diagnosisMaximumRounds;
 }
-
 function diagnosisBuildLevelClearRateText(model) {
   if (!model) {
     return "";
   }
 
-  const messages = [];
+  const levelMessages = [];
   for (const level of ["8", "9", "10", "11", "12"]) {
     const rows = diagnosisState.rows
       .filter((row) => row.original_level === level)
@@ -909,14 +987,85 @@ function diagnosisBuildLevelClearRateText(model) {
     const resultText = rawPercent >= 95
       ? "ほぼ全て"
       : "約" + roundedPercent + "%";
-    messages.push("☆" + level + "が" + resultText);
+    levelMessages.push({ level, resultText });
   }
 
-  return messages.length > 0
-    ? messages.join("、") + "クリアできる水準です。"
+  const messages = [];
+  for (const current of levelMessages) {
+    const previous = messages[messages.length - 1];
+    if (
+      previous
+      && previous.resultText === current.resultText
+      && Number(previous.endLevel) + 1 === Number(current.level)
+    ) {
+      previous.endLevel = current.level;
+      continue;
+    }
+    messages.push({
+      startLevel: current.level,
+      endLevel: current.level,
+      resultText: current.resultText,
+    });
+  }
+
+  const text = messages.map((message) => {
+    const levelText = message.startLevel === message.endLevel
+      ? "☆" + message.startLevel
+      : "☆" + message.startLevel + "～☆" + message.endLevel;
+    return levelText + "が" + message.resultText;
+  });
+
+  return text.length > 0
+    ? text.join("、") + "クリアできる水準です。"
     : "";
 }
+function diagnosisGetPublicUrl() {
+  return "https://x03peok.github.io/predIIDXlevel/diagnosis.html";
+}
 
+function diagnosisBuildShareText(result, levelRateText) {
+  const lines = [
+    "適正Pred診断（β）",
+    "",
+    "推定適正Pred: " + (result.range || "ー"),
+  ];
+
+  if (result.fallbackMessage) {
+    lines.push(result.fallbackMessage);
+  }
+  if (levelRateText) {
+    lines.push(levelRateText);
+  }
+
+  lines.push("", diagnosisGetPublicUrl());
+  return lines.join("\n");
+}
+
+function diagnosisUpdateShare(shareText) {
+
+  const button = document.getElementById("diagnosisShareButton");
+  if (!button) {
+    return;
+  }
+
+
+  button.href = "https://x.com/intent/tweet?"
+    + new URLSearchParams({ text: shareText }).toString();
+  button.hidden = false;
+}
+
+function diagnosisUpdateFeatureShare(shareText) {
+
+  const button = document.getElementById("diagnosisFeatureShareButton");
+  if (!button) {
+    return;
+  }
+
+
+  button.href = "https://x.com/intent/tweet?"
+    + new URLSearchParams({ text: shareText }).toString();
+  button.hidden = false;
+}
 function diagnosisShowResult() {
   const result = diagnosisFitLogisticRegression(diagnosisState.selectedAptitude);
   const counts = result.counts;
@@ -932,13 +1081,14 @@ function diagnosisShowResult() {
     : diagnosisState.provisionalPred;
 
   const resultPredElement = document.getElementById("diagnosisResultPred");
-  resultPredElement.textContent = result.range;
+  const resultPredContainer = resultPredElement.parentElement;
   const predBounds = diagnosisGetLevelBounds();
+  diagnosisRenderResultPred(resultPredElement, result, predBounds);
   const predColor = diagnosisGetNumericScaleColor(result.pred, predBounds.min, predBounds.max);
   if (predColor) {
-    resultPredElement.style.setProperty("--numeric-color", predColor);
+    resultPredContainer.style.setProperty("--numeric-color", predColor);
   } else {
-    resultPredElement.style.removeProperty("--numeric-color");
+    resultPredContainer.style.removeProperty("--numeric-color");
   }
   document.getElementById("diagnosisResultMethod").textContent = result.usedLogistic
     ? "クリア確率40%-60%のPred範囲を表示"
@@ -947,6 +1097,7 @@ function diagnosisShowResult() {
   levelRates.hidden = !levelRateText;
   document.getElementById("diagnosisResultSummary").textContent =
     "選択内訳：クリア" + counts.clear + "譜面/未クリア" + counts.notClear + "譜面";
+  diagnosisUpdateShare(diagnosisBuildShareText(result, levelRateText));
 
   const featureButton = document.getElementById("diagnosisFeatureButton");
   featureButton.disabled = !result.usedLogistic;
@@ -1044,17 +1195,71 @@ function diagnosisGetFeatureScores() {
   });
 }
 
+function diagnosisGetFeatureShareTendencies(scores) {
+  const epsilon = 1e-9;
+  const positive = scores.filter(({ score }) => score > 50 + epsilon);
+  const negative = scores.filter(({ score }) => score < 50 - epsilon);
+  const strongestPositive = positive.length
+    ? Math.max(...positive.map(({ score }) => score - 50))
+    : 0;
+  const strongestNegative = negative.length
+    ? Math.max(...negative.map(({ score }) => 50 - score))
+    : 0;
+
+  return {
+    strong: positive
+      .filter(({ score }) => Math.abs((score - 50) - strongestPositive) < epsilon)
+      .map(({ name }) => name),
+    weak: negative
+      .filter(({ score }) => Math.abs((50 - score) - strongestNegative) < epsilon)
+      .map(({ name }) => name),
+  };
+}
+function diagnosisBuildFeatureShareText(scores) {
+  const resultPred = document.getElementById("diagnosisResultPred");
+  const predText = resultPred && resultPred.textContent.trim()
+    ? resultPred.textContent.trim()
+    : "ー";
+  const tendencies = diagnosisGetFeatureShareTendencies(scores);
+  const lines = [
+    "適正Pred・得意傾向診断（β）",
+    "",
+    "推定適正Pred: " + predText,
+  ];
+
+  if (tendencies.strong.length) {
+    lines.push("得意傾向: " + tendencies.strong.join("、"));
+  }
+  if (tendencies.weak.length) {
+    lines.push("不得意傾向: " + tendencies.weak.join("、"));
+  }
+
+  lines.push("", diagnosisGetPublicUrl());
+  return lines.join("\n");
+}
 function diagnosisRenderFeatureResult() {
   const knownCount = diagnosisGetKnownFeatureObservations().length;
   const notice = document.getElementById("diagnosisFeatureResultNotice");
   const bars = document.getElementById("diagnosisFeatureBars");
+  const featureShare = document.getElementById("diagnosisFeatureShare");
+
+  const featureShareButton = document.getElementById("diagnosisFeatureShareButton");
   if (knownCount < diagnosisFeatureMinimumAnswers) {
     notice.textContent = "有効回答が10譜面未満のため、得意傾向を診断できませんでした。";
     notice.hidden = false;
     bars.innerHTML = "";
+    if (featureShare) {
+      featureShare.hidden = true;
+    }
+    if (featureShareButton) {
+      featureShareButton.hidden = true;
+    }
     return;
   }
   notice.hidden = true;
+  if (featureShare) {
+    featureShare.hidden = false;
+  }
   const scores = diagnosisGetFeatureScores()
     .map((score, order) => ({ ...score, order }))
     .sort((left, right) => right.score - left.score || left.order - right.order);
@@ -1100,6 +1305,7 @@ function diagnosisRenderFeatureResult() {
   }).join("");
 
   bars.innerHTML = scale + rows;
+  diagnosisUpdateFeatureShare(diagnosisBuildFeatureShareText(scores));
 }
 function diagnosisShowFeatureStep() {
   if (!diagnosisState.predModel) {
@@ -1193,6 +1399,9 @@ function diagnosisReset() {
   document.getElementById("diagnosisChartQuestions").innerHTML = "";
   document.getElementById("diagnosisFeatureQuestions").innerHTML = "";
   document.getElementById("diagnosisFeatureBars").innerHTML = "";
+  document.getElementById("diagnosisShareButton").hidden = true;
+  document.getElementById("diagnosisFeatureShare").hidden = true;
+  document.getElementById("diagnosisFeatureShareButton").hidden = true;
 
   diagnosisShowLevelStep();
 }

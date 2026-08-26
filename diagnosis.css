@@ -179,6 +179,19 @@
   background: rgba(219, 234, 254, 0.55);
 }
 
+.diagnosis-button--home {
+  border-color: #9932cc;
+  background: #9932cc;
+  color: #fff;
+  text-align: center;
+  text-decoration: none;
+}
+
+.diagnosis-button--home:hover,
+.diagnosis-button--home:focus-visible {
+  background: #8528b3;
+}
+
 .diagnosis-selection-caption {
   margin: -4px 0 14px;
   color: var(--muted);
@@ -271,6 +284,23 @@
   text-align: right;
 }
 
+.diagnosis-progress__track {
+  width: 100%;
+  height: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.24);
+}
+
+.diagnosis-progress__fill {
+  display: block;
+  width: var(--progress, 0%);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 180ms ease;
+}
 .diagnosis-error {
   margin: 16px 0 0;
   color: #b91c1c;
@@ -308,6 +338,41 @@
   }
 }
 
+.diagnosis-share {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  text-align: left;
+}
+
+.diagnosis-share__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  min-height: 40px;
+  padding: 9px 16px;
+  border: 1px solid #111827;
+  border-radius: 999px;
+  background: #111827;
+  color: #fff;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.diagnosis-share__button:hover,
+.diagnosis-share__button:focus-visible {
+  background: #374151;
+}
+
+.diagnosis-share__button[hidden] {
+  display: none;
+}
+
 .diagnosis-result-card {
   margin-top: 8px;
   padding: 22px;
@@ -333,6 +398,13 @@
   line-height: 1;
 }
 
+.diagnosis-result-card__pred .diagnosis-result-pred__value {
+  color: var(--numeric-color, inherit);
+}
+
+.diagnosis-result-card__pred .diagnosis-result-pred__separator {
+  color: var(--muted);
+}
 .diagnosis-result-card__method,
 .diagnosis-result-card__summary {
   margin: 0;

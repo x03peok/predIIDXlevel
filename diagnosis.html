@@ -6,11 +6,11 @@
   <title>診断 | SP☆8-☆12 非公式難易度予測表(&beta;)</title>
   <meta name="description" content="ノマゲ適正と譜面ごとのクリア状況から、適正PredとFeatureの傾向を診断するページです。">
   <link rel="stylesheet" href="styles.css?v=20260821-21">
-  <link rel="stylesheet" href="diagnosis.css?v=20260825-6">
+  <link rel="stylesheet" href="diagnosis.css?v=20260826-5">
   <link rel="stylesheet" href="menu.css">
-  <script defer src="menu.js"></script>
+  <script defer src="menu.js?v=20260826-2"></script>
   <script defer src="data.js?v=20260821-5"></script>
-  <script defer src="diagnosis.js?v=20260825-14"></script>
+  <script defer src="diagnosis.js?v=20260826-6"></script>
 </head>
 <body data-page="diagnosis">
   <main class="app">
@@ -74,6 +74,9 @@
             </div>
             <div id="diagnosisChartQuestions" class="diagnosis-chart-questions"></div>
             <div class="diagnosis-progress" aria-live="polite">
+              <div id="diagnosisProgressBar" class="diagnosis-progress__track" role="progressbar" aria-label="回答進捗" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0%">
+                <span class="diagnosis-progress__fill"></span>
+              </div>
               <span id="diagnosisProgress">有効回答0件 / およそ30件集まると診断に進みます</span>
             </div>
             <div class="diagnosis-actions">
@@ -96,10 +99,14 @@
               <p id="diagnosisResultMethod" class="diagnosis-result-card__method"></p>
               <p id="diagnosisLevelClearRates" class="diagnosis-result-card__level-rates" hidden></p>
               <p id="diagnosisResultSummary" class="diagnosis-result-card__summary"></p>
+              <div class="diagnosis-share">
+                <a id="diagnosisShareButton" class="diagnosis-share__button" href="#" target="_blank" rel="noopener noreferrer" hidden>Xで共有</a>
+              </div>
             </div>
             <div class="diagnosis-actions diagnosis-actions--right">
               <button id="diagnosisFeatureButton" class="diagnosis-button" type="button" disabled>得意傾向診断へ</button>
               <button id="diagnosisResultResetButton" class="diagnosis-button diagnosis-button--secondary" type="button">最初からやり直す</button>
+              <a class="diagnosis-button diagnosis-button--home" href="index.html">メインページへ</a>
             </div>
           </section>
 
@@ -113,6 +120,9 @@
             </div>
             <div id="diagnosisFeatureQuestions" class="diagnosis-chart-questions"></div>
             <div class="diagnosis-progress" aria-live="polite">
+              <div id="diagnosisFeatureProgressBar" class="diagnosis-progress__track" role="progressbar" aria-label="回答進捗" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0%">
+                <span class="diagnosis-progress__fill"></span>
+              </div>
               <span id="diagnosisFeatureProgress">有効回答0件 / 最大10回または50件で診断します</span>
             </div>
             <div class="diagnosis-actions">
@@ -134,9 +144,13 @@
               <p id="diagnosisFeatureResultNotice" class="diagnosis-feature-result__notice" role="status" hidden></p>
               <div id="diagnosisFeatureBars" class="diagnosis-feature-bars"></div>
             </div>
+            <div id="diagnosisFeatureShare" class="diagnosis-share diagnosis-feature-share" hidden>
+              <a id="diagnosisFeatureShareButton" class="diagnosis-share__button" href="#" target="_blank" rel="noopener noreferrer" hidden>Xで共有</a>
+            </div>
             <div class="diagnosis-actions">
               <button id="diagnosisFeatureResultBackButton" class="diagnosis-button diagnosis-button--secondary" type="button">Pred診断結果へ</button>
               <button id="diagnosisFeatureResultResetButton" class="diagnosis-button diagnosis-button--secondary" type="button">最初からやり直す</button>
+              <a class="diagnosis-button diagnosis-button--home" href="index.html">メインページへ</a>
             </div>
           </section>
         </form>
