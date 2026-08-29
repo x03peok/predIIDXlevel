@@ -397,15 +397,7 @@ function mypageGetVisibleRows() {
     rows = rows.filter((row) => String(row.title ?? "").toLowerCase().includes(query));
   }
 
-  const statusOptions = mypageStatuses;
-  const selectedStatuses = mypageState.statusFilter ?? [];
-  if (selectedStatuses.length === 0) {
-    return [];
-  }
-  if (!mypageAreAllValuesSelected(selectedStatuses, statusOptions)) {
-    const selectedStatusSet = new Set(selectedStatuses);
-    rows = rows.filter((row) => selectedStatusSet.has(mypageGetStatus(row)));
-  }
+  rows = rows.filter((row) => mypageStatusMatchesFilter(mypageGetStatus(row)));
 
   const difficultyOptions = mypageGetDifficultyOptions();
   const selectedDifficulties = mypageState.difficultyFilter ?? [];
@@ -617,7 +609,6 @@ function mypageUpdateTableOverflowState() {
 }
 
 function mypageUpdateSortMarks() {
-  mypageElements.tableBody.addEventListener("change", mypageHandleStatusChange);
   mypageElements.table.querySelectorAll("thead button[data-sort-key]").forEach((button) => {
     const mark = button.querySelector(".sort-mark");
     if (!mark) {
@@ -631,6 +622,14 @@ function mypageUpdateSortMarks() {
   });
 }
 
+function mypageStatusMatchesFilter(status) {
+  const selectedStatuses = mypageState.statusFilter ?? [];
+  if (selectedStatuses.length === 0) {
+    return false;
+  }
+  return mypageAreAllValuesSelected(selectedStatuses, mypageStatuses)
+    || selectedStatuses.includes(status);
+}
 function mypageRender() {
   mypageUpdateAdvancedSummary();
   const visibleRows = mypageGetVisibleRows();
@@ -807,6 +806,7 @@ function mypageBindEvents() {
   mypageElements.table.querySelectorAll("thead button[data-sort-key]").forEach((button) => {
     button.addEventListener("click", () => mypageSetSort(button.dataset.sortKey));
   });
+  mypageElements.tableBody.addEventListener("change", mypageHandleStatusChange);
   mypageElements.scrollTopButton.addEventListener("click", mypageScrollToTop);
   window.addEventListener("scroll", mypageUpdateScrollTopButton, { passive: true });
   window.addEventListener("resize", mypageUpdateTableOverflowState);
@@ -903,7 +903,9 @@ async function mypageHandleStatusChange(event) {
       });
     }
     mypageUpdateStatusSelect(select);
-    mypageRender();
+    if (mypageState.sortKey === "status" || !mypageStatusMatchesFilter(status)) {
+      mypageRender();
+    }
     mypageSetMessage("記録を保存しました。");
   } catch (error) {
     select.value = previousStatus;
