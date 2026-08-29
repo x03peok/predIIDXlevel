@@ -37,9 +37,9 @@ const recordState = {
   rows: [],
   records: new Map(),
   query: "",
-  level: "all",
-  difficulty: "all",
-  status: "all",
+  statusFilter: null,
+  levelFilter: null,
+  difficultyFilter: null,
   visibleLimit: recordPageSize,
   db: null,
 };
@@ -209,25 +209,185 @@ function recordApplyRecords(records) {
   }
 }
 
-function recordGetFilteredRows() {
-  const query = recordState.query.trim().toLowerCase();
-  return recordState.rows.filter((row) => {
-    if (query && !row.title.toLowerCase().includes(query)) {
-      return false;
+function recordGetLevelOptions() {
+  const levels = new Set();
+  for (const row of recordState.rows) {
+    if (row.level) {
+      levels.add(row.level);
     }
-    if (recordState.level !== "all" && row.level !== recordState.level) {
-      return false;
-    }
-    if (recordState.difficulty !== "all" && row.difficulty !== recordDifficultyValues[recordState.difficulty]) {
-      return false;
-    }
-    if (recordState.status !== "all" && (recordState.records.get(row.chartId)?.status ?? "unregistered") !== recordState.status) {
-      return false;
-    }
-    return true;
-  });
+  }
+  return [...levels]
+    .sort((left, right) => Number(left) - Number(right))
+    .map((level) => ({ value: level, label: "☆" + level }));
 }
 
+function recordGetDifficultyOptions() {
+  return ["N", "H", "A", "L"].map((value) => ({
+    value,
+    label: "[" + value + "] " + recordDifficultyValues[value],
+  }));
+}
+
+function recordAreAllValuesSelected(selected, options) {
+  const values = options.map((option) => option.value);
+  return selected.length === values.length
+    && values.every((value) => selected.includes(value));
+}
+
+function recordUpdateFilterSummary(summary, selected, options) {
+  if (recordAreAllValuesSelected(selected, options)) {
+    summary.textContent = "all";
+    summary.title = "";
+    return;
+  }
+  if (selected.length === 0) {
+    summary.textContent = "none";
+    summary.title = "";
+    return;
+  }
+
+  const labels = selected.map((value) => {
+    const option = options.find((item) => item.value === value);
+    return option?.label ?? value;
+  });
+  summary.textContent = labels.length === 1 ? labels[0] : labels.length + " selected";
+  summary.title = labels.join(", ");
+}
+
+function recordFillMultiFilter(stateKey, options, summary, container) {
+  const values = options.map((option) => option.value);
+  const current = Array.isArray(recordState[stateKey])
+    ? recordState[stateKey]
+    : values;
+  recordState[stateKey] = values.filter((value) => current.includes(value));
+
+  const syncCheckboxes = () => {
+    const selectedValues = new Set(recordState[stateKey]);
+    const allCheckbox = container.querySelector("input[data-filter-all]");
+    if (allCheckbox) {
+      allCheckbox.checked = recordAreAllValuesSelected(recordState[stateKey], options);
+    }
+    container.querySelectorAll("input[data-filter-option]").forEach((checkbox) => {
+      checkbox.checked = selectedValues.has(checkbox.value);
+    });
+  };
+
+  const notifyChange = () => {
+    recordUpdateFilterSummary(summary, recordState[stateKey], options);
+    recordState.visibleLimit = recordPageSize;
+    recordRender();
+  };
+
+  const fragment = document.createDocumentFragment();
+  const allLabel = document.createElement("label");
+  allLabel.className = "multi-filter__option multi-filter__option--all";
+  const allCheckbox = document.createElement("input");
+  allCheckbox.type = "checkbox";
+  allCheckbox.dataset.filterAll = "true";
+  const allText = document.createElement("span");
+  allText.textContent = "all";
+  allLabel.append(allCheckbox, allText);
+  allCheckbox.addEventListener("change", () => {
+    recordState[stateKey] = allCheckbox.checked ? [...values] : [];
+    syncCheckboxes();
+    notifyChange();
+  });
+  fragment.append(allLabel);
+
+  for (const option of options) {
+    const label = document.createElement("label");
+    label.className = "multi-filter__option";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.dataset.filterOption = "true";
+    checkbox.value = option.value;
+    const text = document.createElement("span");
+    text.textContent = option.label;
+    label.append(checkbox, text);
+    checkbox.addEventListener("change", () => {
+      recordState[stateKey] = [...container.querySelectorAll("input[data-filter-option]:checked")]
+        .map((input) => input.value);
+      syncCheckboxes();
+      notifyChange();
+    });
+    fragment.append(label);
+  }
+
+  container.replaceChildren(fragment);
+  syncCheckboxes();
+  recordUpdateFilterSummary(summary, recordState[stateKey], options);
+}
+
+function recordSetupFilterDetails() {
+  const closeOtherFilterDetails = (activeDetails) => {
+    document.querySelectorAll(".record-filter-details").forEach((details) => {
+      if (details !== activeDetails) {
+        details.open = false;
+      }
+    });
+  };
+
+  document.querySelectorAll(".record-filter-details").forEach((details) => {
+    details.addEventListener("toggle", () => {
+      if (details.open) {
+        closeOtherFilterDetails(details);
+      }
+    });
+  });
+
+  document.addEventListener("pointerdown", (event) => {
+    const target = event.target instanceof Element
+      ? event.target
+      : event.target?.parentElement;
+    if (target?.closest("summary")) {
+      return;
+    }
+    closeOtherFilterDetails(target?.closest(".record-filter-details") ?? null);
+  });
+}
+function recordGetFilteredRows() {
+  const query = recordState.query.trim().toLowerCase();
+  let rows = recordState.rows;
+
+  if (query) {
+    rows = rows.filter((row) => row.title.toLowerCase().includes(query));
+  }
+
+  const selectedStatuses = recordState.statusFilter ?? [];
+  if (selectedStatuses.length === 0) {
+    return [];
+  }
+  if (!recordAreAllValuesSelected(selectedStatuses, recordStatuses)) {
+    const selectedStatusSet = new Set(selectedStatuses);
+    rows = rows.filter((row) => selectedStatusSet.has(recordGetStatus(row)));
+  }
+
+  const difficultyOptions = recordGetDifficultyOptions();
+  const selectedDifficulties = recordState.difficultyFilter ?? [];
+  if (selectedDifficulties.length === 0) {
+    return [];
+  }
+  if (!recordAreAllValuesSelected(selectedDifficulties, difficultyOptions)) {
+    const selectedDifficultySet = new Set(selectedDifficulties);
+    rows = rows.filter((row) => {
+      const difficultyValue = Object.entries(recordDifficultyValues)
+        .find(([, difficulty]) => difficulty === row.difficulty)?.[0];
+      return selectedDifficultySet.has(difficultyValue);
+    });
+  }
+
+  const levelOptions = recordGetLevelOptions();
+  const selectedLevels = recordState.levelFilter ?? [];
+  if (selectedLevels.length === 0) {
+    return [];
+  }
+  if (!recordAreAllValuesSelected(selectedLevels, levelOptions)) {
+    const selectedLevelSet = new Set(selectedLevels);
+    rows = rows.filter((row) => selectedLevelSet.has(row.level));
+  }
+
+  return rows;
+}
 function recordGetStatus(row) {
   return recordState.records.get(row.chartId)?.status ?? "unregistered";
 }
@@ -279,27 +439,25 @@ function recordRender() {
 }
 
 function recordPopulateFilters() {
-  const levels = [...new Set(recordState.rows.map((row) => row.level).filter(Boolean))]
-    .sort((left, right) => Number(left) - Number(right));
-  recordElements.levelFilter.innerHTML = [
-    '<option value="all">all</option>',
-    ...levels.map((level) => `<option value="${recordEscapeHtml(level)}">${recordEscapeHtml(level)}</option>`),
-  ].join("");
-  recordElements.difficultyFilter.innerHTML = [
-    '<option value="all">all</option>',
-    ...Object.keys(recordDifficultyValues).map((value) => `<option value="${value}">[${value}] ${recordDifficultyLabels[recordDifficultyValues[value]] === value ? "" : ""}${{
-      N: "NORMAL",
-      H: "HYPER",
-      A: "ANOTHER",
-      L: "LEGGENDARIA",
-    }[value]}</option>`),
-  ].join("");
-  recordElements.statusFilter.innerHTML = [
-    '<option value="all">all</option>',
-    ...recordStatuses.map(({ value, label }) => `<option value="${value}">${label}</option>`),
-  ].join("");
+  recordFillMultiFilter(
+    "statusFilter",
+    recordStatuses,
+    recordElements.statusFilterSummary,
+    recordElements.statusFilterOptions,
+  );
+  recordFillMultiFilter(
+    "levelFilter",
+    recordGetLevelOptions(),
+    recordElements.levelFilterSummary,
+    recordElements.levelFilterOptions,
+  );
+  recordFillMultiFilter(
+    "difficultyFilter",
+    recordGetDifficultyOptions(),
+    recordElements.difficultyFilterSummary,
+    recordElements.difficultyFilterOptions,
+  );
 }
-
 function recordSetMessage(message, isError = false) {
   recordElements.message.textContent = message;
   recordElements.message.dataset.state = isError ? "error" : "ok";
@@ -336,34 +494,22 @@ function recordBindEvents() {
     recordState.visibleLimit = recordPageSize;
     recordRender();
   });
-  recordElements.levelFilter.addEventListener("change", () => {
-    recordState.level = recordElements.levelFilter.value;
-    recordState.visibleLimit = recordPageSize;
-    recordRender();
-  });
-  recordElements.difficultyFilter.addEventListener("change", () => {
-    recordState.difficulty = recordElements.difficultyFilter.value;
-    recordState.visibleLimit = recordPageSize;
-    recordRender();
-  });
-  recordElements.statusFilter.addEventListener("change", () => {
-    recordState.status = recordElements.statusFilter.value;
-    recordState.visibleLimit = recordPageSize;
-    recordRender();
-  });
   recordElements.tableBody.addEventListener("change", recordHandleStatusChange);
   recordElements.loadMore.addEventListener("click", () => {
     recordState.visibleLimit += recordPageSize;
     recordRender();
   });
 }
-
 async function recordInitialize() {
   recordEntityDecoder = document.createElement("textarea");
+  recordSetupFilterDetails();
   recordElements.search = document.getElementById("recordSearchInput");
-  recordElements.levelFilter = document.getElementById("recordLevelFilter");
-  recordElements.difficultyFilter = document.getElementById("recordDifficultyFilter");
-  recordElements.statusFilter = document.getElementById("recordStatusFilter");
+  recordElements.statusFilterSummary = document.getElementById("recordStatusFilterSummary");
+  recordElements.statusFilterOptions = document.getElementById("recordStatusFilterOptions");
+  recordElements.levelFilterSummary = document.getElementById("recordLevelFilterSummary");
+  recordElements.levelFilterOptions = document.getElementById("recordLevelFilterOptions");
+  recordElements.difficultyFilterSummary = document.getElementById("recordDifficultyFilterSummary");
+  recordElements.difficultyFilterOptions = document.getElementById("recordDifficultyFilterOptions");
   recordElements.message = document.getElementById("recordMessage");
   recordElements.summary = document.getElementById("recordSummary");
   recordElements.tableBody = document.getElementById("recordTableBody");

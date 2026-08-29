@@ -19,17 +19,6 @@ document.addEventListener("DOMContentLoaded", () => {
     diagnosisItem.textContent = "適正診断";
     siteMenu.append(diagnosisItem);
   }
-  if (!siteMenu.querySelector('[data-page="mypage"]')) {
-    const mypageItem = document.createElement("button");
-    mypageItem.type = "button";
-    mypageItem.className = "menu-item";
-    mypageItem.dataset.page = "mypage";
-    mypageItem.dataset.href = document.body.dataset.staticChartPage === "true"
-      ? "../mypage.html"
-      : "mypage.html";
-    mypageItem.textContent = "マイページ";
-    siteMenu.append(mypageItem);
-  }
   const menuItems = Array.from(siteMenu.querySelectorAll(".menu-item"));
 
   function setMenuOpen(open) {

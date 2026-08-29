@@ -346,6 +346,15 @@ function mypageGetStatus(row) {
   return mypageState.records.get(String(row.chart_id))?.status ?? "unregistered";
 }
 
+function mypageStatusOptions(selected) {
+  return mypageStatuses.map(({ value, label }) => (
+    '<option value="' + value + '"' + (value === selected ? ' selected' : '') + ">" + label + "</option>"
+  )).join("");
+}
+
+function mypageUpdateStatusSelect(select) {
+  select.dataset.status = select.value;
+}
 function mypageCompareNumericValues(leftValue, rightValue) {
   const left = mypageGetNumericValue(leftValue);
   const right = mypageGetNumericValue(rightValue);
@@ -359,6 +368,11 @@ function mypageCompareNumericValues(leftValue, rightValue) {
 }
 
 function mypageCompareValues(left, right, key) {
+  if (key === "status") {
+    const leftIndex = mypageStatuses.findIndex(({ value }) => value === mypageGetStatus(left));
+    const rightIndex = mypageStatuses.findIndex(({ value }) => value === mypageGetStatus(right));
+    return leftIndex - rightIndex;
+  }
   if (key === "bpm") {
     const bpmKey = mypageState.sortDir === "desc" ? "bpm_max" : "bpm_min";
     return mypageCompareNumericValues(left[bpmKey], right[bpmKey]);
@@ -521,6 +535,7 @@ function mypageRenderTable(rows) {
     const originalText = "☆" + (row.original_level ?? "");
     const predictedText = mypageFormatPredValue(row.calibrated_pred_skill)
       ?? row.calibrated_pred_skill ?? "";
+    const status = mypageGetStatus(row);
     const levelColorStyle = getNumericColorStyle(
       row.original_level,
       mypageState.predDataMin,
@@ -532,6 +547,7 @@ function mypageRenderTable(rows) {
       mypageState.predDataMax,
     );
     const titleHref = mypageGetChartPageHref(row.chart_id);
+    const chartId = mypageEscapeHtml(row.chart_id);
     return [
       "<tr>",
       '<td class="mono numeric-value numeric-value--level"', levelColorStyle, ">",
@@ -543,11 +559,17 @@ function mypageRenderTable(rows) {
       mypageEscapeHtml(difficultyText), "]</span></a></td>",
       '<td class="mono numeric-value numeric-value--pred"', predictedColorStyle, ">",
       mypageEscapeHtml(predictedText), "</td>",
+      '<td><select class="mypage-status-select" data-chart-id="', chartId,
+      '" aria-label="', mypageEscapeHtml(row.title ?? ""), 'のクリア状況">',
+      mypageStatusOptions(status), "</select></td>",
       '<td class="mono">', mypageFormatBpmCell(row.bpm_min, row.bpm_max), "</td>",
       "<td>", mypageRenderFeatureChips(row), "</td>",
       "</tr>",
     ].join("");
   }).join("");
+  for (const select of mypageElements.tableBody.querySelectorAll(".mypage-status-select")) {
+    mypageUpdateStatusSelect(select);
+  }
 }
 
 function mypageGetNumericExtremes(rows, key, fallbackMin, fallbackMax) {
@@ -595,6 +617,7 @@ function mypageUpdateTableOverflowState() {
 }
 
 function mypageUpdateSortMarks() {
+  mypageElements.tableBody.addEventListener("change", mypageHandleStatusChange);
   mypageElements.table.querySelectorAll("thead button[data-sort-key]").forEach((button) => {
     const mark = button.querySelector(".sort-mark");
     if (!mark) {
@@ -829,6 +852,25 @@ function mypageReadAllRecords() {
   });
 }
 
+function mypageWriteStatus(chartId, status) {
+  return new Promise((resolve, reject) => {
+    if (!mypageState.db) {
+      reject(new Error("ローカル保存を開けませんでした。"));
+      return;
+    }
+    const transaction = mypageState.db.transaction(mypageStoreName, "readwrite");
+    const store = transaction.objectStore(mypageStoreName);
+    if (status === "unregistered") {
+      store.delete(chartId);
+    } else {
+      store.put({ chartId, status, updatedAt: new Date().toISOString() });
+    }
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(
+      transaction.error ?? new Error("記録を保存できませんでした。"),
+    );
+  });
+}
 function mypageApplyRecords(records) {
   mypageState.records = new Map();
   for (const record of records) {
@@ -839,6 +881,38 @@ function mypageApplyRecords(records) {
   }
 }
 
+async function mypageHandleStatusChange(event) {
+  const select = event.target.closest?.(".mypage-status-select");
+  if (!select || !mypageStatusValues.has(select.value)) {
+    return;
+  }
+
+  const chartId = select.dataset.chartId;
+  const previousStatus = mypageState.records.get(chartId)?.status ?? "unregistered";
+  const status = select.value;
+  select.disabled = true;
+  try {
+    await mypageWriteStatus(chartId, status);
+    if (status === "unregistered") {
+      mypageState.records.delete(chartId);
+    } else {
+      mypageState.records.set(chartId, {
+        chartId,
+        status,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+    mypageUpdateStatusSelect(select);
+    mypageRender();
+    mypageSetMessage("記録を保存しました。");
+  } catch (error) {
+    select.value = previousStatus;
+    mypageUpdateStatusSelect(select);
+    mypageSetMessage(error.message || "記録を保存できませんでした。");
+  } finally {
+    select.disabled = false;
+  }
+}
 function mypageSetMessage(message) {
   mypageElements.message.textContent = message;
   mypageElements.message.hidden = !message;

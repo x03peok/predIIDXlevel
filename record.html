@@ -14,11 +14,11 @@
   <meta property="og:locale" content="ja_JP">
   <meta name="twitter:card" content="summary">
   <link rel="stylesheet" href="styles.css?v=20260821-21">
-  <link rel="stylesheet" href="record.css?v=20260829-3">
+  <link rel="stylesheet" href="record.css?v=20260829-4">
   <link rel="stylesheet" href="menu.css">
-  <script defer src="menu.js?v=20260829-3"></script>
+  <script defer src="menu.js?v=20260829-4"></script>
   <script defer src="data.js?v=20260821-5"></script>
-  <script defer src="record.js?v=20260829-3"></script>
+  <script defer src="record.js?v=20260829-4"></script>
 </head>
 <body data-page="record">
   <main class="app">
@@ -50,25 +50,36 @@
 
     <section class="view view--record" aria-live="polite">
       <div class="panel record-panel">
-        <div class="record-controls">
-          <label class="record-filter record-filter--title">
+        <div class="toolbar record-toolbar">
+          <label class="search record-search">
             <span>Title</span>
             <input id="recordSearchInput" type="search" placeholder="search title" autocomplete="off">
           </label>
-          <label class="record-filter">
+
+          <div class="multi-filter record-status-filter">
             <span>Status</span>
-            <select id="recordStatusFilter"></select>
-          </label>
-          <label class="record-filter">
+            <details id="recordStatusFilterDetails" class="multi-filter__details record-filter-details">
+              <summary id="recordStatusFilterSummary">all</summary>
+              <div id="recordStatusFilterOptions" class="multi-filter__options"></div>
+            </details>
+          </div>
+
+          <div class="multi-filter record-level-filter">
             <span>Level</span>
-            <select id="recordLevelFilter"></select>
-          </label>
-          <label class="record-filter">
+            <details id="recordLevelFilterDetails" class="multi-filter__details record-filter-details">
+              <summary id="recordLevelFilterSummary">all</summary>
+              <div id="recordLevelFilterOptions" class="multi-filter__options"></div>
+            </details>
+          </div>
+
+          <div class="multi-filter record-difficulty-filter">
             <span>Difficulty</span>
-            <select id="recordDifficultyFilter"></select>
-          </label>
-        </div>
-        <p id="recordMessage" class="record-message" role="status" aria-live="polite"></p>
+            <details id="recordDifficultyFilterDetails" class="multi-filter__details record-filter-details">
+              <summary id="recordDifficultyFilterSummary">all</summary>
+              <div id="recordDifficultyFilterOptions" class="multi-filter__options"></div>
+            </details>
+          </div>
+        </div>        <p id="recordMessage" class="record-message" role="status" aria-live="polite"></p>
         <p id="recordSummary" class="record-summary" aria-live="polite"></p>
 
         <div class="table-shell record-table-shell">

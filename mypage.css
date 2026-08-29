@@ -59,3 +59,93 @@
     max-width: min(240px, calc(100vw - 48px));
   }
 }
+
+.mypage-panel col.col-orig {
+  width: 7%;
+}
+
+.mypage-panel col.col-title {
+  width: 27%;
+}
+
+.mypage-panel col.col-pred {
+  width: 9%;
+}
+
+.mypage-panel col.mypage-col-status {
+  width: 17%;
+}
+
+.mypage-panel col.col-bpm {
+  width: 10%;
+}
+
+.mypage-panel col.col-features {
+  width: 30%;
+}
+
+.mypage-panel tbody td:nth-child(3),
+.mypage-panel tbody td:nth-child(4),
+.mypage-panel tbody td:nth-child(5) {
+  text-align: center;
+}
+
+.mypage-status-select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 8px 30px 8px 10px;
+  border-radius: 10px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #64748b 50%),
+    linear-gradient(135deg, #64748b 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) calc(50% - 3px),
+    calc(100% - 8px) calc(50% - 3px);
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.mypage-status-select[data-status="unregistered"] {
+  color: var(--muted);
+  background-color: rgba(148, 163, 184, 0.1);
+}
+
+.mypage-status-select[data-status="unowned"] {
+  color: #64748b;
+  background-color: rgba(148, 163, 184, 0.14);
+}
+
+.mypage-status-select[data-status="no-play"] {
+  color: #475569;
+  background-color: rgba(203, 213, 225, 0.22);
+}
+
+.mypage-status-select[data-status="assisted"] {
+  color: #7c3aed;
+  background-color: rgba(167, 139, 250, 0.16);
+}
+
+.mypage-status-select[data-status="easy"] {
+  color: #65a30d;
+  background-color: rgba(132, 204, 22, 0.18);
+}
+
+.mypage-status-select[data-status="clear"] {
+  color: #2563eb;
+  background-color: rgba(96, 165, 250, 0.16);
+}
+
+.mypage-status-select[data-status="hard"] {
+  color: #dc2626;
+  background-color: rgba(248, 113, 113, 0.16);
+}
+
+@media (max-width: 720px) {
+  .mypage-status-select {
+    padding: 7px 22px 7px 6px;
+    font-size: 0.72rem;
+  }
+}

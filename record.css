@@ -23,40 +23,22 @@
   letter-spacing: 0.14em;
 }
 
-.record-controls {
+.record-toolbar {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 14px;
+  grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(140px, 1fr));
   align-items: end;
 }
 
-.record-filter {
-  display: grid;
+.record-toolbar > .search,
+.record-toolbar > .multi-filter {
+  width: 100%;
   min-width: 0;
-  gap: 8px;
 }
 
-.record-filter span {
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+.record-status-filter .multi-filter__options {
+  width: min(260px, calc(100vw - 48px));
+  max-width: min(260px, calc(100vw - 48px));
 }
-
-.record-filter select {
-  min-width: 0;
-  padding-right: 36px;
-  background-image:
-    linear-gradient(45deg, transparent 50%, #64748b 50%),
-    linear-gradient(135deg, #64748b 50%, transparent 50%);
-  background-position:
-    calc(100% - 18px) calc(50% - 3px),
-    calc(100% - 12px) calc(50% - 3px);
-  background-size: 6px 6px;
-  background-repeat: no-repeat;
-}
-
-
 .record-button {
   display: inline-flex;
   min-height: 42px;
@@ -233,7 +215,7 @@
 
 
 @media (max-width: 720px) {
-  .record-controls {
+  .record-toolbar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -255,5 +237,16 @@
   .record-status-select {
     padding: 7px 22px 7px 6px;
     font-size: 0.72rem;
+  }
+}
+
+@media (max-width: 720px) {
+  .record-toolbar > .search {
+    grid-column: 1 / -1;
+  }
+
+  .record-toolbar > .multi-filter {
+    width: 100%;
+    min-width: 0;
   }
 }

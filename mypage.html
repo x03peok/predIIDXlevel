@@ -14,12 +14,12 @@
   <meta property="og:locale" content="ja_JP">
   <meta name="twitter:card" content="summary">
   <link rel="stylesheet" href="styles.css?v=20260821-21">
-  <link rel="stylesheet" href="mypage.css?v=20260829-1">
+  <link rel="stylesheet" href="mypage.css?v=20260829-2">
   <link rel="stylesheet" href="menu.css">
-  <script defer src="menu.js?v=20260829-3"></script>
+  <script defer src="menu.js?v=20260829-4"></script>
   <script defer src="data.js?v=20260821-5"></script>
   <script defer src="app.js?v=20260829-3"></script>
-  <script defer src="mypage.js?v=20260829-1"></script>
+  <script defer src="mypage.js?v=20260829-2"></script>
 </head>
 <body data-page="mypage">
   <main class="app">
@@ -43,7 +43,6 @@
             <button type="button" class="menu-item" data-page="about" data-href="about.html">About</button>
             <button type="button" class="menu-item" data-page="diagnosis" data-href="diagnosis.html">適正診断</button>
             <button type="button" class="menu-item" data-page="history" data-href="history.html">更新履歴</button>
-            <button type="button" class="menu-item" data-page="mypage" data-href="mypage.html">マイページ</button>
           </div>
         </div>
         <h1>マイページ</h1>
@@ -122,6 +121,7 @@
               <col class="col-orig">
               <col class="col-title">
               <col class="col-pred">
+              <col class="mypage-col-status">
               <col class="col-bpm">
               <col class="col-features">
             </colgroup>
@@ -130,6 +130,7 @@
                 <th><button type="button" data-sort-key="original_level"><span>Level</span><span class="sort-mark"></span></button></th>
                 <th><button type="button" data-sort-key="title"><span>Title</span><span class="sort-mark"></span></button></th>
                 <th><button type="button" data-sort-key="calibrated_pred_skill"><span>Pred</span><span class="sort-mark"></span></button></th>
+                <th><button type="button" data-sort-key="status"><span>Status</span><span class="sort-mark"></span></button></th>
                 <th><button type="button" data-sort-key="bpm"><span>BPM</span><span class="sort-mark"></span></button></th>
                 <th><button type="button" data-sort-key="features"><span>Feature</span><span class="sort-mark"></span></button></th>
               </tr>
