@@ -3,31 +3,25 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SP☆8-☆12 非公式難易度予測表(&beta;)</title>
-  <meta name="description" content="SP☆8-☆12 非公式難易度予測表(&beta;)の一覧サイトです。">
-  <link rel="canonical" href="https://cpi-next.com/">
+  <title>マイページ</title>
+  <meta name="description" content="クリアランプ記録を絞り込んで確認するマイページです。">
+  <link rel="canonical" href="https://cpi-next.com/mypage.html">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://cpi-next.com/">
+  <meta property="og:url" content="https://cpi-next.com/mypage.html">
   <meta property="og:site_name" content="SP☆8-☆12 非公式難易度予測表(&beta;)">
-  <meta property="og:title" content="SP☆8-☆12 非公式難易度予測表(&beta;)">
-  <meta property="og:description" content="SP☆8-☆12 非公式難易度予測表(&beta;)の一覧サイトです。">
+  <meta property="og:title" content="マイページ">
+  <meta property="og:description" content="クリアランプ記録を絞り込んで確認するマイページです。">
   <meta property="og:locale" content="ja_JP">
   <meta name="twitter:card" content="summary">
-  <!-- Google Analytics -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-M0BX4638PS"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-M0BX4638PS');
-  </script>
   <link rel="stylesheet" href="styles.css?v=20260821-21">
+  <link rel="stylesheet" href="mypage.css?v=20260829-1">
   <link rel="stylesheet" href="menu.css">
   <script defer src="menu.js?v=20260829-3"></script>
   <script defer src="data.js?v=20260821-5"></script>
-  <script defer src="app.js?v=20260829-2"></script>
+  <script defer src="app.js?v=20260829-3"></script>
+  <script defer src="mypage.js?v=20260829-1"></script>
 </head>
-<body data-page="main">
+<body data-page="mypage">
   <main class="app">
     <header class="masthead">
       <div class="masthead__bar">
@@ -49,67 +43,81 @@
             <button type="button" class="menu-item" data-page="about" data-href="about.html">About</button>
             <button type="button" class="menu-item" data-page="diagnosis" data-href="diagnosis.html">適正診断</button>
             <button type="button" class="menu-item" data-page="history" data-href="history.html">更新履歴</button>
+            <button type="button" class="menu-item" data-page="mypage" data-href="mypage.html">マイページ</button>
           </div>
         </div>
-        <h1>SP☆8-☆12 <span class="title-lock">非公式難易度予測表(&beta;)</span></h1>
+        <h1>マイページ</h1>
       </div>
     </header>
 
-    <section id="mainView" class="view view--main" aria-live="polite">
-      <div class="panel">
-        <div class="toolbar">
+    <section class="view view--mypage" aria-live="polite">
+      <div class="panel mypage-panel">
+        <div class="toolbar mypage-toolbar">
           <label class="search">
             <span>Title</span>
-            <input id="searchInput" type="search" placeholder="search title">
+            <input id="mypageSearchInput" type="search" placeholder="search title" autocomplete="off">
           </label>
+
+          <div class="multi-filter mypage-status-filter">
+            <span>Status</span>
+            <details id="mypageStatusFilterDetails" class="multi-filter__details mypage-filter-details">
+              <summary id="mypageStatusFilterSummary">5 selected</summary>
+              <div id="mypageStatusFilterOptions" class="multi-filter__options"></div>
+            </details>
+          </div>
+
           <div class="multi-filter level-filter">
             <span>Level</span>
-            <details id="origFilterDetails" class="multi-filter__details">
-              <summary id="origFilterSummary">all</summary>
-              <div id="origFilterOptions" class="multi-filter__options"></div>
+            <details id="mypageLevelFilterDetails" class="multi-filter__details mypage-filter-details">
+              <summary id="mypageLevelFilterSummary">all</summary>
+              <div id="mypageLevelFilterOptions" class="multi-filter__options"></div>
             </details>
           </div>
+
           <div class="multi-filter bpm-filter">
             <span>Difficulty</span>
-            <details id="difficultyFilterDetails" class="multi-filter__details">
-              <summary id="difficultyFilterSummary">all</summary>
-              <div id="difficultyFilterOptions" class="multi-filter__options"></div>
+            <details id="mypageDifficultyFilterDetails" class="multi-filter__details mypage-filter-details">
+              <summary id="mypageDifficultyFilterSummary">all</summary>
+              <div id="mypageDifficultyFilterOptions" class="multi-filter__options"></div>
             </details>
           </div>
+
           <div class="multi-filter feature-filter">
             <span>Feature</span>
-            <details id="featureFilterDetails" class="multi-filter__details">
-              <summary id="featureFilterSummary">all</summary>
-              <div id="featureFilterOptions" class="multi-filter__options"></div>
+            <details id="mypageFeatureFilterDetails" class="multi-filter__details mypage-filter-details">
+              <summary id="mypageFeatureFilterSummary">all</summary>
+              <div id="mypageFeatureFilterOptions" class="multi-filter__options"></div>
             </details>
           </div>
-          <details class="multi-filter__details advanced-filter">
-            <summary id="advancedFilterSummary">詳細絞り込み</summary>
+
+          <details class="multi-filter__details advanced-filter mypage-filter-details">
+            <summary id="mypageAdvancedFilterSummary">詳細絞り込み</summary>
             <div class="advanced-filter__body">
               <label class="filter bpm-filter">
                 <span>BPM_Min</span>
-                <input id="bpmMinFilter" type="number" inputmode="decimal" min="0" step="any" value="0">
+                <input id="mypageBpmMinFilter" type="number" inputmode="decimal" min="0" max="999" step="any" value="0">
               </label>
               <label class="filter bpm-filter">
                 <span>BPM_Max</span>
-                <input id="bpmMaxFilter" type="number" inputmode="decimal" min="0" step="any" value="999">
+                <input id="mypageBpmMaxFilter" type="number" inputmode="decimal" min="0" max="999" step="any" value="999">
               </label>
               <label class="filter pred-filter">
                 <span>Pred_Min</span>
-                <input id="predMinFilter" type="number" inputmode="decimal" min="0" max="999" step="0.1" value="0.0">
+                <input id="mypagePredMinFilter" type="number" inputmode="decimal" min="0" max="999" step="0.1" value="0.0">
               </label>
               <label class="filter pred-filter">
                 <span>Pred_Max</span>
-                <input id="predMaxFilter" type="number" inputmode="decimal" min="0" max="999" step="0.1" value="999.0">
+                <input id="mypagePredMaxFilter" type="number" inputmode="decimal" min="0" max="999" step="0.1" value="999.0">
               </label>
             </div>
           </details>
-</div>
+        </div>
 
         <p class="table-hint">曲名をタップすると詳細ページに移動します<br>表は左右にスクロールできます（モバイル表示時）</p>
-        <div id="rowCount" class="row-count" aria-live="polite"></div>
-        <div id="tableShell" class="table-shell">
-          <table>
+        <p id="mypageMessage" class="mypage-message" role="status" aria-live="polite" hidden></p>
+        <div id="mypageRowCount" class="row-count" aria-live="polite"></div>
+        <div id="mypageTableShell" class="table-shell">
+          <table id="mypageTable">
             <colgroup>
               <col class="col-orig">
               <col class="col-title">
@@ -126,12 +134,12 @@
                 <th><button type="button" data-sort-key="features"><span>Feature</span><span class="sort-mark"></span></button></th>
               </tr>
             </thead>
-            <tbody id="tableBody"></tbody>
+            <tbody id="mypageTableBody"></tbody>
           </table>
         </div>
       </div>
     </section>
   </main>
-  <button id="scrollTopButton" class="scroll-top-button" type="button" aria-label="ページ上部へ戻る" hidden>↑</button>
+  <button id="mypageScrollTopButton" class="scroll-top-button" type="button" aria-label="ページ上部へ戻る" hidden>↑</button>
 </body>
 </html>

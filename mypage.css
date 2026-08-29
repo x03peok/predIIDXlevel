@@ -1,0 +1,61 @@
+.mypage-panel {
+  width: min(1200px, 100%);
+}
+
+.mypage-toolbar {
+  display: grid;
+  grid-template-columns:
+    minmax(220px, 2fr)
+    minmax(145px, 1fr)
+    minmax(100px, 0.85fr)
+    minmax(110px, 0.95fr)
+    minmax(180px, 1.35fr)
+    minmax(150px, 1fr);
+  align-items: end;
+}
+
+.mypage-toolbar > .search,
+.mypage-toolbar > .multi-filter,
+.mypage-toolbar > .advanced-filter {
+  width: 100%;
+  min-width: 0;
+}
+
+.mypage-status-filter .multi-filter__options {
+  width: min(240px, calc(100vw - 48px));
+  max-width: min(240px, calc(100vw - 48px));
+}
+
+.mypage-message {
+  margin: 8px 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.mypage-message[hidden] {
+  display: none;
+}
+
+@media (min-width: 721px) and (max-width: 1119px) {
+  .mypage-toolbar {
+    grid-template-columns:
+      minmax(180px, 1.8fr)
+      repeat(4, minmax(95px, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .mypage-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mypage-toolbar > .feature-filter,
+  .mypage-toolbar > .advanced-filter {
+    grid-column: 1 / -1;
+  }
+
+  .mypage-status-filter .multi-filter__options {
+    width: min(240px, calc(100vw - 48px));
+    max-width: min(240px, calc(100vw - 48px));
+  }
+}
