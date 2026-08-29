@@ -3,6 +3,7 @@
 const mypageDatabaseName = "cpi-next-clear-status";
 const mypageDatabaseVersion = 1;
 const mypageStoreName = "chart-statuses";
+const mypagePageSize = 100;
 const mypageFeatureNone = "特徴なし";
 const mypageDifficultyValues = {
   N: "NORMAL",
@@ -52,9 +53,8 @@ const mypageState = {
   predDataMax: 999,
   sortKey: "calibrated_pred_skill",
   sortDir: "asc",
+  visibleLimit: mypagePageSize,
   renderTimer: null,
-  tableRenderTimer: null,
-  tableRenderToken: 0,
   db: null,
 };
 
@@ -590,44 +590,8 @@ function mypageRenderTableRow(row) {
   ].join("");
 }
 
-function mypageCancelTableRender() {
-  mypageState.tableRenderToken += 1;
-  if (mypageState.tableRenderTimer !== null) {
-    window.clearTimeout(mypageState.tableRenderTimer);
-    mypageState.tableRenderTimer = null;
-  }
-}
-
 function mypageRenderTable(rows) {
-  mypageCancelTableRender();
-  const renderToken = mypageState.tableRenderToken;
-  const chunkSize = 80;
-  let offset = 0;
-  mypageElements.tableBody.innerHTML = "";
-  mypageElements.tableBody.setAttribute("aria-busy", "true");
-
-  const renderChunk = () => {
-    if (renderToken !== mypageState.tableRenderToken) {
-      return;
-    }
-    const nextOffset = Math.min(offset + chunkSize, rows.length);
-    if (nextOffset > offset) {
-      mypageElements.tableBody.insertAdjacentHTML(
-        "beforeend",
-        rows.slice(offset, nextOffset).map(mypageRenderTableRow).join(""),
-      );
-      offset = nextOffset;
-    }
-    if (offset < rows.length) {
-      mypageState.tableRenderTimer = window.setTimeout(renderChunk, 0);
-      return;
-    }
-    mypageState.tableRenderTimer = null;
-    mypageElements.tableBody.removeAttribute("aria-busy");
-    mypageUpdateTableOverflowState();
-  };
-
-  renderChunk();
+  mypageElements.tableBody.innerHTML = rows.map(mypageRenderTableRow).join("");
 }
 function mypageGetNumericExtremes(rows, key, fallbackMin, fallbackMax) {
   let min = null;
@@ -697,9 +661,11 @@ function mypageStatusMatchesFilter(status) {
 }
 function mypageRender() {
   mypageUpdateAdvancedSummary();
-  const visibleRows = mypageGetVisibleRows();
+  const filteredRows = mypageGetVisibleRows();
+  const visibleRows = filteredRows.slice(0, mypageState.visibleLimit);
   mypageUpdateRowCount(visibleRows.length);
   mypageRenderTable(visibleRows);
+  mypageElements.loadMoreButton.hidden = visibleRows.length >= filteredRows.length;
   mypageUpdateTableOverflowState();
   mypageUpdateSortMarks();
 }
@@ -713,6 +679,7 @@ function mypageCancelScheduledRender() {
 
 function mypageScheduleRender(delay = 60) {
   mypageCancelScheduledRender();
+  mypageState.visibleLimit = mypagePageSize;
   mypageState.renderTimer = window.setTimeout(() => {
     mypageState.renderTimer = null;
     mypageRender();
@@ -726,6 +693,7 @@ function mypageSetSort(key) {
     mypageState.sortKey = key;
     mypageState.sortDir = "asc";
   }
+  mypageState.visibleLimit = mypagePageSize;
   mypageCancelScheduledRender();
   mypageRender();
 }
@@ -880,6 +848,10 @@ function mypageBindEvents() {
     mypagePrepareStatusSelect(select);
   });
   mypageElements.tableBody.addEventListener("change", mypageHandleStatusChange);
+  mypageElements.loadMoreButton.addEventListener("click", () => {
+    mypageState.visibleLimit += mypagePageSize;
+    mypageRender();
+  });
   mypageElements.scrollTopButton.addEventListener("click", mypageScrollToTop);
   window.addEventListener("scroll", mypageUpdateScrollTopButton, { passive: true });
   window.addEventListener("resize", mypageUpdateTableOverflowState);
@@ -1015,6 +987,7 @@ function mypageInitializeElements() {
   mypageElements.tableBody = document.getElementById("mypageTableBody");
   mypageElements.tableShell = document.getElementById("mypageTableShell");
   mypageElements.rowCount = document.getElementById("mypageRowCount");
+  mypageElements.loadMoreButton = document.getElementById("mypageLoadMoreButton");
   mypageElements.scrollTopButton = document.getElementById("mypageScrollTopButton");
   mypageElements.message = document.getElementById("mypageMessage");
 }
