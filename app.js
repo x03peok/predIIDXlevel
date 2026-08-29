@@ -1165,6 +1165,9 @@ function setupFilterDetails() {
   });
 
   document.addEventListener("click", (event) => {
+    if (event.target.closest?.("summary")) {
+      return;
+    }
     const activeDetails = event.target.closest?.(".multi-filter__details") ?? null;
     closeOtherFilterDetails(activeDetails);
   });
