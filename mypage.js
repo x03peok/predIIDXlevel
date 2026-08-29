@@ -53,6 +53,8 @@ const mypageState = {
   sortKey: "calibrated_pred_skill",
   sortDir: "asc",
   renderTimer: null,
+  tableRenderTimer: null,
+  tableRenderToken: 0,
   db: null,
 };
 
@@ -547,51 +549,86 @@ function mypageGetChartPageHref(chartId) {
   return "chart-pages/" + encodeURIComponent(String(chartId ?? "").trim()) + ".html";
 }
 
-function mypageRenderTable(rows) {
-  mypageElements.tableBody.innerHTML = rows.map((row) => {
-    const difficulty = String(row.difficulty ?? "").toUpperCase();
-    const difficultyClass = mypageDifficultyClasses[difficulty] ?? "";
-    const difficultyText = mypageDifficultyLabels[difficulty] ?? difficulty;
-    const originalText = "☆" + (row.original_level ?? "");
-    const predictedText = mypageFormatPredValue(row.calibrated_pred_skill)
-      ?? row.calibrated_pred_skill ?? "";
-    const status = mypageGetStatus(row);
-    const levelColorStyle = getNumericColorStyle(
-      row.original_level,
-      mypageState.predDataMin,
-      mypageState.predDataMax,
-    );
-    const predictedColorStyle = getNumericColorStyle(
-      row.calibrated_pred_skill,
-      mypageState.predDataMin,
-      mypageState.predDataMax,
-    );
-    const titleHref = mypageGetChartPageHref(row.chart_id);
-    const chartId = mypageEscapeHtml(row.chart_id);
-    return [
-      "<tr>",
-      '<td class="mono numeric-value numeric-value--level"', levelColorStyle, ">",
-      mypageEscapeHtml(originalText), "</td>",
-      '<td class="chart-title-cell"><a class="chart-link ', difficultyClass,
-      '" href="', titleHref, '"><span class="chart-title-cell__name">',
-      mypageEscapeHtml(row.title ?? ""),
-      '</span> <span class="chart-title-cell__difficulty">[',
-      mypageEscapeHtml(difficultyText), "]</span></a></td>",
-      '<td class="mono numeric-value numeric-value--pred"', predictedColorStyle, ">",
-      mypageEscapeHtml(predictedText), "</td>",
-      '<td><select class="mypage-status-select" data-chart-id="', chartId,
-      '" aria-label="', mypageEscapeHtml(row.title ?? ""), 'のクリア状況">',
-      mypageStatusOption(status), "</select></td>",
-      '<td class="mono">', mypageFormatBpmCell(row.bpm_min, row.bpm_max), "</td>",
-      "<td>", mypageRenderFeatureChips(row), "</td>",
-      "</tr>",
-    ].join("");
-  }).join("");
-  for (const select of mypageElements.tableBody.querySelectorAll(".mypage-status-select")) {
-    mypageUpdateStatusSelect(select);
+function mypageRenderTableRow(row) {
+  const difficulty = String(row.difficulty ?? "").toUpperCase();
+  const difficultyClass = mypageDifficultyClasses[difficulty] ?? "";
+  const difficultyText = mypageDifficultyLabels[difficulty] ?? difficulty;
+  const originalText = "☆" + (row.original_level ?? "");
+  const predictedText = mypageFormatPredValue(row.calibrated_pred_skill)
+    ?? row.calibrated_pred_skill ?? "";
+  const status = mypageGetStatus(row);
+  const levelColorStyle = getNumericColorStyle(
+    row.original_level,
+    mypageState.predDataMin,
+    mypageState.predDataMax,
+  );
+  const predictedColorStyle = getNumericColorStyle(
+    row.calibrated_pred_skill,
+    mypageState.predDataMin,
+    mypageState.predDataMax,
+  );
+  const titleHref = mypageGetChartPageHref(row.chart_id);
+  const chartId = mypageEscapeHtml(row.chart_id);
+  return [
+    "<tr>",
+    '<td class="mono numeric-value numeric-value--level"', levelColorStyle, ">",
+    mypageEscapeHtml(originalText), "</td>",
+    '<td class="chart-title-cell"><a class="chart-link ', difficultyClass,
+    '" href="', titleHref, '"><span class="chart-title-cell__name">',
+    mypageEscapeHtml(row.title ?? ""),
+    '</span> <span class="chart-title-cell__difficulty">[',
+    mypageEscapeHtml(difficultyText), "]</span></a></td>",
+    '<td class="mono numeric-value numeric-value--pred"', predictedColorStyle, ">",
+    mypageEscapeHtml(predictedText), "</td>",
+    '<td><select class="mypage-status-select" data-status="', mypageEscapeHtml(status),
+    '" data-chart-id="', chartId,
+    '" aria-label="', mypageEscapeHtml(row.title ?? ""), 'のクリア状況">',
+    mypageStatusOption(status), "</select></td>",
+    '<td class="mono">', mypageFormatBpmCell(row.bpm_min, row.bpm_max), "</td>",
+    "<td>", mypageRenderFeatureChips(row), "</td>",
+    "</tr>",
+  ].join("");
+}
+
+function mypageCancelTableRender() {
+  mypageState.tableRenderToken += 1;
+  if (mypageState.tableRenderTimer !== null) {
+    window.clearTimeout(mypageState.tableRenderTimer);
+    mypageState.tableRenderTimer = null;
   }
 }
 
+function mypageRenderTable(rows) {
+  mypageCancelTableRender();
+  const renderToken = mypageState.tableRenderToken;
+  const chunkSize = 80;
+  let offset = 0;
+  mypageElements.tableBody.innerHTML = "";
+  mypageElements.tableBody.setAttribute("aria-busy", "true");
+
+  const renderChunk = () => {
+    if (renderToken !== mypageState.tableRenderToken) {
+      return;
+    }
+    const nextOffset = Math.min(offset + chunkSize, rows.length);
+    if (nextOffset > offset) {
+      mypageElements.tableBody.insertAdjacentHTML(
+        "beforeend",
+        rows.slice(offset, nextOffset).map(mypageRenderTableRow).join(""),
+      );
+      offset = nextOffset;
+    }
+    if (offset < rows.length) {
+      mypageState.tableRenderTimer = window.setTimeout(renderChunk, 0);
+      return;
+    }
+    mypageState.tableRenderTimer = null;
+    mypageElements.tableBody.removeAttribute("aria-busy");
+    mypageUpdateTableOverflowState();
+  };
+
+  renderChunk();
+}
 function mypageGetNumericExtremes(rows, key, fallbackMin, fallbackMax) {
   let min = null;
   let max = null;
