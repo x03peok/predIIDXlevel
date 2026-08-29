@@ -352,6 +352,27 @@ function mypageStatusOptions(selected) {
   )).join("");
 }
 
+function mypageStatusOption(selected) {
+  const status = mypageStatuses.find(({ value }) => value === selected) ?? mypageStatuses[0];
+  return '<option value="' + status.value + '" selected>' + status.label + "</option>";
+}
+
+function mypagePrepareStatusSelect(select) {
+  if (!select || select.options.length > 1) {
+    return;
+  }
+  const status = mypageStatusValues.has(select.value) ? select.value : "unregistered";
+  select.innerHTML = mypageStatusOptions(status);
+}
+
+function mypageCompactStatusSelect(select) {
+  if (!select || select.options.length <= 1) {
+    return;
+  }
+  const status = mypageStatusValues.has(select.value) ? select.value : "unregistered";
+  select.innerHTML = mypageStatusOption(status);
+}
+
 function mypageUpdateStatusSelect(select) {
   select.dataset.status = select.value;
 }
@@ -397,7 +418,14 @@ function mypageGetVisibleRows() {
     rows = rows.filter((row) => String(row.title ?? "").toLowerCase().includes(query));
   }
 
-  rows = rows.filter((row) => mypageStatusMatchesFilter(mypageGetStatus(row)));
+  const selectedStatuses = mypageState.statusFilter ?? [];
+  if (selectedStatuses.length === 0) {
+    return [];
+  }
+  if (!mypageAreAllValuesSelected(selectedStatuses, mypageStatuses)) {
+    const selectedStatusSet = new Set(selectedStatuses);
+    rows = rows.filter((row) => selectedStatusSet.has(mypageGetStatus(row)));
+  }
 
   const difficultyOptions = mypageGetDifficultyOptions();
   const selectedDifficulties = mypageState.difficultyFilter ?? [];
@@ -553,7 +581,7 @@ function mypageRenderTable(rows) {
       mypageEscapeHtml(predictedText), "</td>",
       '<td><select class="mypage-status-select" data-chart-id="', chartId,
       '" aria-label="', mypageEscapeHtml(row.title ?? ""), 'のクリア状況">',
-      mypageStatusOptions(status), "</select></td>",
+      mypageStatusOption(status), "</select></td>",
       '<td class="mono">', mypageFormatBpmCell(row.bpm_min, row.bpm_max), "</td>",
       "<td>", mypageRenderFeatureChips(row), "</td>",
       "</tr>",
@@ -806,6 +834,14 @@ function mypageBindEvents() {
   mypageElements.table.querySelectorAll("thead button[data-sort-key]").forEach((button) => {
     button.addEventListener("click", () => mypageSetSort(button.dataset.sortKey));
   });
+  mypageElements.tableBody.addEventListener("pointerdown", (event) => {
+    const select = event.target.closest?.(".mypage-status-select");
+    mypagePrepareStatusSelect(select);
+  });
+  mypageElements.tableBody.addEventListener("focusin", (event) => {
+    const select = event.target.closest?.(".mypage-status-select");
+    mypagePrepareStatusSelect(select);
+  });
   mypageElements.tableBody.addEventListener("change", mypageHandleStatusChange);
   mypageElements.scrollTopButton.addEventListener("click", mypageScrollToTop);
   window.addEventListener("scroll", mypageUpdateScrollTopButton, { passive: true });
@@ -905,11 +941,14 @@ async function mypageHandleStatusChange(event) {
     mypageUpdateStatusSelect(select);
     if (mypageState.sortKey === "status" || !mypageStatusMatchesFilter(status)) {
       mypageRender();
+    } else {
+      mypageCompactStatusSelect(select);
     }
     mypageSetMessage("記録を保存しました。");
   } catch (error) {
     select.value = previousStatus;
     mypageUpdateStatusSelect(select);
+    mypageCompactStatusSelect(select);
     mypageSetMessage(error.message || "記録を保存できませんでした。");
   } finally {
     select.disabled = false;
