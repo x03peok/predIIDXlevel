@@ -419,7 +419,7 @@ function getPublicChartUrl(chartId) {
   if (/^https?:$/.test(window.location.protocol)) {
     return new URL(getChartPageHref(chartId), window.location.href).href;
   }
-  return "https://x03peok.github.io/predIIDXlevel/chart-pages/" + encodedId + ".html";
+  return "https://cpi-next.com/chart-pages/" + encodedId + ".html";
 }
 
 function getTextageTwoPlayerUrl(url) {

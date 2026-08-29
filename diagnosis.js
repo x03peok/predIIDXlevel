@@ -1020,7 +1020,7 @@ function diagnosisBuildLevelClearRateText(model) {
     : "";
 }
 function diagnosisGetPublicUrl() {
-  return "https://x03peok.github.io/predIIDXlevel/diagnosis.html";
+  return "https://cpi-next.com/diagnosis.html";
 }
 
 function diagnosisBuildShareText(result, levelRateText) {

@@ -8,7 +8,7 @@ const rootDir = __dirname;
 const templatePath = path.join(rootDir, "chart.html");
 const dataPath = path.join(rootDir, "data.js");
 const outputDir = path.join(rootDir, "chart-pages");
-const publicBaseUrl = "https://x03peok.github.io/predIIDXlevel/";
+const publicBaseUrl = "https://cpi-next.com/";
 const siteTitle = "SP\u26068-\u260612 \u975e\u516c\u5f0f\u96e3\u6613\u5ea6\u4e88\u6e2c\u8868(\u03b2)";
 const difficultyLabels = {
   NORMAL: "N",
@@ -195,6 +195,7 @@ function createPage(template, row) {
   page = page.replace('src="chart.js?', 'src="../chart.js?');
   page = page.replace('data-href="index.html"', 'data-href="../index.html"');
   page = page.replace('data-href="about.html"', 'data-href="../about.html"');
+  page = page.replace('data-href="diagnosis.html"', 'data-href="../diagnosis.html"');
   page = page.replace('data-href="history.html"', 'data-href="../history.html"');
   page = page.replace('href="index.html"', 'href="../index.html"');
   return page;
