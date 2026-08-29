@@ -16,6 +16,12 @@ const recordDifficultyValues = {
   A: "ANOTHER",
   L: "LEGGENDARIA",
 };
+const recordDifficultyClasses = {
+  NORMAL: "difficulty--normal",
+  HYPER: "difficulty--hyper",
+  ANOTHER: "difficulty--another",
+  LEGGENDARIA: "difficulty--leggendaria",
+};
 const recordStatuses = [
   { value: "unregistered", label: "未登録" },
   { value: "unowned", label: "未所持・未解禁" },
@@ -133,10 +139,6 @@ function recordLoadRows() {
     "title",
     "difficulty",
     "original_level",
-    "calibrated_pred_skill",
-    "bpm_min",
-    "bpm_max",
-    "features",
   ];
   for (const header of requiredHeaders) {
     if (!headerIndex.has(header)) {
@@ -151,28 +153,10 @@ function recordLoadRows() {
       title: recordNormalizeTitle(get("title")),
       difficulty: get("difficulty").toUpperCase(),
       level: get("original_level"),
-      pred: get("calibrated_pred_skill"),
-      bpmMin: get("bpm_min"),
-      bpmMax: get("bpm_max"),
-      features: get("features"),
     };
   }).filter((row) => /^\d+$/.test(row.chartId));
 }
 
-function recordFormatPred(value) {
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? (Math.round(numeric * 10) / 10).toFixed(1) : String(value ?? "");
-}
-
-function recordFormatBpm(row) {
-  const min = String(row.bpmMin ?? "").trim();
-  const max = String(row.bpmMax ?? "").trim();
-  return min && min === max ? min : min + "~" + max;
-}
-
-function recordFormatFeature(row) {
-  return String(row.features ?? "").trim() || "特徴なし";
-}
 
 function recordOpenDatabase() {
   return new Promise((resolve, reject) => {
@@ -213,22 +197,6 @@ function recordWriteStatus(chartId, status) {
     }
     transaction.oncomplete = resolve;
     transaction.onerror = () => reject(transaction.error ?? new Error("記録を保存できませんでした。"));
-  });
-}
-
-function recordWriteImported(entries) {
-  return new Promise((resolve, reject) => {
-    const transaction = recordState.db.transaction(recordStoreName, "readwrite");
-    const store = transaction.objectStore(recordStoreName);
-    for (const entry of entries) {
-      if (entry.status === "unregistered") {
-        store.delete(entry.chartId);
-      } else {
-        store.put(entry);
-      }
-    }
-    transaction.oncomplete = resolve;
-    transaction.onerror = () => reject(transaction.error ?? new Error("バックアップを反映できませんでした。"));
   });
 }
 
@@ -279,17 +247,22 @@ function recordRender() {
   const visibleRows = filteredRows.slice(0, recordState.visibleLimit);
   recordElements.tableBody.innerHTML = visibleRows.map((row) => {
     const difficulty = recordDifficultyLabels[row.difficulty] ?? row.difficulty;
+    const difficultyClass = recordDifficultyClasses[row.difficulty] ?? "";
     const status = recordGetStatus(row);
     const title = recordEscapeHtml(row.title);
     const chartId = recordEscapeHtml(row.chartId);
+    const chartHref = "chart-pages/" + encodeURIComponent(row.chartId) + ".html";
+    const titleLink = [
+      '<a class="record-title-link ' + difficultyClass + '" href="' + chartHref + '">',
+      "<span>" + title + "</span>",
+      difficulty ? ' <span class="record-title-link__difficulty">[' + recordEscapeHtml(difficulty) + "]</span>" : "",
+      "</a>",
+    ].join("");
     return [
       "<tr>",
-      `<td><a class="record-title-link" href="chart-pages/${encodeURIComponent(row.chartId)}.html"><span>${title}</span>${difficulty ? ` <span class="record-title-link__difficulty">[${recordEscapeHtml(difficulty)}]</span>` : ""}</a></td>`,
-      `<td>${recordEscapeHtml("☆" + row.level)}</td>`,
-      `<td>${recordEscapeHtml(recordFormatPred(row.pred))}</td>`,
-      `<td>${recordEscapeHtml(recordFormatBpm(row))}</td>`,
-      `<td>${recordEscapeHtml(recordFormatFeature(row))}</td>`,
-      `<td><select class="record-status-select" data-chart-id="${chartId}" aria-label="${title}のクリア状況">${recordStatusOptions(status)}</select></td>`,
+      "<td>" + recordEscapeHtml("☆" + row.level) + "</td>",
+      "<td>" + titleLink + "</td>",
+      '<td><select class="record-status-select" data-chart-id="' + chartId + '" aria-label="' + title + 'のクリア状況">' + recordStatusOptions(status) + "</select></td>",
       "</tr>",
     ].join("");
   }).join("");
@@ -298,7 +271,10 @@ function recordRender() {
     recordUpdateStatusSelect(select);
   }
 
-  recordElements.summary.textContent = `${visibleRows.length.toLocaleString()}件表示 / ${filteredRows.length.toLocaleString()}件中　登録 ${recordState.records.size.toLocaleString()}件`;
+  recordElements.summary.textContent =
+    visibleRows.length.toLocaleString() + "件表示 / " +
+    filteredRows.length.toLocaleString() + "件中　登録 " +
+    recordState.records.size.toLocaleString() + "件";
   recordElements.loadMore.hidden = visibleRows.length >= filteredRows.length;
 }
 
@@ -327,75 +303,6 @@ function recordPopulateFilters() {
 function recordSetMessage(message, isError = false) {
   recordElements.message.textContent = message;
   recordElements.message.dataset.state = isError ? "error" : "ok";
-}
-
-function recordExport() {
-  const statuses = [...recordState.records.values()]
-    .filter((record) => record.status !== "unregistered")
-    .sort((left, right) => Number(left.chartId) - Number(right.chartId))
-    .map((record) => ({
-      chart_id: record.chartId,
-      status: record.status,
-      updatedAt: record.updatedAt,
-    }));
-  const payload = {
-    format: "cpi-next-clear-status",
-    schemaVersion: 1,
-    exportedAt: new Date().toISOString(),
-    statuses,
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `cpi-next-clear-status-${new Date().toISOString().slice(0, 10)}.json`;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
-  recordSetMessage(`${statuses.length.toLocaleString()}件の記録をエクスポートしました。`);
-}
-
-async function recordImport(file) {
-  if (!file) {
-    return;
-  }
-
-  try {
-    const payload = JSON.parse(await file.text());
-    if (!payload || payload.format !== "cpi-next-clear-status" || !Array.isArray(payload.statuses)) {
-      throw new Error("対応していないバックアップ形式です。");
-    }
-    if (Number(payload.schemaVersion) > 1) {
-      throw new Error("新しい形式のバックアップです。サイトを更新してから再試行してください。");
-    }
-
-    const knownIds = new Set(recordState.rows.map((row) => row.chartId));
-    const imported = [];
-    let ignored = 0;
-    for (const item of payload.statuses) {
-      const chartId = String(item?.chart_id ?? item?.chartId ?? "").trim();
-      const status = String(item?.status ?? "");
-      if (!knownIds.has(chartId) || !recordStatusValues.has(status)) {
-        ignored += 1;
-        continue;
-      }
-      imported.push({
-        chartId,
-        status,
-        updatedAt: typeof item.updatedAt === "string" ? item.updatedAt : new Date().toISOString(),
-      });
-    }
-
-    await recordWriteImported(imported);
-    recordApplyRecords(await recordReadAll());
-    recordRender();
-    recordElements.importInput.value = "";
-    recordSetMessage(`${imported.length.toLocaleString()}件をインポートしました。${ignored ? `（${ignored.toLocaleString()}件は対象外のため無視）` : ""}`);
-  } catch (error) {
-    recordElements.importInput.value = "";
-    recordSetMessage(error.message || "バックアップを読み込めませんでした。", true);
-  }
 }
 
 async function recordHandleStatusChange(event) {
@@ -449,8 +356,6 @@ function recordBindEvents() {
     recordState.visibleLimit += recordPageSize;
     recordRender();
   });
-  recordElements.exportButton.addEventListener("click", recordExport);
-  recordElements.importInput.addEventListener("change", () => recordImport(recordElements.importInput.files[0]));
 }
 
 async function recordInitialize() {
@@ -459,8 +364,6 @@ async function recordInitialize() {
   recordElements.levelFilter = document.getElementById("recordLevelFilter");
   recordElements.difficultyFilter = document.getElementById("recordDifficultyFilter");
   recordElements.statusFilter = document.getElementById("recordStatusFilter");
-  recordElements.exportButton = document.getElementById("recordExportButton");
-  recordElements.importInput = document.getElementById("recordImportInput");
   recordElements.message = document.getElementById("recordMessage");
   recordElements.summary = document.getElementById("recordSummary");
   recordElements.tableBody = document.getElementById("recordTableBody");
@@ -476,8 +379,6 @@ async function recordInitialize() {
     recordRender();
   } catch (error) {
     recordSetMessage(error.message || "記録ページを初期化できませんでした。", true);
-    recordElements.exportButton.disabled = true;
-    recordElements.importInput.disabled = true;
   }
 }
 

@@ -53,7 +53,6 @@
         <header class="record-header">
           <p class="record-eyebrow">PLAYER RECORD</p>
           <h2>クリア状況記録</h2>
-          <p>譜面ごとのクリア状況をこのブラウザに保存します。入力内容はサーバーへ送信されません。</p>
         </header>
 
         <div class="record-controls">
@@ -74,34 +73,20 @@
             <select id="recordStatusFilter"></select>
           </label>
         </div>
-
-        <div class="record-actions">
-          <button id="recordExportButton" class="record-button" type="button">バックアップをエクスポート</button>
-          <label class="record-button record-button--secondary" for="recordImportInput">
-            バックアップをインポート
-            <input id="recordImportInput" type="file" accept="application/json,.json" hidden>
-          </label>
-        </div>
         <p id="recordMessage" class="record-message" role="status" aria-live="polite"></p>
         <p id="recordSummary" class="record-summary" aria-live="polite"></p>
 
         <div class="table-shell record-table-shell">
           <table class="record-table">
-            <colgroup>
-              <col class="record-col-title">
+                        <colgroup>
               <col class="record-col-level">
-              <col class="record-col-pred">
-              <col class="record-col-bpm">
-              <col class="record-col-feature">
+              <col class="record-col-title">
               <col class="record-col-status">
             </colgroup>
-            <thead>
+                        <thead>
               <tr>
-                <th scope="col">Title</th>
                 <th scope="col">Level</th>
-                <th scope="col">Pred</th>
-                <th scope="col">BPM</th>
-                <th scope="col">Feature</th>
+                <th scope="col">Title</th>
                 <th scope="col">Status</th>
               </tr>
             </thead>
@@ -111,7 +96,6 @@
         <div class="record-pagination">
           <button id="recordLoadMoreButton" class="record-button record-button--secondary" type="button" hidden>さらに表示</button>
         </div>
-        <p class="record-note">未登録の譜面はバックアップファイルに含まれません。ブラウザのデータを消去する前にエクスポートしてください。</p>
       </div>
     </section>
   </main>

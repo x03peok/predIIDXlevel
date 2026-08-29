@@ -14,11 +14,6 @@
   line-height: 1.2;
 }
 
-.record-header p:last-child {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.7;
-}
 
 .record-eyebrow {
   margin: 0 0 8px;
@@ -61,12 +56,6 @@
   background-repeat: no-repeat;
 }
 
-.record-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 18px;
-}
 
 .record-button {
   display: inline-flex;
@@ -120,7 +109,9 @@
 }
 
 .record-table {
-  min-width: 920px;
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
 }
 
 .record-table th {
@@ -139,47 +130,37 @@
   font-size: 0.85rem;
 }
 
-.record-col-title {
-  width: 31%;
-}
-
 .record-col-level {
-  width: 9%;
+  width: 14%;
 }
 
-.record-col-pred {
-  width: 10%;
-}
-
-.record-col-bpm {
-  width: 11%;
-}
-
-.record-col-feature {
-  width: 24%;
+.record-col-title {
+  width: 58%;
 }
 
 .record-col-status {
-  width: 15%;
+  width: 28%;
 }
 
-.record-table tbody td:nth-child(1),
-.record-table tbody td:nth-child(5) {
-  text-align: left;
-  overflow-wrap: anywhere;
-}
-
-.record-table tbody td:nth-child(2),
-.record-table tbody td:nth-child(3),
-.record-table tbody td:nth-child(4),
-.record-table tbody td:nth-child(6) {
+.record-table tbody td:nth-child(1) {
   text-align: center;
+  overflow-wrap: anywhere;
   font-variant-numeric: tabular-nums;
 }
 
+.record-table tbody td:nth-child(2) {
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
 .record-title-link {
+  display: inline-block;
+  max-width: 100%;
+  padding: 4px 8px;
+  border-radius: 8px;
   color: var(--ink);
   font-weight: 700;
+  overflow-wrap: anywhere;
   text-decoration: none;
 }
 
@@ -197,7 +178,8 @@
 
 .record-status-select {
   width: 100%;
-  min-width: 8.6rem;
+  min-width: 0;
+  max-width: 100%;
   padding: 8px 30px 8px 10px;
   border-radius: 10px;
   background-image:
@@ -248,12 +230,6 @@
   margin-top: 16px;
 }
 
-.record-note {
-  margin: 18px 0 0;
-  color: var(--muted);
-  font-size: 0.78rem;
-  line-height: 1.6;
-}
 
 @media (max-width: 720px) {
   .record-controls {
@@ -264,11 +240,22 @@
     grid-column: 1 / -1;
   }
 
-  .record-actions {
-    flex-direction: column;
+  .record-table th,
+  .record-table td {
+    padding-left: 6px;
+    padding-right: 6px;
   }
 
-  .record-actions .record-button {
-    width: 100%;
+  .record-table th {
+    font-size: 0.72rem;
+  }
+
+  .record-table td {
+    font-size: 0.78rem;
+  }
+
+  .record-status-select {
+    padding: 7px 22px 7px 6px;
+    font-size: 0.72rem;
   }
 }
