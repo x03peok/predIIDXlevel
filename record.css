@@ -211,8 +211,8 @@
 }
 
 .record-status-select[data-status="easy"] {
-  color: #ca8a04;
-  background-color: rgba(250, 204, 21, 0.18);
+  color: #65a30d;
+  background-color: rgba(132, 204, 22, 0.18);
 }
 
 .record-status-select[data-status="clear"] {
@@ -237,9 +237,6 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .record-filter--title {
-    grid-column: 1 / -1;
-  }
 
   .record-table th,
   .record-table td {

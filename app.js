@@ -1164,7 +1164,7 @@ function setupFilterDetails() {
     });
   });
 
-  document.addEventListener("click", (event) => {
+  document.addEventListener("pointerdown", (event) => {
     if (event.target.closest?.("summary")) {
       return;
     }
