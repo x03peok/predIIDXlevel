@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>クリア状況記録 | SP☆8-☆12 非公式難易度予測表(&beta;)</title>
+  <meta name="description" content="譜面ごとのクリア状況を記録するページです。">
+  <link rel="canonical" href="https://cpi-next.com/record.html">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://cpi-next.com/record.html">
+  <meta property="og:site_name" content="SP☆8-☆12 非公式難易度予測表(&beta;)">
+  <meta property="og:title" content="クリア状況記録">
+  <meta property="og:description" content="譜面ごとのクリア状況を記録するページです。">
+  <meta property="og:locale" content="ja_JP">
+  <meta name="twitter:card" content="summary">
+  <link rel="stylesheet" href="styles.css?v=20260821-21">
+  <link rel="stylesheet" href="record.css?v=20260829-1">
+  <link rel="stylesheet" href="menu.css">
+  <script defer src="menu.js?v=20260826-2"></script>
+  <script defer src="data.js?v=20260821-5"></script>
+  <script defer src="record.js?v=20260829-1"></script>
+</head>
+<body data-page="record">
+  <main class="app">
+    <header class="masthead">
+      <div class="masthead__bar">
+        <div class="site-menu" id="menuRoot">
+          <button
+            id="menuButton"
+            class="menu-button"
+            type="button"
+            aria-label="メニューを開く"
+            aria-controls="siteMenu"
+            aria-expanded="false"
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <div id="siteMenu" class="menu-popover" hidden>
+            <button type="button" class="menu-item" data-page="main" data-href="index.html">Main</button>
+            <button type="button" class="menu-item" data-page="about" data-href="about.html">About</button>
+            <button type="button" class="menu-item" data-page="diagnosis" data-href="diagnosis.html">適正診断</button>
+            <button type="button" class="menu-item" data-page="history" data-href="history.html">更新履歴</button>
+          </div>
+        </div>
+        <h1>SP☆8-☆12 <span class="title-lock">非公式難易度予測表(&beta;)</span></h1>
+      </div>
+    </header>
+
+    <section class="view view--record" aria-live="polite">
+      <div class="panel record-panel">
+        <header class="record-header">
+          <p class="record-eyebrow">PLAYER RECORD</p>
+          <h2>クリア状況記録</h2>
+          <p>譜面ごとのクリア状況をこのブラウザに保存します。入力内容はサーバーへ送信されません。</p>
+        </header>
+
+        <div class="record-controls">
+          <label class="record-filter record-filter--title">
+            <span>Title</span>
+            <input id="recordSearchInput" type="search" placeholder="search title" autocomplete="off">
+          </label>
+          <label class="record-filter">
+            <span>Level</span>
+            <select id="recordLevelFilter"></select>
+          </label>
+          <label class="record-filter">
+            <span>Difficulty</span>
+            <select id="recordDifficultyFilter"></select>
+          </label>
+          <label class="record-filter">
+            <span>Status</span>
+            <select id="recordStatusFilter"></select>
+          </label>
+        </div>
+
+        <div class="record-actions">
+          <button id="recordExportButton" class="record-button" type="button">バックアップをエクスポート</button>
+          <label class="record-button record-button--secondary" for="recordImportInput">
+            バックアップをインポート
+            <input id="recordImportInput" type="file" accept="application/json,.json" hidden>
+          </label>
+        </div>
+        <p id="recordMessage" class="record-message" role="status" aria-live="polite"></p>
+        <p id="recordSummary" class="record-summary" aria-live="polite"></p>
+
+        <div class="table-shell record-table-shell">
+          <table class="record-table">
+            <colgroup>
+              <col class="record-col-title">
+              <col class="record-col-level">
+              <col class="record-col-pred">
+              <col class="record-col-bpm">
+              <col class="record-col-feature">
+              <col class="record-col-status">
+            </colgroup>
+            <thead>
+              <tr>
+                <th scope="col">Title</th>
+                <th scope="col">Level</th>
+                <th scope="col">Pred</th>
+                <th scope="col">BPM</th>
+                <th scope="col">Feature</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody id="recordTableBody"></tbody>
+          </table>
+        </div>
+        <div class="record-pagination">
+          <button id="recordLoadMoreButton" class="record-button record-button--secondary" type="button" hidden>さらに表示</button>
+        </div>
+        <p class="record-note">未登録の譜面はバックアップファイルに含まれません。ブラウザのデータを消去する前にエクスポートしてください。</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

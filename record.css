@@ -1,0 +1,274 @@
+.record-panel {
+  width: min(1200px, 100%);
+}
+
+.record-header {
+  max-width: 48rem;
+  margin-bottom: 22px;
+}
+
+.record-header h2 {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-size: clamp(1.35rem, 2.5vw, 2rem);
+  line-height: 1.2;
+}
+
+.record-header p:last-child {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.record-eyebrow {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.record-controls {
+  display: grid;
+  grid-template-columns: minmax(240px, 2fr) repeat(3, minmax(140px, 1fr));
+  gap: 12px 14px;
+  align-items: end;
+}
+
+.record-filter {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+
+.record-filter span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.record-filter select {
+  min-width: 0;
+  padding-right: 36px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #64748b 50%),
+    linear-gradient(135deg, #64748b 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 3px),
+    calc(100% - 12px) calc(50% - 3px);
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
+}
+
+.record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.record-button {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+}
+
+.record-button:hover,
+.record-button:focus-visible {
+  background: #1d4ed8;
+}
+
+.record-button--secondary {
+  border-color: var(--line-strong);
+  background: var(--panel-strong);
+  color: var(--ink);
+}
+
+.record-button--secondary:hover,
+.record-button--secondary:focus-visible {
+  background: rgba(219, 234, 254, 0.55);
+}
+
+.record-message {
+  min-height: 1.4em;
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.record-summary {
+  margin: 4px 0 8px;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.record-table-shell {
+  margin-top: 4px;
+}
+
+.record-table {
+  min-width: 920px;
+}
+
+.record-table th {
+  padding: 11px 12px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.record-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+  vertical-align: middle;
+  font-size: 0.85rem;
+}
+
+.record-col-title {
+  width: 31%;
+}
+
+.record-col-level {
+  width: 9%;
+}
+
+.record-col-pred {
+  width: 10%;
+}
+
+.record-col-bpm {
+  width: 11%;
+}
+
+.record-col-feature {
+  width: 24%;
+}
+
+.record-col-status {
+  width: 15%;
+}
+
+.record-table tbody td:nth-child(1),
+.record-table tbody td:nth-child(5) {
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.record-table tbody td:nth-child(2),
+.record-table tbody td:nth-child(3),
+.record-table tbody td:nth-child(4),
+.record-table tbody td:nth-child(6) {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.record-title-link {
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.record-title-link:hover,
+.record-title-link:focus-visible {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.record-title-link__difficulty {
+  color: var(--muted);
+  font-size: 0.78em;
+  font-weight: 600;
+}
+
+.record-status-select {
+  width: 100%;
+  min-width: 8.6rem;
+  padding: 8px 30px 8px 10px;
+  border-radius: 10px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #64748b 50%),
+    linear-gradient(135deg, #64748b 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) calc(50% - 3px),
+    calc(100% - 8px) calc(50% - 3px);
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.record-status-select[data-status="unowned"] {
+  color: #64748b;
+  background-color: rgba(148, 163, 184, 0.14);
+}
+
+.record-status-select[data-status="no-play"] {
+  color: #475569;
+  background-color: rgba(203, 213, 225, 0.22);
+}
+
+.record-status-select[data-status="assisted"] {
+  color: #7c3aed;
+  background-color: rgba(167, 139, 250, 0.16);
+}
+
+.record-status-select[data-status="easy"] {
+  color: #ca8a04;
+  background-color: rgba(250, 204, 21, 0.18);
+}
+
+.record-status-select[data-status="clear"] {
+  color: #2563eb;
+  background-color: rgba(96, 165, 250, 0.16);
+}
+
+.record-status-select[data-status="hard"] {
+  color: #dc2626;
+  background-color: rgba(248, 113, 113, 0.16);
+}
+
+.record-pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.record-note {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 720px) {
+  .record-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .record-filter--title {
+    grid-column: 1 / -1;
+  }
+
+  .record-actions {
+    flex-direction: column;
+  }
+
+  .record-actions .record-button {
+    width: 100%;
+  }
+}
