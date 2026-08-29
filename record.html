@@ -3,22 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>クリア状況記録 | SP☆8-☆12 非公式難易度予測表(&beta;)</title>
+  <title>クリアランプ登録</title>
   <meta name="description" content="譜面ごとのクリア状況を記録するページです。">
   <link rel="canonical" href="https://cpi-next.com/record.html">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://cpi-next.com/record.html">
   <meta property="og:site_name" content="SP☆8-☆12 非公式難易度予測表(&beta;)">
-  <meta property="og:title" content="クリア状況記録">
+  <meta property="og:title" content="クリアランプ登録">
   <meta property="og:description" content="譜面ごとのクリア状況を記録するページです。">
   <meta property="og:locale" content="ja_JP">
   <meta name="twitter:card" content="summary">
   <link rel="stylesheet" href="styles.css?v=20260821-21">
-  <link rel="stylesheet" href="record.css?v=20260829-1">
+  <link rel="stylesheet" href="record.css?v=20260829-3">
   <link rel="stylesheet" href="menu.css">
   <script defer src="menu.js?v=20260826-2"></script>
   <script defer src="data.js?v=20260821-5"></script>
-  <script defer src="record.js?v=20260829-1"></script>
+  <script defer src="record.js?v=20260829-3"></script>
 </head>
 <body data-page="record">
   <main class="app">
@@ -44,21 +44,20 @@
             <button type="button" class="menu-item" data-page="history" data-href="history.html">更新履歴</button>
           </div>
         </div>
-        <h1>SP☆8-☆12 <span class="title-lock">非公式難易度予測表(&beta;)</span></h1>
+        <h1>クリアランプ登録</h1>
       </div>
     </header>
 
     <section class="view view--record" aria-live="polite">
       <div class="panel record-panel">
-        <header class="record-header">
-          <p class="record-eyebrow">PLAYER RECORD</p>
-          <h2>クリア状況記録</h2>
-        </header>
-
         <div class="record-controls">
           <label class="record-filter record-filter--title">
             <span>Title</span>
             <input id="recordSearchInput" type="search" placeholder="search title" autocomplete="off">
+          </label>
+          <label class="record-filter">
+            <span>Status</span>
+            <select id="recordStatusFilter"></select>
           </label>
           <label class="record-filter">
             <span>Level</span>
@@ -67,10 +66,6 @@
           <label class="record-filter">
             <span>Difficulty</span>
             <select id="recordDifficultyFilter"></select>
-          </label>
-          <label class="record-filter">
-            <span>Status</span>
-            <select id="recordStatusFilter"></select>
           </label>
         </div>
         <p id="recordMessage" class="record-message" role="status" aria-live="polite"></p>

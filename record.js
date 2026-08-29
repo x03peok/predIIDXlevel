@@ -260,7 +260,7 @@ function recordRender() {
     ].join("");
     return [
       "<tr>",
-      "<td>" + recordEscapeHtml("☆" + row.level) + "</td>",
+      "<td>" + recordEscapeHtml(row.level) + "</td>",
       "<td>" + titleLink + "</td>",
       '<td><select class="record-status-select" data-chart-id="' + chartId + '" aria-label="' + title + 'のクリア状況">' + recordStatusOptions(status) + "</select></td>",
       "</tr>",
@@ -283,7 +283,7 @@ function recordPopulateFilters() {
     .sort((left, right) => Number(left) - Number(right));
   recordElements.levelFilter.innerHTML = [
     '<option value="all">all</option>',
-    ...levels.map((level) => `<option value="${recordEscapeHtml(level)}">☆${recordEscapeHtml(level)}</option>`),
+    ...levels.map((level) => `<option value="${recordEscapeHtml(level)}">${recordEscapeHtml(level)}</option>`),
   ].join("");
   recordElements.difficultyFilter.innerHTML = [
     '<option value="all">all</option>',
