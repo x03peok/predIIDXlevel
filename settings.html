@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>設定</title>
+  <meta name="description" content="クリアランプ記録のデータを管理するページです。">
+  <link rel="canonical" href="https://cpi-next.com/settings.html">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://cpi-next.com/settings.html">
+  <meta property="og:site_name" content="SP☆8-☆12 非公式難易度予測表(&beta;)">
+  <meta property="og:title" content="設定">
+  <meta property="og:description" content="クリアランプ記録のデータを管理するページです。">
+  <meta property="og:locale" content="ja_JP">
+  <meta name="twitter:card" content="summary">
+  <link rel="stylesheet" href="styles.css?v=20260821-21">
+  <link rel="stylesheet" href="settings.css?v=20260829-1">
+  <link rel="stylesheet" href="menu.css">
+  <script defer src="menu.js?v=20260829-4"></script>
+  <script defer src="settings.js?v=20260829-1"></script>
+</head>
+<body data-page="settings">
+  <main class="app">
+    <header class="masthead">
+      <div class="masthead__bar">
+        <div class="site-menu" id="menuRoot">
+          <button
+            id="menuButton"
+            class="menu-button"
+            type="button"
+            aria-label="メニューを開く"
+            aria-controls="siteMenu"
+            aria-expanded="false"
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <div id="siteMenu" class="menu-popover" hidden>
+            <button type="button" class="menu-item" data-page="main" data-href="index.html">Main</button>
+            <button type="button" class="menu-item" data-page="about" data-href="about.html">About</button>
+            <button type="button" class="menu-item" data-page="diagnosis" data-href="diagnosis.html">適正診断</button>
+            <button type="button" class="menu-item" data-page="history" data-href="history.html">更新履歴</button>
+            <button type="button" class="menu-item" data-page="settings" data-href="settings.html">設定</button>
+          </div>
+        </div>
+        <h1>設定</h1>
+      </div>
+    </header>
+
+    <section class="view view--settings" aria-live="polite">
+      <div class="panel settings-panel">
+        <div class="settings-heading">
+          <h2>データ管理</h2>
+          <p>クリアランプ登録のデータを、このブラウザから出し入れできます。</p>
+          <p id="settingsRecordCount" class="settings-record-count" aria-live="polite">保存件数を確認中...</p>
+        </div>
+
+        <div class="settings-actions">
+          <button id="settingsExportButton" class="settings-button settings-button--primary" type="button">データをエクスポート</button>
+          <button id="settingsImportButton" class="settings-button" type="button">データをインポート</button>
+          <button id="settingsResetButton" class="settings-button settings-button--danger" type="button">全データリセット</button>
+        </div>
+        <input id="settingsImportInput" type="file" accept="application/json,.json" hidden>
+
+        <p class="settings-note">インポートすると、現在のクリアランプ記録はバックアップの内容に置き換わります。</p>
+        <p id="settingsMessage" class="settings-message" role="status" aria-live="polite"></p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

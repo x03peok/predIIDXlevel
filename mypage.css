@@ -2,6 +2,53 @@
   width: min(1200px, 100%);
 }
 
+.mypage-pred-estimate {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 2px 14px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.64);
+}
+
+.mypage-pred-estimate__label,
+.mypage-pred-estimate__value,
+.mypage-pred-estimate__note {
+  margin: 0;
+}
+
+.mypage-pred-estimate__label {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.mypage-pred-estimate__value {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.mypage-pred-estimate__value-part {
+  color: var(--numeric-color, currentColor);
+}
+
+.mypage-pred-estimate__separator {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.mypage-pred-estimate__note {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
 .mypage-toolbar {
   display: grid;
   grid-template-columns:

@@ -1186,6 +1186,10 @@ function scrollToTop() {
 }
 
 function init() {
+  if (document.body.dataset.page === "mypage") {
+    return;
+  }
+
   els.searchInput = document.getElementById("searchInput");
   els.difficultyFilterSummary = document.getElementById("difficultyFilterSummary");
   els.difficultyFilterOptions = document.getElementById("difficultyFilterOptions");

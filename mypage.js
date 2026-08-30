@@ -5,6 +5,8 @@ const mypageDatabaseVersion = 1;
 const mypageStoreName = "chart-statuses";
 const mypagePageSize = 100;
 const mypageFeatureNone = "特徴なし";
+const mypagePredNotClearStatuses = new Set(["failed", "easy"]);
+const mypagePredClearStatuses = new Set(["clear", "hard"]);
 const mypageDifficultyValues = {
   N: "NORMAL",
   H: "HYPER",
@@ -34,6 +36,7 @@ const mypageStatuses = [
   { value: "hard", label: "HARD" },
 ];
 const mypageStatusValues = new Set(mypageStatuses.map(({ value }) => value));
+const mypageStoredStatusValues = new Set([...mypageStatusValues, "failed"]);
 
 const mypageState = {
   rows: [],
@@ -51,6 +54,7 @@ const mypageState = {
   predMaxFilter: 999,
   predDataMin: 0,
   predDataMax: 999,
+  rowsByChartId: new Map(),
   sortKey: "calibrated_pred_skill",
   sortDir: "asc",
   visibleLimit: mypagePageSize,
@@ -637,6 +641,221 @@ function mypageUpdateTableOverflowState() {
   shell.classList.toggle("is-overflowing", shell.scrollWidth > shell.clientWidth);
 }
 
+function mypageSigmoid(value) {
+  if (value >= 0) {
+    return 1 / (1 + Math.exp(-value));
+  }
+  const exponential = Math.exp(value);
+  return exponential / (1 + exponential);
+}
+
+function mypageFormatPredRange(lower, upper) {
+  const lowerText = mypageFormatPredValue(lower);
+  const upperText = mypageFormatPredValue(upper);
+  return lowerText === upperText ? lowerText : lowerText + "-" + upperText;
+}
+
+function mypageGetPredObservations() {
+  const observations = [];
+  for (const [chartId, record] of mypageState.records) {
+    const row = mypageState.rowsByChartId.get(String(chartId));
+    const pred = mypageGetNumericValue(row?.calibrated_pred_skill);
+    const status = String(record?.status ?? "").toLowerCase();
+    const outcome = mypagePredClearStatuses.has(status)
+      ? 1
+      : mypagePredNotClearStatuses.has(status)
+        ? 0
+        : null;
+    if (row && pred !== null && outcome !== null) {
+      observations.push({ pred, outcome });
+    }
+  }
+  return observations;
+}
+
+function mypageBuildPredInsufficientResult(observations, counts, message) {
+  return {
+    range: "ー",
+    rangeLower: null,
+    rangeUpper: null,
+    rangeQualifier: "",
+    message,
+    usedLogistic: false,
+    observations,
+    counts,
+  };
+}
+
+function mypageFitPredRegression() {
+  const observations = mypageGetPredObservations();
+  const counts = {
+    total: observations.length,
+    clear: observations.filter(({ outcome }) => outcome === 1).length,
+    notClear: observations.filter(({ outcome }) => outcome === 0).length,
+  };
+  if (counts.total < 6) {
+    return mypageBuildPredInsufficientResult(
+      observations,
+      counts,
+      "有効回答不足により推定できませんでした",
+    );
+  }
+
+  const bounds = {
+    min: mypageState.predDataMin,
+    max: mypageState.predDataMax,
+  };
+  if (counts.clear === 0) {
+    return {
+      range: mypageFormatPredValue(bounds.min) + "未満",
+      rangeLower: bounds.min,
+      rangeUpper: null,
+      rangeQualifier: "未満",
+      message: "クリア曲数不足により推定できませんでした",
+      usedLogistic: false,
+      observations,
+      counts,
+    };
+  }
+  if (counts.notClear === 0) {
+    return {
+      range: mypageFormatPredValue(bounds.max) + "以上",
+      rangeLower: bounds.max,
+      rangeUpper: null,
+      rangeQualifier: "以上",
+      message: "未クリア曲数不足により推定できませんでした",
+      usedLogistic: false,
+      observations,
+      counts,
+    };
+  }
+
+  const center = observations.reduce((sum, { pred }) => sum + pred, 0) / observations.length;
+  const variance = observations.reduce((sum, { pred }) => sum + (pred - center) ** 2, 0) / observations.length;
+  const scale = Math.max(Math.sqrt(variance), 0.25);
+  const clearPredAverage = observations
+    .filter(({ outcome }) => outcome === 1)
+    .reduce((sum, { pred }) => sum + pred, 0) / counts.clear;
+  const notClearPredAverage = observations
+    .filter(({ outcome }) => outcome === 0)
+    .reduce((sum, { pred }) => sum + pred, 0) / counts.notClear;
+  if (clearPredAverage > notClearPredAverage) {
+    return mypageBuildPredInsufficientResult(
+      observations,
+      counts,
+      "回答傾向が回帰条件に合わないため推定できませんでした",
+    );
+  }
+
+  const clearRate = Math.min(0.95, Math.max(0.05, counts.clear / observations.length));
+  let intercept = Math.log(clearRate / (1 - clearRate));
+  let slope = -1;
+  const regularization = 0.03;
+
+  for (let iteration = 0; iteration < 80; iteration += 1) {
+    let gradientIntercept = 0;
+    let gradientSlope = regularization * slope;
+    let hessianIntercept = 0;
+    let hessianCross = 0;
+    let hessianSlope = regularization;
+
+    for (const observation of observations) {
+      const normalizedPred = (observation.pred - center) / scale;
+      const probability = mypageSigmoid(intercept + slope * normalizedPred);
+      const weight = Math.max(probability * (1 - probability), 1e-5);
+      const residual = probability - observation.outcome;
+      gradientIntercept += residual;
+      gradientSlope += residual * normalizedPred;
+      hessianIntercept += weight;
+      hessianCross += weight * normalizedPred;
+      hessianSlope += weight * normalizedPred * normalizedPred;
+    }
+
+    const determinant = hessianIntercept * hessianSlope - hessianCross ** 2;
+    if (!Number.isFinite(determinant) || determinant <= 1e-8) {
+      break;
+    }
+    const stepIntercept = (hessianSlope * gradientIntercept - hessianCross * gradientSlope) / determinant;
+    const stepSlope = (-hessianCross * gradientIntercept + hessianIntercept * gradientSlope) / determinant;
+    intercept = Math.max(-30, Math.min(30, intercept - stepIntercept));
+    slope = Math.max(-30, Math.min(30, slope - stepSlope));
+    if (Math.abs(stepIntercept) + Math.abs(stepSlope) < 1e-5) {
+      break;
+    }
+  }
+
+  // Keep the same decreasing-clear-probability constraint as the diagnosis page.
+  const fittedSlope = slope;
+  slope = Math.min(-0.05, slope);
+  const threshold = center + (-intercept / slope) * scale;
+  const predAt60 = center + (Math.log(0.6 / 0.4) - intercept) / slope * scale;
+  const predAt40 = center + (Math.log(0.4 / 0.6) - intercept) / slope * scale;
+  const rangeValues = [predAt60, predAt40];
+  const hasValidRange = rangeValues.every(Number.isFinite);
+  const rangeWidth = hasValidRange ? Math.abs(predAt40 - predAt60) : Infinity;
+  const thresholdInBounds = Number.isFinite(threshold)
+    && threshold > bounds.min
+    && threshold < bounds.max;
+  if (
+    fittedSlope >= 0
+    || !hasValidRange
+    || rangeWidth >= bounds.max - bounds.min
+    || !thresholdInBounds
+  ) {
+    return mypageBuildPredInsufficientResult(
+      observations,
+      counts,
+      "回答傾向が回帰条件に合わないため推定できませんでした",
+    );
+  }
+
+  const lower = Math.min(bounds.max, Math.max(bounds.min, Math.min(...rangeValues)));
+  const upper = Math.min(bounds.max, Math.max(bounds.min, Math.max(...rangeValues)));
+  return {
+    range: mypageFormatPredRange(lower, upper),
+    rangeLower: lower,
+    rangeUpper: upper,
+    rangeQualifier: "",
+    message: "クリア確率40%-60%のPred範囲",
+    usedLogistic: true,
+    observations,
+    counts,
+  };
+}
+
+function mypageRenderPredEstimate() {
+  const result = mypageFitPredRegression();
+  const element = mypageElements.predEstimate;
+  element.replaceChildren();
+  if (!Number.isFinite(result.rangeLower)) {
+    element.textContent = result.range || "ー";
+  } else {
+    const appendValue = (value) => {
+      const valueElement = document.createElement("span");
+      valueElement.className = "mypage-pred-estimate__value-part";
+      valueElement.textContent = mypageFormatPredValue(value);
+      const color = getNumericScaleColor(value, mypageState.predDataMin, mypageState.predDataMax);
+      if (color) {
+        valueElement.style.setProperty("--numeric-color", color);
+      }
+      element.append(valueElement);
+    };
+    appendValue(result.rangeLower);
+    if (Number.isFinite(result.rangeUpper) && result.rangeUpper !== result.rangeLower) {
+      const separator = document.createElement("span");
+      separator.className = "mypage-pred-estimate__separator";
+      separator.textContent = "-";
+      element.append(separator);
+      appendValue(result.rangeUpper);
+    }
+    if (result.rangeQualifier) {
+      element.append(document.createTextNode(result.rangeQualifier));
+    }
+  }
+
+  mypageElements.predEstimateNote.textContent = result.message || "";
+  mypageElements.predEstimateNote.hidden = !result.message;
+}
 function mypageUpdateSortMarks() {
   mypageElements.table.querySelectorAll("thead button[data-sort-key]").forEach((button) => {
     const mark = button.querySelector(".sort-mark");
@@ -661,6 +880,7 @@ function mypageStatusMatchesFilter(status) {
 }
 function mypageRender() {
   mypageUpdateAdvancedSummary();
+  mypageRenderPredEstimate();
   const filteredRows = mypageGetVisibleRows();
   const visibleRows = filteredRows.slice(0, mypageState.visibleLimit);
   mypageUpdateRowCount(visibleRows.length);
@@ -920,7 +1140,7 @@ function mypageApplyRecords(records) {
   mypageState.records = new Map();
   for (const record of records) {
     const chartId = String(record.chartId ?? "");
-    if (/^\d+$/.test(chartId) && mypageStatusValues.has(record.status)) {
+    if (/^\d+$/.test(chartId) && mypageStoredStatusValues.has(record.status)) {
       mypageState.records.set(chartId, record);
     }
   }
@@ -948,6 +1168,7 @@ async function mypageHandleStatusChange(event) {
       });
     }
     mypageUpdateStatusSelect(select);
+    mypageRenderPredEstimate();
     if (mypageState.sortKey === "status" || !mypageStatusMatchesFilter(status)) {
       mypageRender();
     } else {
@@ -990,6 +1211,8 @@ function mypageInitializeElements() {
   mypageElements.loadMoreButton = document.getElementById("mypageLoadMoreButton");
   mypageElements.scrollTopButton = document.getElementById("mypageScrollTopButton");
   mypageElements.message = document.getElementById("mypageMessage");
+  mypageElements.predEstimate = document.getElementById("mypagePredEstimate");
+  mypageElements.predEstimateNote = document.getElementById("mypagePredEstimateNote");
 }
 
 async function mypageInitialize() {
@@ -998,6 +1221,9 @@ async function mypageInitialize() {
 
   try {
     mypageState.rows = mypageLoadRows();
+    mypageState.rowsByChartId = new Map(
+      mypageState.rows.map((row) => [String(row.chart_id ?? "").trim(), row]),
+    );
     const predRange = mypageGetNumericExtremes(
       mypageState.rows,
       "calibrated_pred_skill",

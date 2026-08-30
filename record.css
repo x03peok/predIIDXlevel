@@ -241,10 +241,7 @@
 }
 
 @media (max-width: 720px) {
-  .record-toolbar > .search {
-    grid-column: 1 / -1;
-  }
-
+  .record-toolbar > .search,
   .record-toolbar > .multi-filter {
     width: 100%;
     min-width: 0;

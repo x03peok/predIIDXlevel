@@ -14,12 +14,12 @@
   <meta property="og:locale" content="ja_JP">
   <meta name="twitter:card" content="summary">
   <link rel="stylesheet" href="styles.css?v=20260821-21">
-  <link rel="stylesheet" href="mypage.css?v=20260829-3">
+  <link rel="stylesheet" href="mypage.css?v=20260829-4">
   <link rel="stylesheet" href="menu.css">
   <script defer src="menu.js?v=20260829-4"></script>
   <script defer src="data.js?v=20260821-5"></script>
   <script defer src="app.js?v=20260829-3"></script>
-  <script defer src="mypage.js?v=20260829-7"></script>
+  <script defer src="mypage.js?v=20260829-8"></script>
 </head>
 <body data-page="mypage">
   <main class="app">
@@ -51,6 +51,11 @@
 
     <section class="view view--mypage" aria-live="polite">
       <div class="panel mypage-panel">
+        <div class="mypage-pred-estimate" aria-live="polite">
+          <p class="mypage-pred-estimate__label">推定適正<span class="chart-detail__label-group" data-tooltip="推定ノマゲ難易度です。failed/EASYを未クリア、CLEAR/HARDをクリアとして独自に計算しています。" tabindex="0" role="button" aria-label="Predの説明"><span>Pred</span><span class="chart-detail__info-mark" aria-hidden="true">ⓘ</span></span></p>
+          <p id="mypagePredEstimate" class="mypage-pred-estimate__value">ー</p>
+          <p id="mypagePredEstimateNote" class="mypage-pred-estimate__note" hidden></p>
+        </div>
         <div class="toolbar mypage-toolbar">
           <label class="search">
             <span>Title</span>
