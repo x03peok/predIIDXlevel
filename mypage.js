@@ -5,6 +5,28 @@ const mypageDatabaseVersion = 1;
 const mypageStoreName = "chart-statuses";
 const mypagePageSize = 100;
 const mypageFeatureNone = "特徴なし";
+const mypageFeatureNames = [
+  "BPM変化",
+  "チャージノート",
+  "ラスト難",
+  "皿複合",
+  "単鍵ラッシュ",
+  "同時押し",
+  "物量",
+  "連皿",
+  "連打",
+];
+const mypageFeatureDescriptions = {
+  "BPM変化": "激しいBPM変化と、変化周辺の難しい配置が特徴です。",
+  "チャージノート": "CN/HCN/BSS/HBSS/MSSと、同時に来る難しい配置が特徴です。",
+  "ラスト難": "ラスト数十秒の難易度がそれ以前の平均と比べて高いことが特徴です。",
+  "皿複合": "スクラッチと同時に来る鍵盤の難しい配置が特徴です。",
+  "単鍵ラッシュ": "1個～2個押し主体の細かい配置が特徴です。",
+  "同時押し": "3個以上の横に広い同時押し主体の配置が特徴です。",
+  "物量": "曲全体を平均した1秒あたりのノーツ数の多さが特徴です。",
+  "連皿": "短い時間に連続するスクラッチの難しさが特徴です。",
+  "連打": "同じ鍵盤に連続して降ってくるノーツの難しさが特徴です。",
+};
 const mypagePredNotClearStatuses = new Set(["failed", "assisted", "easy"]);
 const mypagePredClearStatuses = new Set(["clear", "hard"]);
 const mypageDifficultyValues = {
@@ -110,6 +132,23 @@ function mypageGetRawRowFeatures(row) {
     .filter(Boolean);
 }
 
+function mypageGetFeatureDetails(row) {
+  const raw = String(row.features ?? "").trim();
+  if (!raw || raw === mypageFeatureNone) {
+    return [];
+  }
+
+  return raw
+    .split("、")
+    .map((feature) => {
+      const trimmed = feature.trim();
+      const plusMatch = trimmed.match(/\++$/);
+      const plusCount = plusMatch ? plusMatch[0].length : 0;
+      const name = trimmed.replace(/\++$/, "").trim();
+      return name ? { name, plusCount } : null;
+    })
+    .filter(Boolean);
+}
 function mypageGetFeatureOptions() {
   const values = new Set([mypageFeatureNone]);
   for (const row of mypageState.rows) {
@@ -773,7 +812,7 @@ function mypageGetPredObservations() {
         ? 0
         : null;
     if (row && pred !== null && outcome !== null) {
-      observations.push({ pred, outcome });
+      observations.push({ row, pred, outcome });
     }
   }
   return observations;
@@ -787,6 +826,7 @@ function mypageBuildPredInsufficientResult(observations, counts, message) {
     rangePrefix: "",
     rangeQualifier: "",
     message,
+    model: null,
     usedLogistic: false,
     observations,
     counts,
@@ -811,6 +851,7 @@ function mypageBuildPredProvisionalResult(observations, counts) {
     rangePrefix: "暫定",
     rangeQualifier: "",
     message: "有効回答が増えると詳細推定に切り替わります",
+    model: null,
     usedLogistic: false,
     observations,
     counts,
@@ -841,7 +882,8 @@ function mypageFitPredRegression() {
       rangeLower: bounds.min,
       rangeQualifier: "未満",
       message: "クリア曲数不足により推定できませんでした",
-      usedLogistic: false,
+      model: null,
+    usedLogistic: false,
       observations,
       counts,
     };
@@ -852,7 +894,8 @@ function mypageFitPredRegression() {
       rangeLower: bounds.max,
       rangeQualifier: "以上",
       message: "未クリア曲数不足により推定できませんでした",
-      usedLogistic: false,
+      model: null,
+    usedLogistic: false,
       observations,
       counts,
     };
@@ -937,13 +980,112 @@ function mypageFitPredRegression() {
     rangeUpper: upper,
     rangePrefix: "",
     rangeQualifier: "",
-    message: "クリア確率40%-60%のPred範囲",
+    message: "クリア確率40%-60%範囲",
+    model: { intercept, slope, center, scale },
     usedLogistic: true,
     observations,
     counts,
   };
 }
 
+function mypageGetFeatureScores(observations, model) {
+  return mypageFeatureNames.map((feature) => {
+    let totalWeight = 0;
+    let observedTotal = 0;
+    let expectedTotal = 0;
+    let known = 0;
+
+    for (const observation of observations) {
+      const detail = mypageGetFeatureDetails(observation.row)
+        .find((item) => item.name === feature);
+      if (!detail) {
+        continue;
+      }
+
+      const normalizedPred = model
+        ? (observation.pred - model.center) / model.scale
+        : 0;
+      const baselineProbability = model
+        ? mypageSigmoid(model.intercept + model.slope * normalizedPred)
+        : 0.5;
+      const weight = 1 + Math.min(detail.plusCount, 2);
+      totalWeight += weight;
+      observedTotal += weight * observation.outcome;
+      expectedTotal += weight * baselineProbability;
+      known += 1;
+    }
+
+    if (totalWeight === 0) {
+      return { name: feature, score: 50, known: 0 };
+    }
+
+    const effect = observedTotal / totalWeight - expectedTotal / totalWeight;
+    const score = Math.max(0, Math.min(100, 50 + effect * 100));
+    return { name: feature, score, known };
+  });
+}
+function mypageRenderFeatureResult(predResult) {
+  const section = mypageElements.featureResult;
+  const bars = mypageElements.featureBars;
+  if (!section || !bars) {
+    return;
+  }
+
+  const observations = Array.isArray(predResult?.observations)
+    ? predResult.observations
+    : [];
+  if (observations.length < 5) {
+    bars.replaceChildren();
+    section.hidden = true;
+    return;
+  }
+
+  const scores = mypageGetFeatureScores(observations, predResult.model)
+    .map((score, order) => ({ ...score, order }))
+    .sort((left, right) => right.score - left.score || left.order - right.order);
+  const scale = [
+    '<div class="mypage-feature-bars__scale" aria-hidden="true">',
+    '  <span></span>',
+    '  <div class="mypage-feature-bars__scale-track"><span>不得意</span><span>得意</span></div>',
+    '</div>',
+  ].join("");
+
+  const rows = scores.map((score) => {
+    const description = mypageFeatureDescriptions[score.name] ?? "";
+    const tooltip = description
+      ? ' data-tooltip="' + mypageEscapeHtml(description) + '"'
+        + ' tabindex="0" role="button" aria-label="' + mypageEscapeHtml(score.name + "の説明") + '"'
+      : "";
+    const chip = '<span class="feature-chip feature-chip--plus-0"' + tooltip + '>' +
+      mypageEscapeHtml(score.name) + "</span>";
+    const leftWidth = score.score < 50 ? Math.min(100, (50 - score.score) * 2) : 0;
+    const rightWidth = score.score > 50 ? Math.min(100, (score.score - 50) * 2) : 0;
+    const status = score.known === 0
+      ? "データ不足"
+      : score.score >= 55
+        ? "得意寄り"
+        : score.score <= 45
+          ? "不得意寄り"
+          : "標準";
+    const ariaLabel = score.name + "、" + status;
+
+    return [
+      '<div class="mypage-feature-bar-row">',
+      '  <div class="mypage-feature-bar-row__label">' + chip + '</div>',
+      '  <div class="mypage-feature-bar" role="img" aria-label="' + mypageEscapeHtml(ariaLabel) + '">',
+      '    <span class="mypage-feature-bar__track">',
+      '      <span class="mypage-feature-bar__half mypage-feature-bar__half--left"><span class="mypage-feature-bar__fill mypage-feature-bar__fill--left" style="width:' + leftWidth.toFixed(1) + '%"></span></span>',
+      '      <span class="mypage-feature-bar__half mypage-feature-bar__half--right"><span class="mypage-feature-bar__fill mypage-feature-bar__fill--right" style="width:' + rightWidth.toFixed(1) + '%"></span></span>',
+      '      <span class="mypage-feature-bar__center"></span>',
+      '    </span>',
+      '  </div>',
+      '</div>',
+    ].join("");
+  }).join("");
+
+  bars.innerHTML = scale + rows;
+  section.hidden = false;
+}
 function mypageRenderPredEstimate() {
   const result = mypageFitPredRegression();
   const element = mypageElements.predEstimate;
@@ -977,9 +1119,24 @@ function mypageRenderPredEstimate() {
     }
   }
 
-  mypageElements.predEstimateNote.textContent = result.message || "";
-  mypageElements.predEstimateNote.hidden = !result.message;
+  const note = mypageElements.predEstimateNote;
+  note.replaceChildren();
+  if (result.message) {
+    note.append(document.createTextNode(result.message));
+    if (mypageState.records.size === 0) {
+      const link = document.createElement("a");
+      link.href = "record.html";
+      link.textContent = "クリアランプ登録";
+      note.append(
+        document.createElement("br"),
+        link,
+        document.createTextNode("を行ってください"),
+      );
+    }
+  }
+  note.hidden = !result.message;
   mypageRenderStatusDistribution();
+  mypageRenderFeatureResult(result);
 }
 function mypageUpdateSortMarks() {
   mypageElements.table.querySelectorAll("thead button[data-sort-key]").forEach((button) => {
@@ -1347,6 +1504,8 @@ function mypageInitializeElements() {
   mypageElements.predEstimate = document.getElementById("mypagePredEstimate");
   mypageElements.statusDistributionChart = document.getElementById("mypageStatusDistributionChart");
   mypageElements.statusDistributionLegend = document.getElementById("mypageStatusDistributionLegend");
+  mypageElements.featureResult = document.getElementById("mypageFeatureResult");
+  mypageElements.featureBars = document.getElementById("mypageFeatureBars");
   mypageElements.includeUnregistered = document.getElementById("mypageIncludeUnregistered");
   mypageElements.includeUnowned = document.getElementById("mypageIncludeUnowned");
   mypageElements.predEstimateNote = document.getElementById("mypagePredEstimateNote");

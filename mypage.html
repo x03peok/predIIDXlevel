@@ -14,12 +14,12 @@
   <meta property="og:locale" content="ja_JP">
   <meta name="twitter:card" content="summary">
   <link rel="stylesheet" href="styles.css?v=20260821-21">
-  <link rel="stylesheet" href="mypage.css?v=20260829-12">
+  <link rel="stylesheet" href="mypage.css?v=20260830-2">
   <link rel="stylesheet" href="menu.css">
   <script defer src="menu.js?v=20260830-2"></script>
   <script defer src="data.js?v=20260821-5"></script>
   <script defer src="app.js?v=20260829-3"></script>
-  <script defer src="mypage.js?v=20260830-8"></script>
+  <script defer src="mypage.js?v=20260830-14"></script>
 </head>
 <body data-page="mypage">
   <main class="app">
@@ -64,7 +64,13 @@
             <div id="mypageStatusDistributionChart" class="mypage-status-distribution__chart" role="list" aria-label="レベル別クリア状況"></div>
             <div id="mypageStatusDistributionLegend" class="mypage-status-distribution__legend" role="list" aria-label="Statusの凡例"></div>
           </div>
+          <section id="mypageFeatureResult" class="mypage-status-distribution mypage-feature-result" aria-labelledby="mypageFeatureResultTitle" hidden>
+            <h3 id="mypageFeatureResultTitle" class="mypage-status-distribution__title mypage-feature-result__title">譜面傾向</h3>
+            <p class="mypage-feature-result__note">同程度のPredの譜面と比べた、譜面特徴ごとの得意・不得意の傾向です。</p>
+            <div id="mypageFeatureBars" class="mypage-feature-bars"></div>
+          </section>
         </div>
+
         <h2 class="mypage-section-heading">クリア状況詳細</h2>
         <div class="toolbar mypage-toolbar">
           <label class="search">
