@@ -38,7 +38,9 @@ const recordState = {
   rows: [],
   records: new Map(),
   query: "",
-  statusFilter: null,
+  statusFilter: recordStatuses
+    .filter(({ value }) => value !== "unowned")
+    .map(({ value }) => value),
   levelFilter: null,
   difficultyFilter: null,
   visibleLimit: recordPageSize,

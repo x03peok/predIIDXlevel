@@ -1091,13 +1091,19 @@ function diagnosisShowResult() {
     resultPredContainer.style.removeProperty("--numeric-color");
   }
   document.getElementById("diagnosisResultMethod").textContent = result.usedLogistic
-    ? "クリア確率40%-60%のPred範囲を表示"
+    ? "クリア確率40%-60%範囲を表示"
     : result.fallbackMessage;
   levelRates.textContent = levelRateText;
   levelRates.hidden = !levelRateText;
   document.getElementById("diagnosisResultSummary").textContent =
     "選択内訳：クリア" + counts.clear + "譜面/未クリア" + counts.notClear + "譜面";
   diagnosisUpdateShare(diagnosisBuildShareText(result, levelRateText));
+  window.cpiAnalytics?.track("diagnosis_complete", {
+    diagnosis_type: "pred",
+    effective_answers: counts.total,
+    used_logistic: result.usedLogistic,
+    pred_range: result.range || "ー",
+  });
 
   const featureButton = document.getElementById("diagnosisFeatureButton");
   featureButton.disabled = !result.usedLogistic;
@@ -1348,6 +1354,10 @@ function diagnosisReturnToPredResult() {
 
 function diagnosisShowFeatureResult() {
   diagnosisRenderFeatureResult();
+  window.cpiAnalytics?.track("diagnosis_complete", {
+    diagnosis_type: "feature",
+    effective_answers: diagnosisGetKnownFeatureObservations().length,
+  });
   document.getElementById("diagnosisLevelStep").hidden = true;
   document.getElementById("diagnosisChartStep").hidden = true;
   document.getElementById("diagnosisResultStep").hidden = true;

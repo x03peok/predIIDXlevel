@@ -131,7 +131,7 @@ body .title-lock {
 
 @media (max-width: 640px) {
   body .masthead__bar {
-    align-items: flex-start;
+    align-items: center;
   }
 
   body .masthead__bar h1 {

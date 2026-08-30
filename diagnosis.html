@@ -3,14 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>診断 | CPI:Next</title>
+  <title>適正Pred・譜面傾向診断</title>
   <meta name="description" content="ノマゲ適正と譜面ごとのクリア状況から、適正PredとFeatureの傾向を診断するページです。">
+  <!-- Google Analytics -->
+  <script defer src="analytics.js?v=20260831-3"></script>
   <link rel="stylesheet" href="styles.css?v=20260821-21">
   <link rel="stylesheet" href="diagnosis.css?v=20260826-5">
   <link rel="stylesheet" href="menu.css">
   <script defer src="menu.js?v=20260830-2"></script>
   <script defer src="data.js?v=20260821-5"></script>
-  <script defer src="diagnosis.js?v=20260826-6"></script>
+  <script defer src="diagnosis.js?v=20260830-1"></script>
 </head>
 <body data-page="diagnosis">
   <main class="app">
@@ -35,14 +37,13 @@
             <button type="button" class="menu-item" data-page="history" data-href="history.html">サイト更新履歴</button>
           </div>
         </div>
-        <h1>CPI:Next</h1>
+        <h1>適正Pred・譜面傾向診断</h1>
       </div>
     </header>
 
     <section class="view" aria-live="polite">
       <div class="panel diagnosis-panel">
         <header class="diagnosis-header">
-          <h2>適正<span class="diagnosis-info-label" data-tooltip="推定ノマゲ難易度です。譜面から独自手法で計算しています。" tabindex="0" role="button" aria-label="Predの説明"><span>Pred</span><span class="diagnosis-info-mark" aria-hidden="true">ⓘ</span></span>・譜面傾向診断</h2>
           <p>クリア状況を選択すると、あなたの適正Predと得意な譜面傾向を診断します。入力内容と診断結果は保存されません。</p>
         </header>
 

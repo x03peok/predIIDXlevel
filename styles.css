@@ -441,6 +441,33 @@ tbody td {
   font-size: 0.72rem;
 }
 
+.pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.load-more {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--panel-strong);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.load-more:hover,
+.load-more:focus-visible {
+  background: rgba(219, 234, 254, 0.55);
+}
 .scroll-top-button {
   position: fixed;
   right: max(14px, env(safe-area-inset-right));
@@ -778,7 +805,7 @@ body .title-lock {
 
 @media (max-width: 640px) {
   body .masthead__bar {
-    align-items: flex-start;
+    align-items: center;
   }
 
   body .masthead__bar h1 {

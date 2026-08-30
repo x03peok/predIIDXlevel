@@ -989,6 +989,7 @@ function mypageFitPredRegression() {
 }
 
 function mypageGetFeatureScores(observations, model) {
+  const priorCharts = 1;
   return mypageFeatureNames.map((feature) => {
     let totalWeight = 0;
     let observedTotal = 0;
@@ -1019,7 +1020,9 @@ function mypageGetFeatureScores(observations, model) {
       return { name: feature, score: 50, known: 0 };
     }
 
-    const effect = observedTotal / totalWeight - expectedTotal / totalWeight;
+    const rawEffect = observedTotal / totalWeight - expectedTotal / totalWeight;
+    const reliability = known / (known + priorCharts);
+    const effect = rawEffect * reliability;
     const score = Math.max(0, Math.min(100, 50 + effect * 100));
     return { name: feature, score, known };
   });

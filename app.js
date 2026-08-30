@@ -30,6 +30,7 @@ const difficultyFilterToDifficulty = {
 };
 const searchFields = ["title"];
 const FEATURE_NONE = "特徴なし";
+const pageSize = 100;
 const htmlEntityDecoder = document.createElement("textarea");
 
 const state = {
@@ -49,6 +50,7 @@ const state = {
   searchAnalyticsTimer: null,
   renderTimer: null,
   lastTrackedSearchTerm: "",
+  visibleLimit: pageSize,
 };
 
 const els = {};
@@ -486,11 +488,7 @@ function normalizeDifficulty(value) {
 }
 
 function trackAnalyticsEvent(name, params = {}) {
-  if (typeof window.gtag !== "function") {
-    return;
-  }
-
-  window.gtag("event", name, params);
+  window.cpiAnalytics?.track(name, params);
 }
 
 function scheduleSearchAnalytics() {
@@ -984,21 +982,22 @@ function cancelScheduledRender() {
 
 function scheduleRender(delay = 60) {
   cancelScheduledRender();
+  state.visibleLimit = pageSize;
   state.renderTimer = window.setTimeout(() => {
     state.renderTimer = null;
     render();
   }, delay);
 }
-
 function render() {
   updateAdvancedFilterSummary();
-  const visibleRows = getVisibleRows();
+  const filteredRows = getVisibleRows();
+  const visibleRows = filteredRows.slice(0, state.visibleLimit);
   updateRowCount(visibleRows.length, state.rows.length);
   renderTable(visibleRows);
+  els.loadMoreButton.hidden = visibleRows.length >= filteredRows.length;
   updateTableOverflowState();
   updateSortMarks();
 }
-
 function updateTableOverflowState() {
   if (!els.tableShell) {
     return;
@@ -1033,6 +1032,7 @@ function loadCsvText(text) {
     state.origFilter = null;
     state.featureFilter = null;
     state.lastTrackedSearchTerm = "";
+    state.visibleLimit = pageSize;
     if (state.searchAnalyticsTimer !== null) {
       window.clearTimeout(state.searchAnalyticsTimer);
       state.searchAnalyticsTimer = null;
@@ -1092,9 +1092,9 @@ function setSort(key) {
   }
 
   cancelScheduledRender();
+  state.visibleLimit = pageSize;
   render();
 }
-
 function updateBpmFilters() {
   state.bpmMinFilter = parseFilterNumber(els.bpmMinFilter.value, 0);
   state.bpmMaxFilter = parseFilterNumber(els.bpmMaxFilter.value, 999);
@@ -1206,6 +1206,7 @@ function init() {
   els.rowCount = document.getElementById("rowCount");
   els.scrollTopButton = document.getElementById("scrollTopButton");
   els.tableShell = document.getElementById("tableShell");
+  els.loadMoreButton = document.getElementById("loadMoreButton");
 
   setupFilterDetails();
   window.addEventListener("scroll", updateScrollTopButton, { passive: true });
@@ -1231,6 +1232,10 @@ function init() {
   els.predMaxFilter.addEventListener("input", updatePredFilters);
   els.predMinFilter.addEventListener("blur", commitPredFilters);
   els.predMaxFilter.addEventListener("blur", commitPredFilters);
+  els.loadMoreButton.addEventListener("click", () => {
+    state.visibleLimit += pageSize;
+    render();
+  });
 
   loadBundledCsv();
 }

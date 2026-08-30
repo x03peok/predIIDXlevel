@@ -191,6 +191,7 @@ function createPage(template, row) {
   page = page.replace('href="styles.css?', 'href="../styles.css?');
   page = page.replace('href="menu.css"', 'href="../menu.css"');
   page = page.replace('src="menu.js"', 'src="../menu.js"');
+  page = page.replace('src="analytics.js?', 'src="../analytics.js?');
   page = page.replace('src="data.js?', 'src="../data.js?');
   page = page.replace('src="chart.js?', 'src="../chart.js?');
   page = page.replace('data-href="index.html"', 'data-href="../index.html"');

@@ -571,6 +571,11 @@ function renderChart() {
       window.addEventListener("resize", updateSimilarTableOverflowState, { passive: true });
     }
     document.title = row.title + " | 譜面詳細";
+    window.cpiAnalytics?.track("chart_view", {
+      chart_id: chartId,
+      level: row.original_level,
+      difficulty,
+    });
   } catch (error) {
     console.error(error);
     showChartError("譜面データを読み込めませんでした。");

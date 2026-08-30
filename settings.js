@@ -170,6 +170,7 @@ async function settingsHandleExport() {
     window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
     settingsUpdateCount(records);
     settingsSetMessage("データをエクスポートしました。");
+    window.cpiAnalytics?.track("data_export", { record_count: records.length });
   } catch (error) {
     settingsSetMessage(error.message || "データをエクスポートできませんでした。", true);
   } finally {
@@ -206,6 +207,7 @@ async function settingsHandleImport(event) {
     await settingsWriteAll(records);
     settingsUpdateCount(records);
     settingsSetMessage("データをインポートしました。");
+    window.cpiAnalytics?.track("data_import", { record_count: records.length });
   } catch (error) {
     settingsSetMessage(error.message || "データをインポートできませんでした。", true);
   } finally {
@@ -223,6 +225,7 @@ async function settingsHandleReset() {
     await settingsClearAll();
     settingsUpdateCount([]);
     settingsSetMessage("全データをリセットしました。");
+    window.cpiAnalytics?.track("data_reset");
   } catch (error) {
     settingsSetMessage(error.message || "データをリセットできませんでした。", true);
   } finally {
