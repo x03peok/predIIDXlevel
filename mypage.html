@@ -8,18 +8,18 @@
   <link rel="canonical" href="https://cpi-next.com/mypage.html">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://cpi-next.com/mypage.html">
-  <meta property="og:site_name" content="SP☆8-☆12 非公式難易度予測表(&beta;)">
+  <meta property="og:site_name" content="CPI:Next">
   <meta property="og:title" content="マイページ">
   <meta property="og:description" content="クリアランプ記録を絞り込んで確認するマイページです。">
   <meta property="og:locale" content="ja_JP">
   <meta name="twitter:card" content="summary">
   <link rel="stylesheet" href="styles.css?v=20260821-21">
-  <link rel="stylesheet" href="mypage.css?v=20260829-4">
+  <link rel="stylesheet" href="mypage.css?v=20260829-12">
   <link rel="stylesheet" href="menu.css">
-  <script defer src="menu.js?v=20260829-4"></script>
+  <script defer src="menu.js?v=20260830-2"></script>
   <script defer src="data.js?v=20260821-5"></script>
   <script defer src="app.js?v=20260829-3"></script>
-  <script defer src="mypage.js?v=20260829-8"></script>
+  <script defer src="mypage.js?v=20260830-8"></script>
 </head>
 <body data-page="mypage">
   <main class="app">
@@ -39,10 +39,10 @@
             <span></span>
           </button>
           <div id="siteMenu" class="menu-popover" hidden>
-            <button type="button" class="menu-item" data-page="main" data-href="index.html">Main</button>
+            <button type="button" class="menu-item" data-page="main" data-href="index.html">Pred難易度表</button>
             <button type="button" class="menu-item" data-page="about" data-href="about.html">About</button>
             <button type="button" class="menu-item" data-page="diagnosis" data-href="diagnosis.html">適正診断</button>
-            <button type="button" class="menu-item" data-page="history" data-href="history.html">更新履歴</button>
+            <button type="button" class="menu-item" data-page="history" data-href="history.html">サイト更新履歴</button>
           </div>
         </div>
         <h1>マイページ</h1>
@@ -52,10 +52,20 @@
     <section class="view view--mypage" aria-live="polite">
       <div class="panel mypage-panel">
         <div class="mypage-pred-estimate" aria-live="polite">
-          <p class="mypage-pred-estimate__label">推定適正<span class="chart-detail__label-group" data-tooltip="推定ノマゲ難易度です。failed/EASYを未クリア、CLEAR/HARDをクリアとして独自に計算しています。" tabindex="0" role="button" aria-label="Predの説明"><span>Pred</span><span class="chart-detail__info-mark" aria-hidden="true">ⓘ</span></span></p>
+          <p class="mypage-pred-estimate__label">推定適正<span class="chart-detail__label-group" data-tooltip="推定ノマゲ難易度です。FAILED/ASSISTED/EASYを未クリア、CLEAR/HARD以上をクリアとして独自に計算しています。" tabindex="0" role="button" aria-label="Predの説明"><span>Pred</span><span class="chart-detail__info-mark" aria-hidden="true">ⓘ</span></span></p>
           <p id="mypagePredEstimate" class="mypage-pred-estimate__value">ー</p>
           <p id="mypagePredEstimateNote" class="mypage-pred-estimate__note" hidden></p>
+          <div class="mypage-status-distribution">
+            <h3 class="mypage-status-distribution__title">レベル別クリア状況</h3>
+            <div class="mypage-status-distribution__controls">
+              <label>未登録を含む<input id="mypageIncludeUnregistered" type="checkbox"></label>
+              <label>未所持・未解禁を含む<input id="mypageIncludeUnowned" type="checkbox"></label>
+            </div>
+            <div id="mypageStatusDistributionChart" class="mypage-status-distribution__chart" role="list" aria-label="レベル別クリア状況"></div>
+            <div id="mypageStatusDistributionLegend" class="mypage-status-distribution__legend" role="list" aria-label="Statusの凡例"></div>
+          </div>
         </div>
+        <h2 class="mypage-section-heading">クリア状況詳細</h2>
         <div class="toolbar mypage-toolbar">
           <label class="search">
             <span>Title</span>

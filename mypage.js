@@ -5,7 +5,7 @@ const mypageDatabaseVersion = 1;
 const mypageStoreName = "chart-statuses";
 const mypagePageSize = 100;
 const mypageFeatureNone = "特徴なし";
-const mypagePredNotClearStatuses = new Set(["failed", "easy"]);
+const mypagePredNotClearStatuses = new Set(["failed", "assisted", "easy"]);
 const mypagePredClearStatuses = new Set(["clear", "hard"]);
 const mypageDifficultyValues = {
   N: "NORMAL",
@@ -30,10 +30,11 @@ const mypageStatuses = [
   { value: "unregistered", label: "未登録" },
   { value: "unowned", label: "未所持・未解禁" },
   { value: "no-play", label: "NO PLAY" },
+  { value: "failed", label: "FAILED" },
   { value: "assisted", label: "ASSISTED" },
   { value: "easy", label: "EASY" },
   { value: "clear", label: "CLEAR" },
-  { value: "hard", label: "HARD" },
+  { value: "hard", label: "HARD以上" },
 ];
 const mypageStatusValues = new Set(mypageStatuses.map(({ value }) => value));
 const mypageStoredStatusValues = new Set([...mypageStatusValues, "failed"]);
@@ -54,6 +55,8 @@ const mypageState = {
   predMaxFilter: 999,
   predDataMin: 0,
   predDataMax: 999,
+  includeUnregistered: false,
+  includeUnowned: false,
   rowsByChartId: new Map(),
   sortKey: "calibrated_pred_skill",
   sortDir: "asc",
@@ -352,6 +355,109 @@ function mypageGetStatus(row) {
   return mypageState.records.get(String(row.chart_id))?.status ?? "unregistered";
 }
 
+function mypageRenderStatusDistribution() {
+  const chart = mypageElements.statusDistributionChart;
+  const legend = mypageElements.statusDistributionLegend;
+  if (!chart || !legend) {
+    return;
+  }
+
+  const distributions = new Map();
+  for (const row of mypageState.rows) {
+    const level = mypageGetNumericValue(row.original_level);
+    if (level === null) {
+      continue;
+    }
+    if (!distributions.has(level)) {
+      distributions.set(level, new Map(mypageStatuses.map(({ value }) => [value, 0])));
+    }
+    const statusCounts = distributions.get(level);
+    const status = mypageGetStatus(row);
+    if (statusCounts.has(status)) {
+      statusCounts.set(status, statusCounts.get(status) + 1);
+    }
+  }
+
+  chart.replaceChildren();
+  legend.replaceChildren();
+  const displayStatuses = mypageStatuses.filter(({ value }) => (
+    (value !== "unregistered" || mypageState.includeUnregistered)
+    && (value !== "unowned" || mypageState.includeUnowned)
+  ));
+  const levels = new Set([8, 9, 10, 11, 12]);
+  for (const level of distributions.keys()) {
+    levels.add(level);
+  }
+
+  const chartFragment = document.createDocumentFragment();
+  for (const level of [...levels].sort((left, right) => left - right)) {
+    const statusCounts = distributions.get(level);
+    const total = displayStatuses.reduce((sum, { value }) => sum + (statusCounts?.get(value) ?? 0), 0);
+
+    const group = document.createElement("div");
+    group.className = "mypage-status-distribution__bar-group";
+    group.setAttribute("role", "listitem");
+
+    const levelLabel = document.createElement("span");
+    levelLabel.className = "mypage-status-distribution__label";
+    levelLabel.textContent = "☆" + level;
+    group.append(levelLabel);
+
+    if (!total) {
+      const noData = document.createElement("span");
+      noData.className = "mypage-status-distribution__no-data";
+
+      noData.title = "このレベルに表示できる譜面がありません";
+      noData.setAttribute("aria-label", "データなし");
+      const noDataText = document.createElement("span");
+      noDataText.className = "mypage-status-distribution__no-data-text";
+      noDataText.textContent = "NO DATA";
+      noData.append(noDataText);
+      group.append(noData);
+      chartFragment.append(group);
+      continue;
+    }
+
+    const bar = document.createElement("div");
+    bar.className = "mypage-status-distribution__bar";
+    bar.setAttribute("role", "img");
+    const summary = [];
+    for (const { value, label } of displayStatuses) {
+      const count = statusCounts.get(value) ?? 0;
+      if (count <= 0) {
+        continue;
+      }
+      const percentage = count / total * 100;
+      const segment = document.createElement("span");
+      segment.className = "mypage-status-distribution__segment";
+      segment.dataset.status = value;
+      segment.style.height = percentage + "%";
+      segment.title = label + " " + count + "譜面 (" + (Math.round(percentage * 10) / 10).toFixed(1) + "%)";
+      bar.append(segment);
+      summary.push(label + " " + count + "譜面");
+    }
+    bar.setAttribute("aria-label", "Level ☆" + level + "のStatus分布: " + summary.join("、"));
+    group.append(bar);
+    chartFragment.append(group);
+  }
+  chart.append(chartFragment);
+
+  const legendFragment = document.createDocumentFragment();
+  for (const { value, label } of displayStatuses) {
+    const item = document.createElement("span");
+    item.className = "mypage-status-distribution__legend-item";
+    item.setAttribute("role", "listitem");
+    const swatch = document.createElement("span");
+    swatch.className = "mypage-status-distribution__swatch";
+    swatch.dataset.status = value;
+    swatch.setAttribute("aria-hidden", "true");
+    const text = document.createElement("span");
+    text.textContent = label;
+    item.append(swatch, text);
+    legendFragment.append(item);
+  }
+  legend.append(legendFragment);
+}
 function mypageStatusOptions(selected) {
   return mypageStatuses.map(({ value, label }) => (
     '<option value="' + value + '"' + (value === selected ? ' selected' : '') + ">" + label + "</option>"
@@ -678,6 +784,7 @@ function mypageBuildPredInsufficientResult(observations, counts, message) {
     range: "ー",
     rangeLower: null,
     rangeUpper: null,
+    rangePrefix: "",
     rangeQualifier: "",
     message,
     usedLogistic: false,
@@ -686,6 +793,29 @@ function mypageBuildPredInsufficientResult(observations, counts, message) {
   };
 }
 
+function mypageBuildPredProvisionalResult(observations, counts) {
+  const highestClearPred = observations
+    .filter(({ outcome }) => outcome === 1)
+    .reduce((maximum, { pred }) => Math.max(maximum, pred), -Infinity);
+  if (!Number.isFinite(highestClearPred)) {
+    return mypageBuildPredInsufficientResult(
+      observations,
+      counts,
+      "有効回答が増えると詳細推定に切り替わります",
+    );
+  }
+  return {
+    range: "暫定" + mypageFormatPredValue(highestClearPred),
+    rangeLower: highestClearPred,
+    rangeUpper: null,
+    rangePrefix: "暫定",
+    rangeQualifier: "",
+    message: "有効回答が増えると詳細推定に切り替わります",
+    usedLogistic: false,
+    observations,
+    counts,
+  };
+}
 function mypageFitPredRegression() {
   const observations = mypageGetPredObservations();
   const counts = {
@@ -693,11 +823,11 @@ function mypageFitPredRegression() {
     clear: observations.filter(({ outcome }) => outcome === 1).length,
     notClear: observations.filter(({ outcome }) => outcome === 0).length,
   };
-  if (counts.total < 6) {
+  if (counts.total < 5) {
     return mypageBuildPredInsufficientResult(
       observations,
       counts,
-      "有効回答不足により推定できませんでした",
+      "プレイした譜面を5件以上登録すると推定されます",
     );
   }
 
@@ -709,7 +839,6 @@ function mypageFitPredRegression() {
     return {
       range: mypageFormatPredValue(bounds.min) + "未満",
       rangeLower: bounds.min,
-      rangeUpper: null,
       rangeQualifier: "未満",
       message: "クリア曲数不足により推定できませんでした",
       usedLogistic: false,
@@ -721,7 +850,6 @@ function mypageFitPredRegression() {
     return {
       range: mypageFormatPredValue(bounds.max) + "以上",
       rangeLower: bounds.max,
-      rangeUpper: null,
       rangeQualifier: "以上",
       message: "未クリア曲数不足により推定できませんでした",
       usedLogistic: false,
@@ -740,11 +868,7 @@ function mypageFitPredRegression() {
     .filter(({ outcome }) => outcome === 0)
     .reduce((sum, { pred }) => sum + pred, 0) / counts.notClear;
   if (clearPredAverage > notClearPredAverage) {
-    return mypageBuildPredInsufficientResult(
-      observations,
-      counts,
-      "回答傾向が回帰条件に合わないため推定できませんでした",
-    );
+    return mypageBuildPredProvisionalResult(observations, counts);
   }
 
   const clearRate = Math.min(0.95, Math.max(0.05, counts.clear / observations.length));
@@ -802,11 +926,7 @@ function mypageFitPredRegression() {
     || rangeWidth >= bounds.max - bounds.min
     || !thresholdInBounds
   ) {
-    return mypageBuildPredInsufficientResult(
-      observations,
-      counts,
-      "回答傾向が回帰条件に合わないため推定できませんでした",
-    );
+    return mypageBuildPredProvisionalResult(observations, counts);
   }
 
   const lower = Math.min(bounds.max, Math.max(bounds.min, Math.min(...rangeValues)));
@@ -815,6 +935,7 @@ function mypageFitPredRegression() {
     range: mypageFormatPredRange(lower, upper),
     rangeLower: lower,
     rangeUpper: upper,
+    rangePrefix: "",
     rangeQualifier: "",
     message: "クリア確率40%-60%のPred範囲",
     usedLogistic: true,
@@ -840,6 +961,9 @@ function mypageRenderPredEstimate() {
       }
       element.append(valueElement);
     };
+    if (result.rangePrefix) {
+      element.append(document.createTextNode(result.rangePrefix));
+    }
     appendValue(result.rangeLower);
     if (Number.isFinite(result.rangeUpper) && result.rangeUpper !== result.rangeLower) {
       const separator = document.createElement("span");
@@ -855,6 +979,7 @@ function mypageRenderPredEstimate() {
 
   mypageElements.predEstimateNote.textContent = result.message || "";
   mypageElements.predEstimateNote.hidden = !result.message;
+  mypageRenderStatusDistribution();
 }
 function mypageUpdateSortMarks() {
   mypageElements.table.querySelectorAll("thead button[data-sort-key]").forEach((button) => {
@@ -1055,6 +1180,14 @@ function mypageBindEvents() {
   mypageElements.predMaxFilter.addEventListener("input", mypageUpdatePredFilters);
   mypageElements.predMinFilter.addEventListener("blur", mypageCommitPredFilters);
   mypageElements.predMaxFilter.addEventListener("blur", mypageCommitPredFilters);
+  mypageElements.includeUnregistered.addEventListener("change", () => {
+    mypageState.includeUnregistered = mypageElements.includeUnregistered.checked;
+    mypageRenderStatusDistribution();
+  });
+  mypageElements.includeUnowned.addEventListener("change", () => {
+    mypageState.includeUnowned = mypageElements.includeUnowned.checked;
+    mypageRenderStatusDistribution();
+  });
 
   mypageElements.table.querySelectorAll("thead button[data-sort-key]").forEach((button) => {
     button.addEventListener("click", () => mypageSetSort(button.dataset.sortKey));
@@ -1212,6 +1345,10 @@ function mypageInitializeElements() {
   mypageElements.scrollTopButton = document.getElementById("mypageScrollTopButton");
   mypageElements.message = document.getElementById("mypageMessage");
   mypageElements.predEstimate = document.getElementById("mypagePredEstimate");
+  mypageElements.statusDistributionChart = document.getElementById("mypageStatusDistributionChart");
+  mypageElements.statusDistributionLegend = document.getElementById("mypageStatusDistributionLegend");
+  mypageElements.includeUnregistered = document.getElementById("mypageIncludeUnregistered");
+  mypageElements.includeUnowned = document.getElementById("mypageIncludeUnowned");
   mypageElements.predEstimateNote = document.getElementById("mypagePredEstimateNote");
 }
 

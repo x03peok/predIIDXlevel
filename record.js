@@ -26,10 +26,11 @@ const recordStatuses = [
   { value: "unregistered", label: "未登録" },
   { value: "unowned", label: "未所持・未解禁" },
   { value: "no-play", label: "NO PLAY" },
+  { value: "failed", label: "FAILED" },
   { value: "assisted", label: "ASSISTED" },
   { value: "easy", label: "EASY" },
   { value: "clear", label: "CLEAR" },
-  { value: "hard", label: "HARD" },
+  { value: "hard", label: "HARD以上" },
 ];
 const recordStatusValues = new Set(recordStatuses.map(({ value }) => value));
 

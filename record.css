@@ -38,6 +38,8 @@
 .record-status-filter .multi-filter__options {
   width: min(260px, calc(100vw - 48px));
   max-width: min(260px, calc(100vw - 48px));
+  max-height: none;
+  overflow: visible;
 }
 .record-button {
   display: inline-flex;
@@ -185,6 +187,11 @@
 .record-status-select[data-status="no-play"] {
   color: #475569;
   background-color: rgba(203, 213, 225, 0.22);
+}
+
+.record-status-select[data-status="failed"] {
+  color: #ffffff;
+  background-color: #475569;
 }
 
 .record-status-select[data-status="assisted"] {

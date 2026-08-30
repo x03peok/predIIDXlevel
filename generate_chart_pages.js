@@ -9,7 +9,7 @@ const templatePath = path.join(rootDir, "chart.html");
 const dataPath = path.join(rootDir, "data.js");
 const outputDir = path.join(rootDir, "chart-pages");
 const publicBaseUrl = "https://cpi-next.com/";
-const siteTitle = "SP\u26068-\u260612 \u975e\u516c\u5f0f\u96e3\u6613\u5ea6\u4e88\u6e2c\u8868(\u03b2)";
+const siteTitle = "CPI:Next";
 const difficultyLabels = {
   NORMAL: "N",
   HYPER: "H",

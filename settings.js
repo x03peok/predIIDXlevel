@@ -10,6 +10,7 @@ const settingsMaxRecords = 100000;
 const settingsStatusValues = new Set([
   "unowned",
   "no-play",
+  "failed",
   "assisted",
   "easy",
   "clear",
@@ -99,7 +100,7 @@ function settingsClearAll() {
 }
 
 function settingsUpdateCount(records) {
-  settingsElements.recordCount.textContent = "保存件数: " + records.length.toLocaleString() + "件";
+  settingsElements.recordCount.textContent = "保存: " + records.length.toLocaleString() + "譜面";
 }
 
 function settingsSetBusy(busy) {

@@ -8,17 +8,32 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const currentPage = document.body.dataset.page || "";
-  if (!siteMenu.querySelector('[data-page="diagnosis"]')) {
-    const diagnosisItem = document.createElement("button");
-    diagnosisItem.type = "button";
-    diagnosisItem.className = "menu-item";
-    diagnosisItem.dataset.page = "diagnosis";
-    diagnosisItem.dataset.href = document.body.dataset.staticChartPage === "true"
-      ? "../diagnosis.html"
-      : "diagnosis.html";
-    diagnosisItem.textContent = "適正診断";
-    siteMenu.append(diagnosisItem);
+  const staticPrefix = document.body.dataset.staticChartPage === "true" ? "../" : "";
+  const menuDefinitions = [
+    { page: "main", label: "Pred難易度表", href: staticPrefix + "index.html" },
+    { page: "record", label: "クリアランプ登録", href: staticPrefix + "record.html" },
+    { page: "mypage", label: "マイページ", href: staticPrefix + "mypage.html" },
+    { page: "settings", label: "設定", href: staticPrefix + "settings.html" },
+    { page: "diagnosis", label: "適正診断", href: staticPrefix + "diagnosis.html" },
+    { page: "about", label: "About", href: staticPrefix + "about.html" },
+    { page: "history", label: "サイト更新履歴", href: staticPrefix + "history.html" },
+  ];
+
+  for (const definition of menuDefinitions) {
+    const selector = '[data-page="' + definition.page + '"]';
+    const matchingItems = Array.from(siteMenu.querySelectorAll(selector));
+    const item = matchingItems.shift() || document.createElement("button");
+    for (const duplicate of matchingItems) {
+      duplicate.remove();
+    }
+    item.type = "button";
+    item.className = "menu-item";
+    item.dataset.page = definition.page;
+    item.dataset.href = definition.href;
+    item.textContent = definition.label;
+    siteMenu.append(item);
   }
+
   const menuItems = Array.from(siteMenu.querySelectorAll(".menu-item"));
 
   function setMenuOpen(open) {
