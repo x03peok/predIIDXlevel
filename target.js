@@ -34,7 +34,13 @@ const targetDefaultStatusFilter = targetStatuses
   .filter(({ value }) => !["unowned", "clear", "hard"].includes(value))
   .map(({ value }) => value);
 const targetRecommendationSettingsKey = "cpi-next-target-recommendation-statuses";
-const targetDefaultRecommendationStatuses = ["unregistered", "no-play", "failed", "assisted", "easy"];
+const targetRecommendationLevelValues = [8, 9, 10, 11, 12];
+const targetDefaultRecommendationSettings = {
+  probabilityMin: 40,
+  probabilityMax: 60,
+  levels: [...targetRecommendationLevelValues],
+  statuses: ["no-play", "failed", "assisted", "easy"],
+};
 const targetDifficultyOrder = ["N", "H", "A", "L"];
 const targetDifficultyLabels = {
   N: "[N] NORMAL",
@@ -60,8 +66,7 @@ const targetState = {
   manualMemoIds: new Set(),
   searchQuery: "",
   statusFilter: new Set(targetDefaultStatusFilter),
-  recommendationStatuses: new Set(targetDefaultRecommendationStatuses),
-  mode: "auto",
+  recommendationSettings: targetGetDefaultRecommendationSettings(),
   levelFilter: new Set(),
   difficultyFilter: new Set(),
   featureFilter: new Map(),
@@ -720,29 +725,38 @@ function targetUpdateSortIndicators() {
 }
 
 function targetUpdateTableOverflow() {
-  const shell = targetState.mode === "manual"
-    ? targetElements.manualTableShell
-    : targetElements.tableShell;
-  if (!shell) {
-    return;
-  }
-  shell.classList.toggle("is-overflowing", shell.scrollWidth > shell.clientWidth + 1);
+  [targetElements.autoTableShell, targetElements.manualTableShell, targetElements.tableShell]
+    .filter(Boolean)
+    .forEach((shell) => {
+      shell.classList.toggle("is-overflowing", shell.scrollWidth > shell.clientWidth + 1);
+    });
 }
 
 function targetGetAutoCandidateRows() {
-  return targetGetFilteredRows().filter((row) => targetState.recommendationStatuses.has(targetGetStatus(row)));
+  const settings = targetState.recommendationSettings;
+  return targetState.rows.filter((row) => {
+    if (!settings.statuses.includes(targetGetStatus(row))
+      || !settings.levels.includes(row.original_level)) {
+      return false;
+    }
+    const probability = targetGetExpectedClearProbability(row);
+    if (probability === null) {
+      return false;
+    }
+    const probabilityPercent = probability * 100;
+    return probabilityPercent >= settings.probabilityMin
+      && probabilityPercent <= settings.probabilityMax;
+  });
 }
 
 function targetRenderAutoRecommendations() {
   const candidates = targetGetAutoCandidateRows();
-  const recommendedRows = targetShuffleRows(candidates)
-    .slice(0, 10)
-    .sort(targetCompareRows);
-  targetElements.rowCount.textContent = recommendedRows.length.toLocaleString()
+  const recommendedRows = targetShuffleRows(candidates).slice(0, 10);
+  targetElements.autoRowCount.textContent = recommendedRows.length.toLocaleString()
     + "件表示 / " + candidates.length.toLocaleString() + "件中";
-  targetElements.tableBody.innerHTML = recommendedRows.map(targetRenderTableRow).join("");
-  targetElements.loadMore.hidden = true;
-  targetUpdateSortIndicators();
+  targetElements.autoTableBody.innerHTML = recommendedRows.map(targetRenderTableRow).join("");
+  targetElements.autoTableShell.hidden = recommendedRows.length === 0;
+  targetElements.autoEmpty.hidden = recommendedRows.length > 0;
 }
 
 function targetRenderManualMemos() {
@@ -755,40 +769,22 @@ function targetRenderManualMemos() {
   targetElements.manualEmpty.hidden = memoRows.length > 0;
 }
 
-function targetSetMode(mode) {
-  targetState.mode = mode === "manual" ? "manual" : "auto";
-  const isManual = targetState.mode === "manual";
-  targetElements.autoTab.classList.toggle("is-active", !isManual);
-  targetElements.manualTab.classList.toggle("is-active", isManual);
-  targetElements.autoTab.setAttribute("aria-selected", String(!isManual));
-  targetElements.manualTab.setAttribute("aria-selected", String(isManual));
-  targetElements.autoPanel.hidden = isManual;
-  targetElements.manualPanel.hidden = !isManual;
-  targetRender();
-
-  if (isManual && targetState.db) {
-    targetReadAllManualMemos()
-      .then((memos) => {
-        targetApplyManualMemos(memos);
-        if (targetState.mode === "manual") {
-          targetRender();
-        }
-      })
-      .catch(() => {
-        // Keep the last successfully loaded manual memo list on read failure.
-      });
-  }
+function targetRenderMainTable() {
+  const filteredRows = targetGetFilteredRows();
+  const visibleRows = filteredRows.slice(0, targetState.visibleLimit);
+  targetElements.rowCount.textContent = visibleRows.length.toLocaleString()
+    + "件表示 / " + filteredRows.length.toLocaleString() + "件中";
+  targetElements.tableBody.innerHTML = visibleRows.map(targetRenderTableRow).join("");
+  targetElements.loadMore.hidden = visibleRows.length >= filteredRows.length;
+  targetUpdateSortIndicators();
 }
 
 function targetRender() {
-  if (targetState.mode === "manual") {
-    targetRenderManualMemos();
-  } else {
-    targetRenderAutoRecommendations();
-  }
+  targetRenderAutoRecommendations();
+  targetRenderManualMemos();
+  targetRenderMainTable();
   requestAnimationFrame(targetUpdateTableOverflow);
 }
-
 function targetScheduleRender() {
   if (targetState.renderTimer !== null) {
     window.clearTimeout(targetState.renderTimer);
@@ -842,19 +838,61 @@ function targetGetStatus(row) {
   return targetStatusValues.has(status) ? status : "unregistered";
 }
 
-function targetReadRecommendationStatuses() {
+function targetGetDefaultRecommendationSettings() {
+  return {
+    probabilityMin: targetDefaultRecommendationSettings.probabilityMin,
+    probabilityMax: targetDefaultRecommendationSettings.probabilityMax,
+    levels: [...targetDefaultRecommendationSettings.levels],
+    statuses: [...targetDefaultRecommendationSettings.statuses],
+  };
+}
+
+function targetNormalizeRecommendationProbability(value, fallback) {
+  const numeric = Number(value);
+  return Number.isInteger(numeric)
+    ? Math.min(100, Math.max(0, numeric))
+    : fallback;
+}
+
+function targetReadRecommendationSettings() {
+  const fallback = targetGetDefaultRecommendationSettings();
   try {
-    const raw = window.localStorage?.getItem(targetRecommendationSettingsKey);
-    const parsed = JSON.parse(raw ?? "null");
+    const parsed = JSON.parse(window.localStorage?.getItem(targetRecommendationSettingsKey) ?? "null");
     if (Array.isArray(parsed)) {
-      return new Set(parsed.filter((value) => targetStatusValues.has(value)));
+      return {
+        ...fallback,
+        statuses: [...new Set(parsed.filter((value) => targetStatusValues.has(value)))],
+      };
     }
+    if (!parsed || typeof parsed !== "object") {
+      return fallback;
+    }
+
+    let probabilityMin = targetNormalizeRecommendationProbability(
+      parsed.probabilityMin,
+      fallback.probabilityMin,
+    );
+    let probabilityMax = targetNormalizeRecommendationProbability(
+      parsed.probabilityMax,
+      fallback.probabilityMax,
+    );
+    if (probabilityMin > probabilityMax) {
+      [probabilityMin, probabilityMax] = [probabilityMax, probabilityMin];
+    }
+    const levels = Array.isArray(parsed.levels)
+      ? [...new Set(parsed.levels
+        .map((value) => Number(value))
+        .filter((value) => targetRecommendationLevelValues.includes(value)))]
+      : [...fallback.levels];
+    const statuses = Array.isArray(parsed.statuses)
+      ? [...new Set(parsed.statuses.filter((value) => targetStatusValues.has(value)))]
+      : [...fallback.statuses];
+    return { probabilityMin, probabilityMax, levels, statuses };
   } catch (error) {
     // Fall back to the default when local storage is unavailable or invalid.
   }
-  return new Set(targetDefaultRecommendationStatuses);
+  return fallback;
 }
-
 function targetShuffleRows(rows) {
   const shuffled = [...rows];
   for (let index = shuffled.length - 1; index > 0; index -= 1) {
@@ -1235,10 +1273,10 @@ async function targetHandleStatusChange(event) {
 }
 
 function targetInitializeElements() {
-  targetElements.autoTab = document.getElementById("targetAutoTab");
-  targetElements.manualTab = document.getElementById("targetManualTab");
-  targetElements.autoPanel = document.getElementById("targetAutoPanel");
-  targetElements.manualPanel = document.getElementById("targetManualPanel");
+  targetElements.autoEmpty = document.getElementById("targetAutoEmpty");
+  targetElements.autoRowCount = document.getElementById("targetAutoRowCount");
+  targetElements.autoTableShell = document.getElementById("targetAutoTableShell");
+  targetElements.autoTableBody = document.getElementById("targetAutoTableBody");
   targetElements.searchInput = document.getElementById("targetSearchInput");
   targetElements.statusMenu = document.getElementById("targetStatusFilterMenu");
   targetElements.statusSummary = document.getElementById("targetStatusFilterSummary");
@@ -1267,7 +1305,6 @@ function targetInitializeElements() {
   targetElements.manualTableBody = document.getElementById("targetManualTableBody");
   targetElements.scrollTop = document.getElementById("targetScrollTopButton");
 }
-
 function targetPopulateFilters() {
   const levels = targetGetLevelOptions();
   const difficulties = targetGetDifficultyOptions();
@@ -1301,8 +1338,6 @@ function targetSetupFilterDetails() {
 }
 
 function targetBindEvents() {
-  targetElements.autoTab.addEventListener("click", () => targetSetMode("auto"));
-  targetElements.manualTab.addEventListener("click", () => targetSetMode("manual"));
   targetElements.searchInput.addEventListener("input", () => {
     targetState.searchQuery = targetElements.searchInput.value.trim().toLocaleLowerCase("ja");
     targetState.visibleLimit = targetPageSize;
@@ -1319,6 +1354,7 @@ function targetBindEvents() {
   targetElements.table.querySelectorAll("thead button[data-sort-key]").forEach((button) => {
     button.addEventListener("click", () => targetSetSort(button.dataset.sortKey));
   });
+  targetElements.autoTableBody.addEventListener("change", targetHandleStatusChange);
   targetElements.tableBody.addEventListener("change", targetHandleStatusChange);
   targetElements.manualTableBody.addEventListener("change", targetHandleStatusChange);
   targetElements.loadMore.addEventListener("click", () => {
@@ -1331,7 +1367,6 @@ function targetBindEvents() {
   }, { passive: true });
   window.addEventListener("resize", targetUpdateTableOverflow);
 }
-
 function targetSetPredBounds() {
   const values = targetState.rows.map((row) => row.calibrated_pred_skill).filter(Number.isFinite);
   targetState.predDataMin = values.length > 0 ? Math.min(...values) : 0;
@@ -1354,8 +1389,8 @@ function targetShowError(message) {
 
 async function targetInitialize() {
   targetInitializeElements();
-  targetState.recommendationStatuses = targetReadRecommendationStatuses();
-  targetState.statusFilter = new Set(targetState.recommendationStatuses);
+  targetState.recommendationSettings = targetReadRecommendationSettings();
+  targetState.statusFilter = new Set(targetDefaultStatusFilter);
   targetSetupFilterDetails();
   try {
     if (typeof window.__CSV_BUNDLE__ !== "string") {

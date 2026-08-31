@@ -31,12 +31,17 @@ const settingsRecommendationStatuses = [
 const settingsRecommendationStatusValues = new Set(
   settingsRecommendationStatuses.map(({ value }) => value),
 );
-const settingsDefaultRecommendationStatuses = ["unregistered", "no-play", "failed", "assisted", "easy"];
+const settingsRecommendationLevelValues = [8, 9, 10, 11, 12];
+const settingsRecommendationLevelOptions = settingsRecommendationLevelValues.map((value) => ({
+  value,
+  label: "☆" + value,
+}));
+const settingsDefaultRecommendationStatuses = ["no-play", "failed", "assisted", "easy"];
 
 const settingsElements = {};
 let settingsDatabase = null;
 let settingsBusy = false;
-let settingsRecommendationSelection = new Set(settingsDefaultRecommendationStatuses);
+let settingsRecommendationSettings = settingsGetDefaultRecommendationSettings();
 
 function settingsSetMessage(message, isError = false) {
   settingsElements.message.textContent = message;
@@ -174,26 +179,75 @@ function settingsSetBusy(busy) {
   settingsElements.exportButton.disabled = busy;
   settingsElements.importButton.disabled = busy;
   settingsElements.resetButton.disabled = busy;
+  settingsElements.recommendationResetButton.disabled = busy;
 }
 
-function settingsReadRecommendationStatuses() {
+function settingsGetDefaultRecommendationSettings() {
+  return {
+    probabilityMin: 40,
+    probabilityMax: 60,
+    levels: [...settingsRecommendationLevelValues],
+    statuses: [...settingsDefaultRecommendationStatuses],
+  };
+}
+
+function settingsNormalizeRecommendationProbability(value, fallback) {
+  const numeric = Number(value);
+  return Number.isInteger(numeric)
+    ? Math.min(100, Math.max(0, numeric))
+    : fallback;
+}
+
+function settingsReadRecommendationSettings() {
+  const fallback = settingsGetDefaultRecommendationSettings();
   try {
     const parsed = JSON.parse(window.localStorage?.getItem(settingsRecommendationSettingsKey) ?? "null");
     if (Array.isArray(parsed)) {
-      return new Set(parsed.filter((value) => settingsRecommendationStatusValues.has(value)));
+      return {
+        ...fallback,
+        statuses: [...new Set(parsed.filter((value) => settingsRecommendationStatusValues.has(value)))],
+      };
     }
+    if (!parsed || typeof parsed !== "object") {
+      return fallback;
+    }
+
+    let probabilityMin = settingsNormalizeRecommendationProbability(
+      parsed.probabilityMin,
+      fallback.probabilityMin,
+    );
+    let probabilityMax = settingsNormalizeRecommendationProbability(
+      parsed.probabilityMax,
+      fallback.probabilityMax,
+    );
+    if (probabilityMin > probabilityMax) {
+      [probabilityMin, probabilityMax] = [probabilityMax, probabilityMin];
+    }
+
+    const levels = Array.isArray(parsed.levels)
+      ? [...new Set(parsed.levels
+        .map((value) => Number(value))
+        .filter((value) => settingsRecommendationLevelValues.includes(value)))]
+      : [...fallback.levels];
+    const statuses = Array.isArray(parsed.statuses)
+      ? [...new Set(parsed.statuses.filter((value) => settingsRecommendationStatusValues.has(value)))]
+      : [...fallback.statuses];
+    return { probabilityMin, probabilityMax, levels, statuses };
   } catch (error) {
     // Fall back to the default when local storage is unavailable or invalid.
   }
-  return new Set(settingsDefaultRecommendationStatuses);
+  return fallback;
 }
 
-function settingsSaveRecommendationStatuses() {
-  const values = settingsRecommendationStatuses
-    .map(({ value }) => value)
-    .filter((value) => settingsRecommendationSelection.has(value));
+function settingsSaveRecommendationSettings() {
+  const payload = {
+    probabilityMin: settingsRecommendationSettings.probabilityMin,
+    probabilityMax: settingsRecommendationSettings.probabilityMax,
+    levels: [...settingsRecommendationSettings.levels],
+    statuses: [...settingsRecommendationSettings.statuses],
+  };
   try {
-    window.localStorage?.setItem(settingsRecommendationSettingsKey, JSON.stringify(values));
+    window.localStorage?.setItem(settingsRecommendationSettingsKey, JSON.stringify(payload));
   } catch (error) {
     settingsSetMessage("自動リコメンド設定を保存できませんでした。", true);
     return;
@@ -201,63 +255,162 @@ function settingsSaveRecommendationStatuses() {
   settingsSetMessage("自動リコメンド設定を保存しました。");
 }
 
-function settingsUpdateRecommendationAllCheckbox() {
-  const allInput = settingsElements.recommendationOptions.querySelector("input[data-recommendation-all]");
-  if (!allInput) {
+function settingsAreAllRecommendationValuesSelected(selectedValues, options) {
+  return selectedValues.size === options.length
+    && options.every(({ value }) => selectedValues.has(value));
+}
+
+function settingsUpdateRecommendationSummary(summary, selectedValues, options) {
+  if (settingsAreAllRecommendationValuesSelected(selectedValues, options)) {
+    summary.textContent = "all";
+    summary.title = "";
     return;
   }
-  const selectedCount = settingsRecommendationSelection.size;
-  const totalCount = settingsRecommendationStatuses.length;
-  allInput.checked = selectedCount === totalCount;
-  allInput.indeterminate = selectedCount > 0 && selectedCount < totalCount;
+  if (selectedValues.size === 0) {
+    summary.textContent = "none";
+    summary.title = "";
+    return;
+  }
+  const labels = options
+    .filter(({ value }) => selectedValues.has(value))
+    .map(({ label }) => label);
+  summary.textContent = labels.length === 1 ? labels[0] : labels.length + " selected";
+  summary.title = labels.join(", ");
+}
+
+function settingsRenderRecommendationFilter({ container, summary, options, settingKey }) {
+  const values = options.map(({ value }) => value);
+  const selectedValues = new Set(settingsRecommendationSettings[settingKey]);
+  const convertValue = (value) => typeof values[0] === "number" ? Number(value) : value;
+
+  const syncCheckboxes = () => {
+    const allInput = container.querySelector("input[data-filter-all]");
+    if (allInput) {
+      allInput.checked = settingsAreAllRecommendationValuesSelected(selectedValues, options);
+    }
+    container.querySelectorAll("input[data-filter-option]").forEach((input) => {
+      input.checked = selectedValues.has(convertValue(input.value));
+    });
+    settingsUpdateRecommendationSummary(summary, selectedValues, options);
+  };
+
+  const fragment = document.createDocumentFragment();
+  const allLabel = document.createElement("label");
+  allLabel.className = "multi-filter__option multi-filter__option--all";
+  const allInput = document.createElement("input");
+  allInput.type = "checkbox";
+  allInput.dataset.filterAll = "true";
+  const allText = document.createElement("span");
+  allText.textContent = "all";
+  allLabel.append(allInput, allText);
+  fragment.append(allLabel);
+
+  for (const option of options) {
+    const label = document.createElement("label");
+    label.className = "multi-filter__option";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.dataset.filterOption = "true";
+    input.value = String(option.value);
+    const text = document.createElement("span");
+    text.textContent = option.label;
+    label.append(input, text);
+    fragment.append(label);
+  }
+  container.replaceChildren(fragment);
+  syncCheckboxes();
+
+  allInput.addEventListener("change", () => {
+    selectedValues.clear();
+    if (allInput.checked) {
+      values.forEach((value) => selectedValues.add(value));
+    }
+    settingsRecommendationSettings[settingKey] = [...selectedValues];
+    syncCheckboxes();
+    settingsSaveRecommendationSettings();
+  });
+  container.querySelectorAll("input[data-filter-option]").forEach((input) => {
+    input.addEventListener("change", () => {
+      selectedValues.clear();
+      container.querySelectorAll("input[data-filter-option]:checked").forEach((checkedInput) => {
+        selectedValues.add(convertValue(checkedInput.value));
+      });
+      settingsRecommendationSettings[settingKey] = [...selectedValues];
+      syncCheckboxes();
+      settingsSaveRecommendationSettings();
+    });
+  });
+}
+
+function settingsUpdateRecommendationInputs() {
+  settingsElements.recommendationProbabilityMin.value = String(settingsRecommendationSettings.probabilityMin);
+  settingsElements.recommendationProbabilityMax.value = String(settingsRecommendationSettings.probabilityMax);
 }
 
 function settingsRenderRecommendationOptions() {
-  const container = settingsElements.recommendationOptions;
-  container.replaceChildren();
-  settingsRecommendationSelection = settingsReadRecommendationStatuses();
-
-  const allLabel = document.createElement("label");
-  const allInput = document.createElement("input");
-  allInput.type = "checkbox";
-  allInput.dataset.recommendationAll = "true";
-  allLabel.append(allInput, document.createTextNode("all"));
-  container.append(allLabel);
-
-  for (const { value, label } of settingsRecommendationStatuses) {
-    const optionLabel = document.createElement("label");
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    input.value = value;
-    input.dataset.recommendationValue = value;
-    input.checked = settingsRecommendationSelection.has(value);
-    optionLabel.append(input, document.createTextNode(label));
-    container.append(optionLabel);
-  }
-
-  allInput.addEventListener("change", () => {
-    settingsRecommendationSelection = allInput.checked
-      ? new Set(settingsRecommendationStatuses.map(({ value }) => value))
-      : new Set();
-    container.querySelectorAll("input[data-recommendation-value]").forEach((input) => {
-      input.checked = settingsRecommendationSelection.has(input.value);
-    });
-    settingsSaveRecommendationStatuses();
-    settingsUpdateRecommendationAllCheckbox();
+  settingsRecommendationSettings = settingsReadRecommendationSettings();
+  settingsUpdateRecommendationInputs();
+  settingsRenderRecommendationFilter({
+    container: settingsElements.recommendationLevelOptions,
+    summary: settingsElements.recommendationLevelSummary,
+    options: settingsRecommendationLevelOptions,
+    settingKey: "levels",
   });
-  container.querySelectorAll("input[data-recommendation-value]").forEach((input) => {
-    input.addEventListener("change", () => {
-      settingsRecommendationSelection = new Set(
-        [...container.querySelectorAll("input[data-recommendation-value]:checked")]
-          .map((checkedInput) => checkedInput.value),
-      );
-      settingsSaveRecommendationStatuses();
-      settingsUpdateRecommendationAllCheckbox();
-    });
+  settingsRenderRecommendationFilter({
+    container: settingsElements.recommendationStatusOptions,
+    summary: settingsElements.recommendationStatusSummary,
+    options: settingsRecommendationStatuses,
+    settingKey: "statuses",
   });
-  settingsUpdateRecommendationAllCheckbox();
 }
 
+function settingsReadRecommendationProbability(input, fallback) {
+  const rawValue = String(input.value ?? "").trim();
+  if (!rawValue) {
+    return fallback;
+  }
+  return settingsNormalizeRecommendationProbability(rawValue, fallback);
+}
+
+function settingsCommitRecommendationProbability(changedKey) {
+  let probabilityMin = settingsReadRecommendationProbability(
+    settingsElements.recommendationProbabilityMin,
+    settingsRecommendationSettings.probabilityMin,
+  );
+  let probabilityMax = settingsReadRecommendationProbability(
+    settingsElements.recommendationProbabilityMax,
+    settingsRecommendationSettings.probabilityMax,
+  );
+  if (probabilityMin > probabilityMax) {
+    if (changedKey === "min") {
+      probabilityMax = probabilityMin;
+    } else {
+      probabilityMin = probabilityMax;
+    }
+  }
+  settingsRecommendationSettings.probabilityMin = probabilityMin;
+  settingsRecommendationSettings.probabilityMax = probabilityMax;
+  settingsUpdateRecommendationInputs();
+  settingsSaveRecommendationSettings();
+}
+
+function settingsResetRecommendationSettings() {
+  settingsRecommendationSettings = settingsGetDefaultRecommendationSettings();
+  settingsUpdateRecommendationInputs();
+  settingsRenderRecommendationFilter({
+    container: settingsElements.recommendationLevelOptions,
+    summary: settingsElements.recommendationLevelSummary,
+    options: settingsRecommendationLevelOptions,
+    settingKey: "levels",
+  });
+  settingsRenderRecommendationFilter({
+    container: settingsElements.recommendationStatusOptions,
+    summary: settingsElements.recommendationStatusSummary,
+    options: settingsRecommendationStatuses,
+    settingKey: "statuses",
+  });
+  settingsSaveRecommendationSettings();
+}
 function settingsValidateBackup(payload) {
   if (!payload || typeof payload !== "object"
     || payload.format !== settingsBackupFormat
@@ -421,6 +574,13 @@ function settingsBindEvents() {
   });
   settingsElements.importInput.addEventListener("change", settingsHandleImport);
   settingsElements.resetButton.addEventListener("click", settingsHandleReset);
+  settingsElements.recommendationProbabilityMin.addEventListener("change", () => {
+    settingsCommitRecommendationProbability("min");
+  });
+  settingsElements.recommendationProbabilityMax.addEventListener("change", () => {
+    settingsCommitRecommendationProbability("max");
+  });
+  settingsElements.recommendationResetButton.addEventListener("click", settingsResetRecommendationSettings);
 }
 
 async function settingsInitialize() {
@@ -430,7 +590,13 @@ async function settingsInitialize() {
   settingsElements.resetButton = document.getElementById("settingsResetButton");
   settingsElements.recordCount = document.getElementById("settingsRecordCount");
   settingsElements.message = document.getElementById("settingsMessage");
-  settingsElements.recommendationOptions = document.getElementById("settingsRecommendationStatusOptions");
+  settingsElements.recommendationProbabilityMin = document.getElementById("settingsRecommendationProbabilityMin");
+  settingsElements.recommendationProbabilityMax = document.getElementById("settingsRecommendationProbabilityMax");
+  settingsElements.recommendationLevelOptions = document.getElementById("settingsRecommendationLevelOptions");
+  settingsElements.recommendationLevelSummary = document.getElementById("settingsRecommendationLevelSummary");
+  settingsElements.recommendationStatusOptions = document.getElementById("settingsRecommendationStatusOptions");
+  settingsElements.recommendationStatusSummary = document.getElementById("settingsRecommendationStatusSummary");
+  settingsElements.recommendationResetButton = document.getElementById("settingsRecommendationResetButton");
   settingsRenderRecommendationOptions();
   settingsBindEvents();
 

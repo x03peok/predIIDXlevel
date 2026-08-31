@@ -190,7 +190,7 @@ function createPage(template, row) {
   page = page.replace('<body data-page="chart">', `<body data-page="chart" data-static-chart-page="true" data-chart-id="${escapeHtml(chartId)}">`);
   page = page.replace('href="styles.css?', 'href="../styles.css?');
   page = page.replace('href="menu.css"', 'href="../menu.css"');
-  page = page.replace('src="menu.js"', 'src="../menu.js"');
+  page = page.replace('src="menu.js?', 'src="../menu.js?');
   page = page.replace('src="analytics.js?', 'src="../analytics.js?');
   page = page.replace('src="data.js?', 'src="../data.js?');
   page = page.replace('src="chart.js?', 'src="../chart.js?');

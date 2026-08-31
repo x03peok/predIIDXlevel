@@ -153,3 +153,76 @@
     grid-template-columns: 1fr;
   }
 }
+.settings-recommendation-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px 12px;
+  margin-top: 16px;
+}
+
+.settings-number-filter {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.settings-number-input-wrap {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 400;
+  letter-spacing: normal;
+}
+
+.settings-number-input-wrap input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--panel-strong);
+  color: var(--ink);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-recommendation-filter {
+  min-width: 0;
+}
+
+.settings-recommendation-filter .multi-filter__details,
+.settings-recommendation-filter .multi-filter__details > summary {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.settings-recommendation-filter .multi-filter__options {
+  left: 0;
+  right: auto;
+}
+
+.settings-recommendation > .settings-button {
+  margin-top: 16px;
+}
+
+@media (max-width: 720px) {
+  .settings-recommendation-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .settings-recommendation-filters {
+    grid-template-columns: 1fr;
+  }
+}

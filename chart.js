@@ -570,12 +570,6 @@ function renderSimilarChartRows(targetRow, rows) {
 
   body.innerHTML = similarRows.map((row) => {
     const difficulty = String(row.difficulty ?? "").trim().toUpperCase();
-    chartState.chartId = chartId;
-    const manualMemoButton = document.getElementById("chartManualMemoButton");
-    if (manualMemoButton && !manualMemoButton.dataset.bound) {
-      manualMemoButton.dataset.bound = "true";
-      manualMemoButton.addEventListener("click", chartHandleManualMemo);
-    }
     const difficultyClass = chartDifficultyClasses[difficulty] ?? "";
     const difficultyText = chartDifficultyLabels[difficulty] ?? difficulty;
     const originalText = "☆" + (row.original_level ?? "");

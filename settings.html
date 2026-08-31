@@ -16,10 +16,10 @@
   <!-- Google Analytics -->
   <script defer src="analytics.js?v=20260831-3"></script>
   <link rel="stylesheet" href="styles.css?v=20260831-5">
-  <link rel="stylesheet" href="settings.css?v=20260831-2">
+  <link rel="stylesheet" href="settings.css?v=20260831-3">
   <link rel="stylesheet" href="menu.css">
   <script defer src="menu.js?v=20260830-2"></script>
-  <script defer src="settings.js?v=20260831-4"></script>
+  <script defer src="settings.js?v=20260831-5"></script>
 </head>
 <body data-page="settings">
   <main class="app">
@@ -54,6 +54,7 @@
       <div class="panel settings-panel">
         <div class="settings-heading">
           <h2>登録クリアランプ管理</h2>
+        <p class="settings-note">インポートすると、現在のクリアランプ記録はバックアップの内容に置き換わります。</p>
           <p id="settingsRecordCount" class="settings-record-count" aria-live="polite">保存: 確認中...</p>
         </div>
 
@@ -64,13 +65,42 @@
         </div>
         <input id="settingsImportInput" type="file" accept="application/json,.json" hidden>
 
-        <section class="settings-recommendation" aria-labelledby="settingsRecommendationTitle">
-          <h3 id="settingsRecommendationTitle">自動リコメンド</h3>
-          <p>「これを狙え」の自動リコメンドに含めるStatusを選択してください。</p>
-          <div id="settingsRecommendationStatusOptions" class="settings-status-options"></div>
+                <section class="settings-recommendation" aria-labelledby="settingsRecommendationTitle">
+          <h3 id="settingsRecommendationTitle">自動リコメンド設定</h3>
+          <p>「これを狙え」の自動リコメンドに表示する条件を設定してください。</p>
+          <div class="settings-recommendation-filters">
+            <label class="settings-number-filter">
+              <span>クリア確率の下限</span>
+              <span class="settings-number-input-wrap">
+                <input id="settingsRecommendationProbabilityMin" type="number" min="0" max="100" step="1" inputmode="numeric" value="40">
+                <span>%</span>
+              </span>
+            </label>
+            <label class="settings-number-filter">
+              <span>クリア確率の上限</span>
+              <span class="settings-number-input-wrap">
+                <input id="settingsRecommendationProbabilityMax" type="number" min="0" max="100" step="1" inputmode="numeric" value="60">
+                <span>%</span>
+              </span>
+            </label>
+            <div class="multi-filter settings-recommendation-filter">
+              <span>公式レベル</span>
+              <details id="settingsRecommendationLevelDetails" class="multi-filter__details">
+                <summary id="settingsRecommendationLevelSummary">all</summary>
+                <div id="settingsRecommendationLevelOptions" class="multi-filter__options"></div>
+              </details>
+            </div>
+            <div class="multi-filter settings-recommendation-filter">
+              <span>Status</span>
+              <details id="settingsRecommendationStatusDetails" class="multi-filter__details">
+                <summary id="settingsRecommendationStatusSummary">NO PLAY, FAILED, ASSISTED, EASY</summary>
+                <div id="settingsRecommendationStatusOptions" class="multi-filter__options"></div>
+              </details>
+            </div>
+          </div>
+          <button id="settingsRecommendationResetButton" class="settings-button settings-button--secondary" type="button">デフォルトに戻す</button>
         </section>
 
-        <p class="settings-note">インポートすると、現在のクリアランプ記録はバックアップの内容に置き換わります。</p>
         <p id="settingsMessage" class="settings-message" role="status" aria-live="polite"></p>
       </div>
     </section>
