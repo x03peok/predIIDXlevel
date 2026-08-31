@@ -31,7 +31,7 @@ const targetDifficultyClasses = {
   A: "difficulty--another",
   L: "difficulty--leggendaria",
 };
-const targetFeatureDeltaLambda = 0.1;
+const targetFeatureDeltaLambda = 10;
 const targetFeatureDeltaIterations = 50;
 const targetFeatureDeltaTolerance = 0.00001;
 const targetEntityDecoder = document.createElement("textarea");
