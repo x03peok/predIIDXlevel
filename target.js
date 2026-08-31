@@ -6,6 +6,7 @@ const targetStoreName = "chart-statuses";
 const targetManualMemoStoreName = "manual-targets";
 const targetPageSize = 100;
 const targetFeatureNone = "特徴なし";
+const targetUnlockEventStorageKey = "cpi-next-target-unlocked-event-sent";
 const targetFeatureNames = [
   "BPM変化",
   "チャージノート",
@@ -94,6 +95,7 @@ const targetState = {
   deltas: new Array(targetFeatureNames.length).fill(0),
   adjustedPredById: new Map(),
   expectedProbabilityById: new Map(),
+  targetWasAvailable: false,
 };
 
 const targetElements = {};
@@ -1234,17 +1236,50 @@ function targetRecalculateModel() {
   targetSetAdjustedPredBounds();
 }
 
-function targetCanShowContent() {
+function targetGetAvailability() {
   const observations = targetGetPredObservations();
   const clearCount = observations.filter((observation) => observation.outcome === 1).length;
   const notClearCount = observations.length - clearCount;
-  return observations.length >= 10 && clearCount >= 3 && notClearCount >= 3;
+  return {
+    available: observations.length >= 10 && clearCount >= 3 && notClearCount >= 3,
+    observationCount: observations.length,
+    clearCount,
+    notClearCount,
+  };
+}
+
+function targetCanShowContent() {
+  return targetGetAvailability().available;
+}
+
+function targetTrackUnlockEvent(availability) {
+  if (typeof window.cpiAnalytics?.track !== "function") {
+    return;
+  }
+  try {
+    if (window.localStorage.getItem(targetUnlockEventStorageKey) === "1") {
+      return;
+    }
+    window.localStorage.setItem(targetUnlockEventStorageKey, "1");
+  } catch (error) {
+    return;
+  }
+  window.cpiAnalytics.track("target_unlocked", {
+    observation_count: availability.observationCount,
+    clear_count: availability.clearCount,
+    not_clear_count: availability.notClearCount,
+  });
 }
 
 function targetUpdateAvailability() {
-  const available = targetCanShowContent();
+  const availability = targetGetAvailability();
+  const available = availability.available;
   targetElements.content.hidden = !available;
   targetElements.insufficientMessage.hidden = available;
+  if (available && !targetState.targetWasAvailable) {
+    targetTrackUnlockEvent(availability);
+  }
+  targetState.targetWasAvailable = available;
 }
 
 function targetOpenDatabase() {
