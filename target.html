@@ -21,7 +21,7 @@
   <script src="analytics.js?v=20260831-3" defer></script>
   <link rel="stylesheet" href="styles.css?v=20260831-5">
   <link rel="stylesheet" href="menu.css?v=20260831-1">
-  <link rel="stylesheet" href="target.css?v=20260831-8">
+  <link rel="stylesheet" href="target.css?v=20260831-10">
   <script src="menu.js?v=20260831-1" defer></script>
   <script src="data.js?v=20260831-1" defer></script>
   <script src="target.js?v=20260831-11" defer></script>
@@ -63,9 +63,8 @@
         <div id="targetContent" hidden>
           <div class="target-highlights">
             <section id="targetAutoPanel" class="target-highlight-section">
-              <h2 class="target-section-heading">自動リコメンド</h2>
               <div class="target-auto-actions">
-                <button id="targetAutoRegenerateButton" class="load-more" type="button">再生成</button>
+                <button id="targetAutoRegenerateButton" class="load-more" type="button">リコメンド再生成</button>
               </div>
               <p id="targetAutoEmpty" class="target-manual-empty" hidden>設定条件に該当する譜面がありません。</p>
               <p id="targetAutoRowCount" class="row-count" aria-live="polite"></p>
@@ -97,7 +96,6 @@
             </section>
 
             <section id="targetManualPanel" class="target-highlight-section">
-              <h2 class="target-section-heading">手動メモ</h2>
               <p id="targetManualRowCount" class="row-count" aria-live="polite"></p>
               <p id="targetManualEmpty" class="target-manual-empty">譜面詳細ページで「手動メモに登録」を押した譜面を表示します。</p>
               <div id="targetManualTableShell" class="table-shell" hidden>

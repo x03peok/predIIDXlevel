@@ -254,14 +254,24 @@
 
 .target-auto-actions {
   display: flex;
-  justify-content: flex-end;
-  margin: -2px 0 8px;
+  justify-content: flex-start;
+  margin: 0 0 10px;
 }
 
 .target-auto-actions .load-more {
   min-height: 36px;
   padding: 8px 14px;
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: 0 5px 12px rgba(37, 99, 235, 0.22);
+  color: #fff;
   font-size: 0.8rem;
+}
+
+.target-auto-actions .load-more:hover,
+.target-auto-actions .load-more:focus-visible {
+  background: #1d4ed8;
+  color: #fff;
 }
 
 .target-highlight-section .row-count {
@@ -273,7 +283,9 @@
 }
 
 .target-main-list {
-  margin-top: 4px;
+  margin-top: 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
 }
 
 @media (max-width: 720px) {
