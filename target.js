@@ -707,12 +707,23 @@ function targetGetNumericColorStyle(value) {
   return ' style="--numeric-color:' + targetGetNumericColor(value, targetState.predDataMin, targetState.predDataMax) + '"';
 }
 
+function targetRenderMemoCheckbox(row) {
+  const chartId = targetEscapeHtml(row.chart_id);
+  const title = targetEscapeHtml(row.title ?? "");
+  const checked = targetState.manualMemoIds.has(String(row.chart_id));
+  const action = checked ? "手動メモから削除" : "手動メモに登録";
+  return '<input class="memo-checkbox target-memo-checkbox" type="checkbox" data-chart-id="'
+    + chartId + '"' + (checked ? " checked" : "")
+    + ' aria-label="' + title + "を" + action + '" title="' + action + '">';
+}
+
 function targetRenderTableRow(row) {
   const rawPred = targetFormatPredValue(row.calibrated_pred_skill);
   const adjustedPred = targetFormatPredValue(targetGetAdjustedPred(row));
   const levelText = "☆" + targetFormatPredValue(row.original_level).replace(".0", "");
   const difficulty = targetNormalizeDifficulty(row.difficulty);
   return "<tr>"
+    + '<td class="memo-cell">' + targetRenderMemoCheckbox(row) + "</td>"
     + '<td class="mono numeric-value numeric-value--level">' + targetEscapeHtml(levelText) + "</td>"
     + '<td class="chart-title-cell"><a class="chart-link ' + targetGetDifficultyClass(difficulty) + '" href="' + targetEscapeHtml(targetGetChartHref(row)) + '"><span class="chart-title-cell__name">' + targetEscapeHtml(row.title) + '</span> <span class="chart-title-cell__difficulty">[' + targetEscapeHtml(difficulty) + "]</span></a></td>"
     + '<td class="mono numeric-value numeric-value--pred"' + targetGetNumericColorStyle(row.calibrated_pred_skill) + ">" + targetEscapeHtml(rawPred) + "</td>"
@@ -1234,6 +1245,26 @@ function targetApplyManualMemos(memos) {
   );
 }
 
+function targetWriteManualMemo(chartId, registered) {
+  return new Promise((resolve, reject) => {
+    if (!targetState.db) {
+      reject(new Error("ローカル保存を開けませんでした。"));
+      return;
+    }
+    const transaction = targetState.db.transaction(targetManualMemoStoreName, "readwrite");
+    const store = transaction.objectStore(targetManualMemoStoreName);
+    if (registered) {
+      store.put({ chartId, updatedAt: new Date().toISOString() });
+    } else {
+      store.delete(chartId);
+    }
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(
+      transaction.error ?? new Error("手動メモを保存できませんでした。"),
+    );
+  });
+}
+
 function targetWriteStatus(chartId, status) {
   return new Promise((resolve, reject) => {
     if (!targetState.db) {
@@ -1290,6 +1321,39 @@ async function targetHandleStatusChange(event) {
     targetShowError(error.message || "記録を保存できませんでした。");
   } finally {
     select.disabled = false;
+  }
+}
+
+async function targetHandleManualMemoChange(event) {
+  const checkbox = event.target.closest?.(".target-memo-checkbox");
+  if (!checkbox) {
+    return;
+  }
+
+  const chartId = String(checkbox.dataset.chartId ?? "").trim();
+  const row = targetState.rowsByChartId.get(chartId);
+  if (!row || !targetState.db) {
+    checkbox.checked = false;
+    return;
+  }
+
+  const previousValue = targetState.manualMemoIds.has(chartId);
+  const nextValue = checkbox.checked;
+  checkbox.disabled = true;
+  try {
+    await targetWriteManualMemo(chartId, nextValue);
+    if (nextValue) {
+      targetState.manualMemoIds.add(chartId);
+    } else {
+      targetState.manualMemoIds.delete(chartId);
+    }
+    targetRender();
+    targetShowError("");
+  } catch (error) {
+    checkbox.checked = previousValue;
+    targetShowError(error.message || "手動メモを保存できませんでした。");
+  } finally {
+    checkbox.disabled = false;
   }
 }
 
@@ -1381,8 +1445,11 @@ function targetBindEvents() {
     button.addEventListener("click", () => targetSetSort(button.dataset.sortKey));
   });
   targetElements.autoTableBody.addEventListener("change", targetHandleStatusChange);
+  targetElements.autoTableBody.addEventListener("change", targetHandleManualMemoChange);
   targetElements.tableBody.addEventListener("change", targetHandleStatusChange);
+  targetElements.tableBody.addEventListener("change", targetHandleManualMemoChange);
   targetElements.manualTableBody.addEventListener("change", targetHandleStatusChange);
+  targetElements.manualTableBody.addEventListener("change", targetHandleManualMemoChange);
   targetElements.loadMore.addEventListener("click", () => {
     targetState.visibleLimit += targetPageSize;
     targetRender();

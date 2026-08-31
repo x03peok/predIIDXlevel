@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>これを狙え</title>
+  <title>マイターゲット</title>
   <meta name="description" content="Predと譜面傾向から、次に狙う譜面を探すページです。">
   <link rel="canonical" href="https://cpi-next.com/target.html">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="これを狙え">
+  <meta property="og:title" content="マイターゲット">
   <meta property="og:description" content="Predと譜面傾向から、次に狙う譜面を探すページです。">
   <meta property="og:url" content="https://cpi-next.com/target.html">
   <meta property="og:site_name" content="CPI:Next">
@@ -19,13 +19,13 @@
     gtag('config', 'G-M0BX4638PS');
   </script>
   <script src="analytics.js?v=20260831-3" defer></script>
-  <link rel="stylesheet" href="styles.css?v=20260831-5">
+  <link rel="stylesheet" href="styles.css?v=20260831-6">
   <link rel="stylesheet" href="menu.css?v=20260831-1">
-  <link rel="stylesheet" href="target.css?v=20260831-10">
+  <link rel="stylesheet" href="target.css?v=20260831-12">
   <script src="menu.js?v=20260831-1" defer></script>
   <script src="data.js?v=20260831-1" defer></script>
-  <script src="target.js?v=20260831-11" defer></script>
-  <script src="target-tabs.js?v=20260831-1" defer></script>
+  <script src="target.js?v=20260831-12" defer></script>
+  <script src="target-tabs.js?v=20260831-2" defer></script>
 </head>
 <body data-page="target">
   <main class="app">
@@ -51,7 +51,7 @@
             <button type="button" class="menu-item" data-page="history" data-href="history.html">サイト更新履歴</button>
           </div>
         </div>
-        <h1>これを狙え</h1>
+        <h1>マイターゲット</h1>
       </div>
     </header>
 
@@ -71,6 +71,7 @@
               <div id="targetAutoTableShell" class="table-shell" hidden>
                 <table class="target-table target-table--recommendation">
                   <colgroup>
+                    <col class="col-memo">
                     <col class="col-orig">
                     <col class="col-title">
                     <col class="col-pred">
@@ -81,6 +82,7 @@
                   </colgroup>
                   <thead>
                     <tr>
+                      <th class="memo-heading">Memo</th>
                       <th>Level</th>
                       <th>Title</th>
                       <th>Pred</th>
@@ -101,6 +103,7 @@
               <div id="targetManualTableShell" class="table-shell" hidden>
                 <table class="target-table target-table--manual">
                   <colgroup>
+                    <col class="col-memo">
                     <col class="col-orig">
                     <col class="col-title">
                     <col class="col-pred">
@@ -111,6 +114,7 @@
                   </colgroup>
                   <thead>
                     <tr>
+                      <th class="memo-heading">Memo</th>
                       <th>Level</th>
                       <th>Title</th>
                       <th>Pred</th>
@@ -126,6 +130,8 @@
             </section>
           </div>
           <section class="target-main-list">
+            <h2 class="target-section-heading target-main-list__heading">候補を一覧から探す</h2>
+            <p class="target-main-list__description">補正Pred: あなたの得意傾向に合わせて補正したPredです。補正が-なら、相対的に得意な譜面の可能性が高いです。</p>
             <div class="toolbar target-toolbar">
           <label class="search">
             <span>Title</span>
@@ -194,6 +200,7 @@
         <div id="targetTableShell" class="table-shell">
           <table class="target-table">
             <colgroup>
+              <col class="col-memo">
               <col class="col-orig">
               <col class="col-title">
               <col class="col-pred">
@@ -204,6 +211,7 @@
             </colgroup>
             <thead>
               <tr>
+                <th class="memo-heading">Memo</th>
                 <th><button type="button" data-sort-key="original_level"><span>Level</span><span class="sort-mark"></span></button></th>
                 <th><button type="button" data-sort-key="title"><span>Title</span><span class="sort-mark"></span></button></th>
                 <th><button type="button" data-sort-key="calibrated_pred_skill"><span>Pred</span><span class="sort-mark"></span></button></th>

@@ -11,7 +11,7 @@ function targetSetupRecommendationTabs() {
   const switcher = document.createElement("div");
   switcher.className = "target-mode-switch";
   switcher.setAttribute("role", "tablist");
-  switcher.setAttribute("aria-label", "これを狙えの表示切り替え");
+  switcher.setAttribute("aria-label", "マイターゲットの表示切り替え");
   switcher.innerHTML = [
     '<button id="targetAutoTab" class="target-mode-switch__button is-active" type="button" role="tab" aria-selected="true" aria-controls="targetAutoPanel">自動リコメンド</button>',
     '<button id="targetManualTab" class="target-mode-switch__button" type="button" role="tab" aria-selected="false" aria-controls="targetManualPanel">手動メモ</button>',

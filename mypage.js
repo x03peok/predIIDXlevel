@@ -65,6 +65,7 @@ const mypageStoredStatusValues = new Set([...mypageStatusValues, "failed"]);
 const mypageState = {
   rows: [],
   records: new Map(),
+  manualMemoIds: new Set(),
   query: "",
   statusFilter: mypageStatuses
     .filter(({ value }) => value !== "unregistered" && value !== "unowned")
@@ -699,6 +700,16 @@ function mypageGetChartPageHref(chartId) {
   return "chart-pages/" + encodeURIComponent(String(chartId ?? "").trim()) + ".html";
 }
 
+function mypageRenderMemoCheckbox(row) {
+  const chartId = mypageEscapeHtml(row.chart_id);
+  const title = mypageEscapeHtml(row.title ?? "");
+  const checked = mypageState.manualMemoIds.has(String(row.chart_id));
+  const action = checked ? "手動メモから削除" : "手動メモに登録";
+  return '<input class="memo-checkbox mypage-memo-checkbox" type="checkbox" data-chart-id="'
+    + chartId + '"' + (checked ? " checked" : "")
+    + ' aria-label="' + title + "を" + action + '" title="' + action + '">';
+}
+
 function mypageRenderTableRow(row) {
   const difficulty = String(row.difficulty ?? "").toUpperCase();
   const difficultyClass = mypageDifficultyClasses[difficulty] ?? "";
@@ -721,6 +732,7 @@ function mypageRenderTableRow(row) {
   const chartId = mypageEscapeHtml(row.chart_id);
   return [
     "<tr>",
+    '<td class="memo-cell">', mypageRenderMemoCheckbox(row), "</td>",
     '<td class="mono numeric-value numeric-value--level"', levelColorStyle, ">",
     mypageEscapeHtml(originalText), "</td>",
     '<td class="chart-title-cell"><a class="chart-link ', difficultyClass,
@@ -1362,6 +1374,7 @@ function mypageBindEvents() {
     mypagePrepareStatusSelect(select);
   });
   mypageElements.tableBody.addEventListener("change", mypageHandleStatusChange);
+  mypageElements.tableBody.addEventListener("change", mypageHandleManualMemoChange);
   mypageElements.loadMoreButton.addEventListener("click", () => {
     mypageState.visibleLimit += mypagePageSize;
     mypageRender();
@@ -1412,6 +1425,43 @@ function mypageReadAllRecords() {
     request.onsuccess = () => resolve(request.result ?? []);
     request.onerror = () => reject(request.error ?? new Error("記録を読み込めませんでした。"));
   });
+}
+
+function mypageReadAllManualMemos() {
+  return new Promise((resolve, reject) => {
+    const transaction = mypageState.db.transaction(mypageManualMemoStoreName, "readonly");
+    const request = transaction.objectStore(mypageManualMemoStoreName).getAll();
+    request.onsuccess = () => resolve(request.result ?? []);
+    request.onerror = () => reject(request.error ?? new Error("手動メモを読み込めませんでした。"));
+  });
+}
+
+function mypageWriteManualMemo(chartId, registered) {
+  return new Promise((resolve, reject) => {
+    if (!mypageState.db) {
+      reject(new Error("ローカル保存を開けませんでした。"));
+      return;
+    }
+    const transaction = mypageState.db.transaction(mypageManualMemoStoreName, "readwrite");
+    const store = transaction.objectStore(mypageManualMemoStoreName);
+    if (registered) {
+      store.put({ chartId, updatedAt: new Date().toISOString() });
+    } else {
+      store.delete(chartId);
+    }
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(
+      transaction.error ?? new Error("手動メモを保存できませんでした。"),
+    );
+  });
+}
+
+function mypageApplyManualMemos(memos) {
+  mypageState.manualMemoIds = new Set(
+    (memos ?? [])
+      .map((memo) => String(memo?.chartId ?? "").trim())
+      .filter((chartId) => mypageState.rowsByChartId.has(chartId)),
+  );
 }
 
 function mypageWriteStatus(chartId, status) {
@@ -1481,6 +1531,43 @@ async function mypageHandleStatusChange(event) {
     select.disabled = false;
   }
 }
+async function mypageHandleManualMemoChange(event) {
+  const checkbox = event.target.closest?.(".mypage-memo-checkbox");
+  if (!checkbox) {
+    return;
+  }
+
+  const chartId = String(checkbox.dataset.chartId ?? "").trim();
+  const row = mypageState.rowsByChartId.get(chartId);
+  if (!row || !mypageState.db) {
+    checkbox.checked = false;
+    return;
+  }
+
+  const previousValue = mypageState.manualMemoIds.has(chartId);
+  const nextValue = checkbox.checked;
+  checkbox.disabled = true;
+  try {
+    await mypageWriteManualMemo(chartId, nextValue);
+    if (nextValue) {
+      mypageState.manualMemoIds.add(chartId);
+    } else {
+      mypageState.manualMemoIds.delete(chartId);
+    }
+    const action = nextValue ? "手動メモから削除" : "手動メモに登録";
+    checkbox.setAttribute("aria-label", row.title + "を" + action);
+    checkbox.title = action;
+  } catch (error) {
+    checkbox.checked = previousValue;
+    const action = previousValue ? "手動メモから削除" : "手動メモに登録";
+    checkbox.setAttribute("aria-label", row.title + "を" + action);
+    checkbox.title = action;
+    mypageSetMessage(error.message || "手動メモを保存できませんでした。");
+  } finally {
+    checkbox.disabled = false;
+  }
+}
+
 function mypageSetMessage(message) {
   mypageElements.message.textContent = message;
   mypageElements.message.hidden = !message;
@@ -1551,6 +1638,7 @@ async function mypageInitialize() {
   try {
     mypageState.db = await mypageOpenDatabase();
     mypageApplyRecords(await mypageReadAllRecords());
+    mypageApplyManualMemos(await mypageReadAllManualMemos());
     mypageRender();
   } catch (error) {
     mypageSetMessage(error.message || "記録を読み込めませんでした。");

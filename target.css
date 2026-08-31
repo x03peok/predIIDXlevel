@@ -78,12 +78,16 @@
   min-width: 920px;
 }
 
+.target-table col.col-memo {
+  width: 6%;
+}
+
 .target-table col.col-orig {
   width: 7%;
 }
 
 .target-table col.col-title {
-  width: 22%;
+  width: 20%;
 }
 
 .target-table col.col-pred {
@@ -99,11 +103,11 @@
 }
 
 .target-table col.col-bpm {
-  width: 11%;
+  width: 10%;
 }
 
 .target-table col.col-features {
-  width: 26%;
+  width: 23%;
 }
 
 .target-table .target-adjusted-pred {
@@ -123,6 +127,25 @@
 .target-table--recommendation thead th:first-child,
 .target-table--manual thead th:first-child {
   text-align: center;
+}
+
+.target-table--recommendation thead th:nth-child(2),
+.target-table--manual thead th:nth-child(2) {
+  text-align: center;
+}
+
+.target-table thead th:nth-child(2) button {
+  justify-content: center;
+}
+
+.target-table tbody td:nth-child(2),
+.target-table tbody td:nth-child(4),
+.target-table tbody td:nth-child(5) {
+  text-align: center;
+}
+
+.target-table tbody td:nth-child(3) {
+  text-align: left;
 }
 
 .target-status-select {
@@ -286,6 +309,18 @@
   margin-top: 0;
   padding-top: 20px;
   border-top: 1px solid var(--line);
+}
+
+.target-main-list__heading {
+  margin-bottom: 6px;
+}
+
+.target-main-list__description {
+  margin: 0 0 14px 2px;
+  color: var(--ink);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 720px) {

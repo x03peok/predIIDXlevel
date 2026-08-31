@@ -508,8 +508,12 @@
   width: 7%;
 }
 
+.mypage-panel col.col-memo {
+  width: 6%;
+}
+
 .mypage-panel col.col-title {
-  width: 27%;
+  width: 25%;
 }
 
 .mypage-panel col.col-pred {
@@ -517,7 +521,7 @@
 }
 
 .mypage-panel col.mypage-col-status {
-  width: 17%;
+  width: 16%;
 }
 
 .mypage-panel col.col-bpm {
@@ -525,13 +529,22 @@
 }
 
 .mypage-panel col.col-features {
-  width: 30%;
+  width: 27%;
 }
 
-.mypage-panel tbody td:nth-child(3),
+.mypage-panel thead th:nth-child(2) button {
+  justify-content: center;
+}
+
+.mypage-panel tbody td:nth-child(2),
 .mypage-panel tbody td:nth-child(4),
-.mypage-panel tbody td:nth-child(5) {
+.mypage-panel tbody td:nth-child(5),
+.mypage-panel tbody td:nth-child(6) {
   text-align: center;
+}
+
+.mypage-panel tbody td:nth-child(3) {
+  text-align: left;
 }
 
 .mypage-status-select {
