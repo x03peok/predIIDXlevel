@@ -99,7 +99,7 @@
 }
 
 .record-table th {
-  padding: 11px 12px;
+  padding: 9px 12px;
   color: var(--muted);
   font-size: 0.8rem;
   font-weight: 700;
@@ -108,7 +108,7 @@
 }
 
 .record-table td {
-  padding: 10px 12px;
+  padding: 8px 12px;
   border-bottom: 1px solid rgba(148, 163, 184, 0.16);
   vertical-align: middle;
   font-size: 0.85rem;
@@ -141,7 +141,7 @@
 .record-title-link {
   display: inline-block;
   max-width: 100%;
-  padding: 4px 8px;
+  padding: 3px 8px;
   border-radius: 8px;
   color: var(--ink);
   font-weight: 700;

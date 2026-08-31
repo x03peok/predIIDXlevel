@@ -395,7 +395,7 @@ thead th button {
   font: inherit;
   font-size: 0.8rem;
   font-weight: 700;
-  padding: 11px 20px 11px 12px;
+  padding: 9px 20px 9px 12px;
   white-space: nowrap;
   overflow: visible;
 }
@@ -421,7 +421,7 @@ thead th:nth-child(5) button {
 }
 
 tbody td {
-  padding: 10px 12px;
+  padding: 8px 12px;
   border-bottom: 1px solid rgba(148, 163, 184, 0.16);
   vertical-align: middle;
   font-size: 0.85rem;
@@ -609,7 +609,7 @@ tbody td:nth-child(5) {
 .chart-title-cell .chart-link {
   display: inline-block;
   max-width: 100%;
-  padding: 4px 8px;
+  padding: 3px 8px;
   border-radius: 8px;
   color: var(--ink);
   overflow-wrap: anywhere;

@@ -1,0 +1,92 @@
+.target-panel {
+  overflow: visible;
+}
+
+.target-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(104px, 1fr));
+  align-items: end;
+  gap: 14px;
+}
+
+.target-toolbar > .search,
+.target-toolbar > .multi-filter,
+.target-toolbar > .advanced-filter {
+  width: 100%;
+  min-width: 0;
+}
+
+.target-toolbar .multi-filter__options,
+.target-toolbar .advanced-filter__body {
+  max-width: 100%;
+}
+
+.target-table {
+  min-width: 820px;
+}
+
+.target-table col.col-orig {
+  width: 7%;
+}
+
+.target-table col.col-title {
+  width: 24%;
+}
+
+.target-table col.col-pred {
+  width: 10%;
+}
+
+.target-table col.target-col-adjusted-pred {
+  width: 14%;
+}
+
+.target-table col.col-bpm {
+  width: 12%;
+}
+
+.target-table col.col-features {
+  width: 33%;
+}
+
+.target-table .target-adjusted-pred {
+  font-weight: 700;
+}
+
+.target-error {
+  margin: 10px 0;
+  color: #9b1c1c;
+  font-size: 0.82rem;
+}
+
+.target-insufficient-message {
+  margin: 8px 0;
+  color: var(--ink);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.target-insufficient-message a {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+@media (min-width: 721px) and (max-width: 1119px) {
+  .target-toolbar {
+    grid-template-columns: minmax(220px, 1fr) repeat(4, minmax(104px, 112px));
+  }
+}
+
+@media (max-width: 720px) {
+  .target-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .target-toolbar > .search,
+  .target-toolbar > .feature-filter,
+  .target-toolbar > .advanced-filter {
+    grid-column: 1 / -1;
+  }
+}
