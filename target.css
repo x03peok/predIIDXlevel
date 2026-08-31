@@ -110,6 +110,21 @@
   font-weight: 700;
 }
 
+.target-table--recommendation thead th,
+.target-table--manual thead th {
+  padding: 9px 12px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.target-table--recommendation thead th:first-child,
+.target-table--manual thead th:first-child {
+  text-align: center;
+}
+
 .target-status-select {
   width: 100%;
   min-width: 0;
@@ -123,6 +138,7 @@
     calc(100% - 14px) calc(50% - 3px),
     calc(100% - 8px) calc(50% - 3px);
   background-size: 5px 5px;
+  background-repeat: no-repeat;
   font-size: 0.8rem;
   font-weight: 700;
 }
@@ -234,6 +250,18 @@
   font-size: clamp(1.15rem, 2.5vw, 1.6rem);
   line-height: 1.2;
   font-weight: 700;
+}
+
+.target-auto-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: -2px 0 8px;
+}
+
+.target-auto-actions .load-more {
+  min-height: 36px;
+  padding: 8px 14px;
+  font-size: 0.8rem;
 }
 
 .target-highlight-section .row-count {

@@ -67,6 +67,9 @@ const targetState = {
   searchQuery: "",
   statusFilter: new Set(targetDefaultStatusFilter),
   recommendationSettings: targetGetDefaultRecommendationSettings(),
+  autoRecommendationIds: [],
+  autoRecommendationCandidateCount: 0,
+  autoRecommendationsInitialized: false,
   levelFilter: new Set(),
   difficultyFilter: new Set(),
   featureFilter: new Map(),
@@ -667,11 +670,15 @@ function targetClampUnit(value) {
 
 function targetGetNumericColor(value, minimum, maximum) {
   const numeric = targetGetNumericValue(value);
-  if (numeric === null || maximum <= minimum) {
-    return targetHslToRgbString(48, 92, 40);
+  if (numeric === null || !Number.isFinite(minimum) || !Number.isFinite(maximum)) {
+    return "";
   }
-  const position = targetClampUnit((numeric - minimum) / (maximum - minimum));
-  const yellowPosition = targetClampUnit(Math.max(0.1, Math.min(0.45, (9 - minimum) / (maximum - minimum))));
+  const position = maximum > minimum
+    ? targetClampUnit((numeric - minimum) / (maximum - minimum))
+    : 0.5;
+  const yellowPosition = maximum > minimum
+    ? targetClampUnit(Math.max(0.1, Math.min(0.45, (9 - minimum) / (maximum - minimum))))
+    : 0.25;
   const stops = [
     { position: 0, hue: 221, saturation: 83, lightness: 53 },
     { position: yellowPosition, hue: 48, saturation: 92, lightness: 40 },
@@ -689,7 +696,8 @@ function targetGetNumericColor(value, minimum, maximum) {
   }
   const span = upper.position - lower.position;
   const ratio = span === 0 ? 0 : (position - lower.position) / span;
-  const hue = lower.hue + (upper.hue - lower.hue) * ratio;
+  const hueDelta = ((upper.hue - lower.hue + 540) % 360) - 180;
+  const hue = (lower.hue + hueDelta * ratio + 360) % 360;
   const saturation = lower.saturation + (upper.saturation - lower.saturation) * ratio;
   const lightness = lower.lightness + (upper.lightness - lower.lightness) * ratio;
   return targetHslToRgbString(hue, saturation, lightness);
@@ -705,10 +713,10 @@ function targetRenderTableRow(row) {
   const levelText = "☆" + targetFormatPredValue(row.original_level).replace(".0", "");
   const difficulty = targetNormalizeDifficulty(row.difficulty);
   return "<tr>"
-    + '<td class="numeric-cell">' + targetEscapeHtml(levelText) + "</td>"
+    + '<td class="mono numeric-value numeric-value--level">' + targetEscapeHtml(levelText) + "</td>"
     + '<td class="chart-title-cell"><a class="chart-link ' + targetGetDifficultyClass(difficulty) + '" href="' + targetEscapeHtml(targetGetChartHref(row)) + '"><span class="chart-title-cell__name">' + targetEscapeHtml(row.title) + '</span> <span class="chart-title-cell__difficulty">[' + targetEscapeHtml(difficulty) + "]</span></a></td>"
-    + '<td class="numeric-cell"' + targetGetNumericColorStyle(row.calibrated_pred_skill) + ">" + targetEscapeHtml(rawPred) + "</td>"
-    + '<td class="numeric-cell target-adjusted-pred"' + targetGetNumericColorStyle(targetGetAdjustedPred(row)) + ">" + targetEscapeHtml(adjustedPred) + "</td>"
+    + '<td class="mono numeric-value numeric-value--pred"' + targetGetNumericColorStyle(row.calibrated_pred_skill) + ">" + targetEscapeHtml(rawPred) + "</td>"
+    + '<td class="mono numeric-value numeric-value--pred target-adjusted-pred"' + targetGetNumericColorStyle(targetGetAdjustedPred(row)) + ">" + targetEscapeHtml(adjustedPred) + "</td>"
     + '<td class="target-status-cell">' + targetRenderStatusSelect(row) + "</td>"
     + "<td>" + targetFormatBpmCell(row) + "</td>"
     + '<td class="feature-cell">' + targetRenderFeatureChips(row) + "</td>"
@@ -749,11 +757,21 @@ function targetGetAutoCandidateRows() {
   });
 }
 
-function targetRenderAutoRecommendations() {
+function targetGenerateAutoRecommendations() {
   const candidates = targetGetAutoCandidateRows();
-  const recommendedRows = targetShuffleRows(candidates).slice(0, 10);
+  targetState.autoRecommendationIds = targetShuffleRows(candidates)
+    .slice(0, 10)
+    .map((row) => String(row.chart_id));
+  targetState.autoRecommendationCandidateCount = candidates.length;
+  targetState.autoRecommendationsInitialized = true;
+}
+
+function targetRenderAutoRecommendations() {
+  const recommendedRows = targetState.autoRecommendationIds
+    .map((chartId) => targetState.rowsByChartId.get(chartId))
+    .filter(Boolean);
   targetElements.autoRowCount.textContent = recommendedRows.length.toLocaleString()
-    + "件表示 / " + candidates.length.toLocaleString() + "件中";
+    + "件表示 / " + targetState.autoRecommendationCandidateCount.toLocaleString() + "件中";
   targetElements.autoTableBody.innerHTML = recommendedRows.map(targetRenderTableRow).join("");
   targetElements.autoTableShell.hidden = recommendedRows.length === 0;
   targetElements.autoEmpty.hidden = recommendedRows.length > 0;
@@ -780,6 +798,9 @@ function targetRenderMainTable() {
 }
 
 function targetRender() {
+  if (!targetState.autoRecommendationsInitialized && targetCanShowContent()) {
+    targetGenerateAutoRecommendations();
+  }
   targetRenderAutoRecommendations();
   targetRenderManualMemos();
   targetRenderMainTable();
@@ -1275,6 +1296,7 @@ async function targetHandleStatusChange(event) {
 function targetInitializeElements() {
   targetElements.autoEmpty = document.getElementById("targetAutoEmpty");
   targetElements.autoRowCount = document.getElementById("targetAutoRowCount");
+  targetElements.autoRegenerate = document.getElementById("targetAutoRegenerateButton");
   targetElements.autoTableShell = document.getElementById("targetAutoTableShell");
   targetElements.autoTableBody = document.getElementById("targetAutoTableBody");
   targetElements.searchInput = document.getElementById("targetSearchInput");
@@ -1338,6 +1360,10 @@ function targetSetupFilterDetails() {
 }
 
 function targetBindEvents() {
+  targetElements.autoRegenerate.addEventListener("click", () => {
+    targetGenerateAutoRecommendations();
+    targetRender();
+  });
   targetElements.searchInput.addEventListener("input", () => {
     targetState.searchQuery = targetElements.searchInput.value.trim().toLocaleLowerCase("ja");
     targetState.visibleLimit = targetPageSize;
