@@ -1562,6 +1562,33 @@ body .title-lock {
   white-space: nowrap;
 }
 
+body[data-page="main"] .chart-table tbody td.chart-title-cell,
+body[data-page="mypage"] .chart-table tbody td.chart-title-cell {
+  overflow: visible;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+body[data-page="main"] .chart-table tbody td.chart-title-cell .chart-link,
+body[data-page="mypage"] .chart-table tbody td.chart-title-cell .chart-link {
+  display: inline-block;
+  width: auto;
+  max-width: 100%;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+body[data-page="main"] .chart-table tbody td.chart-title-cell .chart-title-cell__name,
+body[data-page="mypage"] .chart-table tbody td.chart-title-cell .chart-title-cell__name {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
 @media (min-width: 721px) {
   .feature-filter__name {
     overflow-wrap: normal;

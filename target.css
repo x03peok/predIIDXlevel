@@ -79,11 +79,11 @@
 }
 
 .target-table col.col-memo {
-  width: 5%;
+  width: 4%;
 }
 
 .target-table col.col-orig {
-  width: 5%;
+  width: 4%;
 }
 
 .target-table col.col-title {
@@ -178,7 +178,7 @@
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  padding: 8px 30px 8px 10px;
+  padding: 6px 30px 6px 10px;
   border-radius: 10px;
   background-image:
     linear-gradient(45deg, transparent 50%, #64748b 50%),
@@ -277,7 +277,7 @@
   }
 
   .target-status-select {
-    padding: 7px 22px 7px 6px;
+    padding: 6px 22px 6px 6px;
     font-size: 0.72rem;
   }
 }
@@ -311,7 +311,6 @@
   padding: 8px 14px;
   border-color: var(--accent);
   background: var(--accent);
-  box-shadow: 0 5px 12px rgba(37, 99, 235, 0.22);
   color: #fff;
   font-size: 0.8rem;
 }

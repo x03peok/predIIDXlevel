@@ -41,7 +41,7 @@ const targetDefaultRecommendationSettings = {
   probabilityMax: 60,
   count: 10,
   levels: [...targetRecommendationLevelValues],
-  statuses: ["no-play", "failed", "assisted", "easy"],
+  statuses: ["unregistered", "no-play", "failed", "assisted", "easy"],
 };
 const targetDifficultyOrder = ["N", "H", "A", "L"];
 const targetDifficultyLabels = {
@@ -769,12 +769,12 @@ function targetRenderTableRow(row) {
     + '<td class="memo-cell">' + targetRenderMemoCheckbox(row) + "</td>"
     + '<td class="mono numeric-value numeric-value--level">' + targetEscapeHtml(levelText) + "</td>"
     + '<td class="chart-title-cell"><a class="chart-link ' + targetGetDifficultyClass(difficulty) + '" href="' + targetEscapeHtml(targetGetChartHref(row)) + '"><span class="chart-title-cell__name">' + targetEscapeHtml(row.title) + '</span> <span class="chart-title-cell__difficulty">[' + targetEscapeHtml(difficulty) + "]</span></a></td>"
-    + '<td class="mono numeric-value numeric-value--pred"' + targetGetNumericColorStyle(row.calibrated_pred_skill) + ">" + targetEscapeHtml(rawPred) + "</td>"
     + '<td class="mono numeric-value numeric-value--pred target-adjusted-pred"' + targetGetNumericColorStyle(adjustedPredValue) + '><span class="target-adjusted-pred__value">'
     + targetEscapeHtml(adjustedPred)
     + '</span> <span class="target-adjusted-pred__difference">('
     + targetEscapeHtml(adjustedPredDifference)
     + ")</span></td>"
+    + '<td class="mono numeric-value numeric-value--pred"' + targetGetNumericColorStyle(row.calibrated_pred_skill) + ">" + targetEscapeHtml(rawPred) + "</td>"
     + '<td class="target-status-cell">' + targetRenderStatusSelect(row) + "</td>"
     + "<td>" + targetFormatBpmCell(row) + "</td>"
     + '<td class="feature-cell">' + targetRenderFeatureChips(row) + "</td>"

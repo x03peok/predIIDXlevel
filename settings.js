@@ -37,7 +37,7 @@ const settingsRecommendationLevelOptions = settingsRecommendationLevelValues.map
   label: "☆" + value,
 }));
 const settingsRecommendationCountValues = [5, 10, 20];
-const settingsDefaultRecommendationStatuses = ["no-play", "failed", "assisted", "easy"];
+const settingsDefaultRecommendationStatuses = ["unregistered", "no-play", "failed", "assisted", "easy"];
 
 const settingsElements = {};
 let settingsDatabase = null;
