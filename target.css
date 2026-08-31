@@ -79,19 +79,19 @@
 }
 
 .target-table col.col-memo {
-  width: 6%;
+  width: 5%;
 }
 
 .target-table col.col-orig {
-  width: 7%;
+  width: 5%;
 }
 
 .target-table col.col-title {
-  width: 20%;
+  width: 25%;
 }
 
 .target-table col.col-pred {
-  width: 9%;
+  width: 6%;
 }
 
 .target-table col.target-col-adjusted-pred {
@@ -99,19 +99,28 @@
 }
 
 .target-table col.target-col-status {
-  width: 14%;
-}
-
-.target-table col.col-bpm {
   width: 10%;
 }
 
+.target-table col.col-bpm {
+  width: 6%;
+}
+
 .target-table col.col-features {
-  width: 23%;
+  width: 32%;
 }
 
 .target-table .target-adjusted-pred {
   font-weight: 700;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.target-adjusted-pred__difference {
+  color: #475569;
+  font-size: 0.75em;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .target-table--recommendation thead th,
@@ -145,7 +154,24 @@
 }
 
 .target-table tbody td:nth-child(3) {
-  text-align: left;
+  text-align: center;
+}
+
+.target-table tbody td:nth-child(2) {
+  white-space: nowrap;
+}
+
+.target-table tbody td.chart-title-cell {
+  overflow: visible;
+  white-space: normal;
+}
+
+.target-table tbody td.chart-title-cell .chart-link {
+  display: inline-block;
+  width: auto;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .target-status-select {
@@ -245,7 +271,6 @@
     gap: 12px;
   }
 
-  .target-toolbar > .search,
   .target-toolbar > .feature-filter,
   .target-toolbar > .advanced-filter {
     grid-column: 1 / -1;
@@ -277,8 +302,8 @@
 
 .target-auto-actions {
   display: flex;
-  justify-content: flex-start;
-  margin: 0 0 10px;
+  justify-content: center;
+  margin: 10px 0 0;
 }
 
 .target-auto-actions .load-more {

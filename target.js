@@ -35,9 +35,11 @@ const targetDefaultStatusFilter = targetStatuses
   .map(({ value }) => value);
 const targetRecommendationSettingsKey = "cpi-next-target-recommendation-statuses";
 const targetRecommendationLevelValues = [8, 9, 10, 11, 12];
+const targetRecommendationCountValues = [5, 10, 20];
 const targetDefaultRecommendationSettings = {
   probabilityMin: 40,
   probabilityMax: 60,
+  count: 10,
   levels: [...targetRecommendationLevelValues],
   statuses: ["no-play", "failed", "assisted", "easy"],
 };
@@ -79,6 +81,10 @@ const targetState = {
   predMaxFilter: 999,
   predDataMin: 0,
   predDataMax: 999,
+  adjustedPredMinFilter: 0,
+  adjustedPredMaxFilter: 999,
+  adjustedPredDataMin: 0,
+  adjustedPredDataMax: 999,
   sortKey: "adjusted_pred",
   sortDirection: "asc",
   visibleLimit: targetPageSize,
@@ -231,6 +237,15 @@ function targetNormalizeRows(parsedRows) {
 function targetFormatPredValue(value) {
   const numeric = targetGetNumericValue(value);
   return numeric === null ? "" : numeric.toFixed(1);
+}
+
+function targetFormatPredDifference(value) {
+  const numeric = targetGetNumericValue(value);
+  if (numeric === null) {
+    return "";
+  }
+  const rounded = Number(numeric.toFixed(1));
+  return (rounded >= 0 ? "+" : "") + rounded.toFixed(1);
 }
 
 function targetFormatBpmPart(value) {
@@ -480,10 +495,14 @@ function targetUpdateAdvancedSummary() {
   const isDefault = targetState.bpmMinFilter === 0
     && targetState.bpmMaxFilter === 999
     && targetState.predMinFilter === targetState.predDataMin
-    && targetState.predMaxFilter === targetState.predDataMax;
+    && targetState.predMaxFilter === targetState.predDataMax
+    && targetState.adjustedPredMinFilter === targetState.adjustedPredDataMin
+    && targetState.adjustedPredMaxFilter === targetState.adjustedPredDataMax;
   targetElements.advancedSummary.textContent = isDefault
     ? "詳細絞り込み"
-    : "BPM:" + targetState.bpmMinFilter + "~" + targetState.bpmMaxFilter + " / Pred:" + targetFormatPredValue(targetState.predMinFilter) + "~" + targetFormatPredValue(targetState.predMaxFilter);
+    : "BPM:" + targetState.bpmMinFilter + "~" + targetState.bpmMaxFilter
+      + " / Pred:" + targetFormatPredValue(targetState.predMinFilter) + "~" + targetFormatPredValue(targetState.predMaxFilter)
+      + " / 補正Pred:" + targetFormatPredValue(targetState.adjustedPredMinFilter) + "~" + targetFormatPredValue(targetState.adjustedPredMaxFilter);
 }
 
 function targetCommitBpmFilters() {
@@ -517,6 +536,24 @@ function targetUpdateBpmFilters() {
 function targetUpdatePredFilters() {
   targetState.predMinFilter = targetClampNumber(targetElements.predMinInput.value, targetState.predDataMin, targetState.predDataMin, targetState.predDataMax);
   targetState.predMaxFilter = targetClampNumber(targetElements.predMaxInput.value, targetState.predDataMax, targetState.predDataMin, targetState.predDataMax);
+  targetState.visibleLimit = targetPageSize;
+  targetUpdateAdvancedSummary();
+  targetScheduleRender();
+}
+
+function targetCommitAdjustedPredFilters() {
+  targetState.adjustedPredMinFilter = targetClampNumber(targetElements.adjustedPredMinInput.value, targetState.adjustedPredDataMin, targetState.adjustedPredDataMin, targetState.adjustedPredDataMax);
+  targetState.adjustedPredMaxFilter = targetClampNumber(targetElements.adjustedPredMaxInput.value, targetState.adjustedPredDataMax, targetState.adjustedPredDataMin, targetState.adjustedPredDataMax);
+  targetElements.adjustedPredMinInput.value = targetFormatPredValue(targetState.adjustedPredMinFilter);
+  targetElements.adjustedPredMaxInput.value = targetFormatPredValue(targetState.adjustedPredMaxFilter);
+  targetState.visibleLimit = targetPageSize;
+  targetUpdateAdvancedSummary();
+  targetRender();
+}
+
+function targetUpdateAdjustedPredFilters() {
+  targetState.adjustedPredMinFilter = targetClampNumber(targetElements.adjustedPredMinInput.value, targetState.adjustedPredDataMin, targetState.adjustedPredDataMin, targetState.adjustedPredDataMax);
+  targetState.adjustedPredMaxFilter = targetClampNumber(targetElements.adjustedPredMaxInput.value, targetState.adjustedPredDataMax, targetState.adjustedPredDataMin, targetState.adjustedPredDataMax);
   targetState.visibleLimit = targetPageSize;
   targetUpdateAdvancedSummary();
   targetScheduleRender();
@@ -561,6 +598,10 @@ function targetMatchesFilters(row) {
     return false;
   }
   if (row.calibrated_pred_skill < targetState.predMinFilter || row.calibrated_pred_skill > targetState.predMaxFilter) {
+    return false;
+  }
+  const adjustedPred = targetGetAdjustedPred(row);
+  if (adjustedPred < targetState.adjustedPredMinFilter || adjustedPred > targetState.adjustedPredMaxFilter) {
     return false;
   }
   return true;
@@ -719,7 +760,9 @@ function targetRenderMemoCheckbox(row) {
 
 function targetRenderTableRow(row) {
   const rawPred = targetFormatPredValue(row.calibrated_pred_skill);
-  const adjustedPred = targetFormatPredValue(targetGetAdjustedPred(row));
+  const adjustedPredValue = targetGetAdjustedPred(row);
+  const adjustedPred = targetFormatPredValue(adjustedPredValue);
+  const adjustedPredDifference = targetFormatPredDifference(adjustedPredValue - row.calibrated_pred_skill);
   const levelText = "☆" + targetFormatPredValue(row.original_level).replace(".0", "");
   const difficulty = targetNormalizeDifficulty(row.difficulty);
   return "<tr>"
@@ -727,7 +770,11 @@ function targetRenderTableRow(row) {
     + '<td class="mono numeric-value numeric-value--level">' + targetEscapeHtml(levelText) + "</td>"
     + '<td class="chart-title-cell"><a class="chart-link ' + targetGetDifficultyClass(difficulty) + '" href="' + targetEscapeHtml(targetGetChartHref(row)) + '"><span class="chart-title-cell__name">' + targetEscapeHtml(row.title) + '</span> <span class="chart-title-cell__difficulty">[' + targetEscapeHtml(difficulty) + "]</span></a></td>"
     + '<td class="mono numeric-value numeric-value--pred"' + targetGetNumericColorStyle(row.calibrated_pred_skill) + ">" + targetEscapeHtml(rawPred) + "</td>"
-    + '<td class="mono numeric-value numeric-value--pred target-adjusted-pred"' + targetGetNumericColorStyle(targetGetAdjustedPred(row)) + ">" + targetEscapeHtml(adjustedPred) + "</td>"
+    + '<td class="mono numeric-value numeric-value--pred target-adjusted-pred"' + targetGetNumericColorStyle(adjustedPredValue) + '><span class="target-adjusted-pred__value">'
+    + targetEscapeHtml(adjustedPred)
+    + '</span> <span class="target-adjusted-pred__difference">('
+    + targetEscapeHtml(adjustedPredDifference)
+    + ")</span></td>"
     + '<td class="target-status-cell">' + targetRenderStatusSelect(row) + "</td>"
     + "<td>" + targetFormatBpmCell(row) + "</td>"
     + '<td class="feature-cell">' + targetRenderFeatureChips(row) + "</td>"
@@ -735,11 +782,15 @@ function targetRenderTableRow(row) {
 }
 
 function targetUpdateSortIndicators() {
-  targetElements.table.querySelectorAll("thead button[data-sort-key]").forEach((button) => {
+  document.querySelectorAll(".target-table thead button[data-sort-key]").forEach((button) => {
     const isActive = button.dataset.sortKey === targetState.sortKey;
+    const mark = button.querySelector(".sort-mark");
     button.classList.toggle("is-sorted", isActive);
     button.dataset.sortDirection = isActive ? targetState.sortDirection : "";
     button.setAttribute("aria-sort", isActive ? (targetState.sortDirection === "asc" ? "ascending" : "descending") : "none");
+    if (mark) {
+      mark.textContent = isActive ? (targetState.sortDirection === "asc" ? "▲" : "▼") : "";
+    }
   });
 }
 
@@ -771,7 +822,7 @@ function targetGetAutoCandidateRows() {
 function targetGenerateAutoRecommendations() {
   const candidates = targetGetAutoCandidateRows();
   targetState.autoRecommendationIds = targetShuffleRows(candidates)
-    .slice(0, 10)
+    .slice(0, targetState.recommendationSettings.count)
     .map((row) => String(row.chart_id));
   targetState.autoRecommendationCandidateCount = candidates.length;
   targetState.autoRecommendationsInitialized = true;
@@ -780,7 +831,8 @@ function targetGenerateAutoRecommendations() {
 function targetRenderAutoRecommendations() {
   const recommendedRows = targetState.autoRecommendationIds
     .map((chartId) => targetState.rowsByChartId.get(chartId))
-    .filter(Boolean);
+    .filter(Boolean)
+    .sort(targetCompareRows);
   targetElements.autoRowCount.textContent = recommendedRows.length.toLocaleString()
     + "件表示 / " + targetState.autoRecommendationCandidateCount.toLocaleString() + "件中";
   targetElements.autoTableBody.innerHTML = recommendedRows.map(targetRenderTableRow).join("");
@@ -874,6 +926,7 @@ function targetGetDefaultRecommendationSettings() {
   return {
     probabilityMin: targetDefaultRecommendationSettings.probabilityMin,
     probabilityMax: targetDefaultRecommendationSettings.probabilityMax,
+    count: targetDefaultRecommendationSettings.count,
     levels: [...targetDefaultRecommendationSettings.levels],
     statuses: [...targetDefaultRecommendationSettings.statuses],
   };
@@ -884,6 +937,11 @@ function targetNormalizeRecommendationProbability(value, fallback) {
   return Number.isInteger(numeric)
     ? Math.min(100, Math.max(0, numeric))
     : fallback;
+}
+
+function targetNormalizeRecommendationCount(value, fallback) {
+  const numeric = Number(value);
+  return targetRecommendationCountValues.includes(numeric) ? numeric : fallback;
 }
 
 function targetReadRecommendationSettings() {
@@ -908,6 +966,7 @@ function targetReadRecommendationSettings() {
       parsed.probabilityMax,
       fallback.probabilityMax,
     );
+    const count = targetNormalizeRecommendationCount(parsed.count, fallback.count);
     if (probabilityMin > probabilityMax) {
       [probabilityMin, probabilityMax] = [probabilityMax, probabilityMin];
     }
@@ -919,7 +978,7 @@ function targetReadRecommendationSettings() {
     const statuses = Array.isArray(parsed.statuses)
       ? [...new Set(parsed.statuses.filter((value) => targetStatusValues.has(value)))]
       : [...fallback.statuses];
-    return { probabilityMin, probabilityMax, levels, statuses };
+    return { probabilityMin, probabilityMax, count, levels, statuses };
   } catch (error) {
     // Fall back to the default when local storage is unavailable or invalid.
   }
@@ -1172,6 +1231,7 @@ function targetRecalculateModel() {
       );
     }
   });
+  targetSetAdjustedPredBounds();
 }
 
 function targetCanShowContent() {
@@ -1379,6 +1439,8 @@ function targetInitializeElements() {
   targetElements.bpmMaxInput = document.getElementById("targetBpmMaxInput");
   targetElements.predMinInput = document.getElementById("targetPredMinInput");
   targetElements.predMaxInput = document.getElementById("targetPredMaxInput");
+  targetElements.adjustedPredMinInput = document.getElementById("targetAdjustedPredMinInput");
+  targetElements.adjustedPredMaxInput = document.getElementById("targetAdjustedPredMaxInput");
   targetElements.error = document.getElementById("targetError");
   targetElements.rowCount = document.getElementById("targetRowCount");
   targetElements.tableShell = document.getElementById("targetTableShell");
@@ -1441,7 +1503,11 @@ function targetBindEvents() {
   targetElements.predMaxInput.addEventListener("input", targetUpdatePredFilters);
   targetElements.predMinInput.addEventListener("blur", targetCommitPredFilters);
   targetElements.predMaxInput.addEventListener("blur", targetCommitPredFilters);
-  targetElements.table.querySelectorAll("thead button[data-sort-key]").forEach((button) => {
+  targetElements.adjustedPredMinInput.addEventListener("input", targetUpdateAdjustedPredFilters);
+  targetElements.adjustedPredMaxInput.addEventListener("input", targetUpdateAdjustedPredFilters);
+  targetElements.adjustedPredMinInput.addEventListener("blur", targetCommitAdjustedPredFilters);
+  targetElements.adjustedPredMaxInput.addEventListener("blur", targetCommitAdjustedPredFilters);
+  document.querySelectorAll(".target-table thead button[data-sort-key]").forEach((button) => {
     button.addEventListener("click", () => targetSetSort(button.dataset.sortKey));
   });
   targetElements.autoTableBody.addEventListener("change", targetHandleStatusChange);
@@ -1472,6 +1538,27 @@ function targetSetPredBounds() {
   targetElements.predMaxInput.max = String(targetState.predDataMax);
   targetElements.predMinInput.value = targetFormatPredValue(targetState.predMinFilter);
   targetElements.predMaxInput.value = targetFormatPredValue(targetState.predMaxFilter);
+  targetUpdateAdvancedSummary();
+}
+
+function targetSetAdjustedPredBounds() {
+  const values = Array.from(targetState.adjustedPredById.values()).filter(Number.isFinite);
+  const nextMin = values.length > 0 ? Math.min(...values) : 0;
+  const nextMax = values.length > 0 ? Math.max(...values) : 999;
+  const isDefault = targetState.adjustedPredMinFilter === targetState.adjustedPredDataMin
+    && targetState.adjustedPredMaxFilter === targetState.adjustedPredDataMax;
+  targetState.adjustedPredDataMin = nextMin;
+  targetState.adjustedPredDataMax = nextMax;
+  if (isDefault) {
+    targetState.adjustedPredMinFilter = nextMin;
+    targetState.adjustedPredMaxFilter = nextMax;
+  }
+  targetElements.adjustedPredMinInput.min = String(nextMin);
+  targetElements.adjustedPredMinInput.max = String(nextMax);
+  targetElements.adjustedPredMaxInput.min = String(nextMin);
+  targetElements.adjustedPredMaxInput.max = String(nextMax);
+  targetElements.adjustedPredMinInput.value = targetFormatPredValue(targetState.adjustedPredMinFilter);
+  targetElements.adjustedPredMaxInput.value = targetFormatPredValue(targetState.adjustedPredMaxFilter);
   targetUpdateAdvancedSummary();
 }
 

@@ -36,6 +36,7 @@ const settingsRecommendationLevelOptions = settingsRecommendationLevelValues.map
   value,
   label: "☆" + value,
 }));
+const settingsRecommendationCountValues = [5, 10, 20];
 const settingsDefaultRecommendationStatuses = ["no-play", "failed", "assisted", "easy"];
 
 const settingsElements = {};
@@ -179,6 +180,7 @@ function settingsSetBusy(busy) {
   settingsElements.exportButton.disabled = busy;
   settingsElements.importButton.disabled = busy;
   settingsElements.resetButton.disabled = busy;
+  settingsElements.recommendationSaveButton.disabled = busy;
   settingsElements.recommendationResetButton.disabled = busy;
 }
 
@@ -186,6 +188,7 @@ function settingsGetDefaultRecommendationSettings() {
   return {
     probabilityMin: 40,
     probabilityMax: 60,
+    count: 10,
     levels: [...settingsRecommendationLevelValues],
     statuses: [...settingsDefaultRecommendationStatuses],
   };
@@ -196,6 +199,11 @@ function settingsNormalizeRecommendationProbability(value, fallback) {
   return Number.isInteger(numeric)
     ? Math.min(100, Math.max(0, numeric))
     : fallback;
+}
+
+function settingsNormalizeRecommendationCount(value, fallback) {
+  const numeric = Number(value);
+  return settingsRecommendationCountValues.includes(numeric) ? numeric : fallback;
 }
 
 function settingsReadRecommendationSettings() {
@@ -220,6 +228,7 @@ function settingsReadRecommendationSettings() {
       parsed.probabilityMax,
       fallback.probabilityMax,
     );
+    const count = settingsNormalizeRecommendationCount(parsed.count, fallback.count);
     if (probabilityMin > probabilityMax) {
       [probabilityMin, probabilityMax] = [probabilityMax, probabilityMin];
     }
@@ -232,7 +241,7 @@ function settingsReadRecommendationSettings() {
     const statuses = Array.isArray(parsed.statuses)
       ? [...new Set(parsed.statuses.filter((value) => settingsRecommendationStatusValues.has(value)))]
       : [...fallback.statuses];
-    return { probabilityMin, probabilityMax, levels, statuses };
+    return { probabilityMin, probabilityMax, count, levels, statuses };
   } catch (error) {
     // Fall back to the default when local storage is unavailable or invalid.
   }
@@ -243,6 +252,7 @@ function settingsSaveRecommendationSettings() {
   const payload = {
     probabilityMin: settingsRecommendationSettings.probabilityMin,
     probabilityMax: settingsRecommendationSettings.probabilityMax,
+    count: settingsRecommendationSettings.count,
     levels: [...settingsRecommendationSettings.levels],
     statuses: [...settingsRecommendationSettings.statuses],
   };
@@ -327,7 +337,6 @@ function settingsRenderRecommendationFilter({ container, summary, options, setti
     }
     settingsRecommendationSettings[settingKey] = [...selectedValues];
     syncCheckboxes();
-    settingsSaveRecommendationSettings();
   });
   container.querySelectorAll("input[data-filter-option]").forEach((input) => {
     input.addEventListener("change", () => {
@@ -337,7 +346,6 @@ function settingsRenderRecommendationFilter({ container, summary, options, setti
       });
       settingsRecommendationSettings[settingKey] = [...selectedValues];
       syncCheckboxes();
-      settingsSaveRecommendationSettings();
     });
   });
 }
@@ -345,6 +353,7 @@ function settingsRenderRecommendationFilter({ container, summary, options, setti
 function settingsUpdateRecommendationInputs() {
   settingsElements.recommendationProbabilityMin.value = String(settingsRecommendationSettings.probabilityMin);
   settingsElements.recommendationProbabilityMax.value = String(settingsRecommendationSettings.probabilityMax);
+  settingsElements.recommendationCount.value = String(settingsRecommendationSettings.count);
 }
 
 function settingsRenderRecommendationOptions() {
@@ -391,6 +400,36 @@ function settingsCommitRecommendationProbability(changedKey) {
   settingsRecommendationSettings.probabilityMin = probabilityMin;
   settingsRecommendationSettings.probabilityMax = probabilityMax;
   settingsUpdateRecommendationInputs();
+}
+
+function settingsCommitRecommendationCount() {
+  const count = settingsNormalizeRecommendationCount(
+    settingsElements.recommendationCount.value,
+    settingsRecommendationSettings.count,
+  );
+  settingsRecommendationSettings.count = count;
+  settingsUpdateRecommendationInputs();
+}
+
+function settingsCommitRecommendationSettings() {
+  let probabilityMin = settingsReadRecommendationProbability(
+    settingsElements.recommendationProbabilityMin,
+    settingsRecommendationSettings.probabilityMin,
+  );
+  let probabilityMax = settingsReadRecommendationProbability(
+    settingsElements.recommendationProbabilityMax,
+    settingsRecommendationSettings.probabilityMax,
+  );
+  if (probabilityMin > probabilityMax) {
+    [probabilityMin, probabilityMax] = [probabilityMax, probabilityMin];
+  }
+  settingsRecommendationSettings.probabilityMin = probabilityMin;
+  settingsRecommendationSettings.probabilityMax = probabilityMax;
+  settingsRecommendationSettings.count = settingsNormalizeRecommendationCount(
+    settingsElements.recommendationCount.value,
+    settingsRecommendationSettings.count,
+  );
+  settingsUpdateRecommendationInputs();
   settingsSaveRecommendationSettings();
 }
 
@@ -409,7 +448,6 @@ function settingsResetRecommendationSettings() {
     options: settingsRecommendationStatuses,
     settingKey: "statuses",
   });
-  settingsSaveRecommendationSettings();
 }
 function settingsValidateBackup(payload) {
   if (!payload || typeof payload !== "object"
@@ -580,6 +618,8 @@ function settingsBindEvents() {
   settingsElements.recommendationProbabilityMax.addEventListener("change", () => {
     settingsCommitRecommendationProbability("max");
   });
+  settingsElements.recommendationCount.addEventListener("change", settingsCommitRecommendationCount);
+  settingsElements.recommendationSaveButton.addEventListener("click", settingsCommitRecommendationSettings);
   settingsElements.recommendationResetButton.addEventListener("click", settingsResetRecommendationSettings);
 }
 
@@ -592,10 +632,12 @@ async function settingsInitialize() {
   settingsElements.message = document.getElementById("settingsMessage");
   settingsElements.recommendationProbabilityMin = document.getElementById("settingsRecommendationProbabilityMin");
   settingsElements.recommendationProbabilityMax = document.getElementById("settingsRecommendationProbabilityMax");
+  settingsElements.recommendationCount = document.getElementById("settingsRecommendationCount");
   settingsElements.recommendationLevelOptions = document.getElementById("settingsRecommendationLevelOptions");
   settingsElements.recommendationLevelSummary = document.getElementById("settingsRecommendationLevelSummary");
   settingsElements.recommendationStatusOptions = document.getElementById("settingsRecommendationStatusOptions");
   settingsElements.recommendationStatusSummary = document.getElementById("settingsRecommendationStatusSummary");
+  settingsElements.recommendationSaveButton = document.getElementById("settingsRecommendationSaveButton");
   settingsElements.recommendationResetButton = document.getElementById("settingsRecommendationResetButton");
   settingsRenderRecommendationOptions();
   settingsBindEvents();

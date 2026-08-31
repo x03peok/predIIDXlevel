@@ -15,10 +15,10 @@
   <meta name="twitter:card" content="summary">
   <!-- Google Analytics -->
   <script defer src="analytics.js?v=20260831-3"></script>
-  <link rel="stylesheet" href="styles.css?v=20260831-6">
-  <link rel="stylesheet" href="mypage.css?v=20260831-3">
+  <link rel="stylesheet" href="styles.css?v=20260831-8">
+<link rel="stylesheet" href="mypage.css?v=20260831-7">
   <link rel="stylesheet" href="menu.css">
-  <script defer src="menu.js?v=20260830-2"></script>
+  <script defer src="menu.js?v=20260831-3"></script>
   <script defer src="data.js?v=20260821-5"></script>
   <script defer src="app.js?v=20260829-3"></script>
   <script defer src="mypage.js?v=20260831-16"></script>
@@ -74,7 +74,10 @@
         </div>
 
         <h2 class="mypage-section-heading">クリア状況詳細</h2>
-        <div class="toolbar mypage-toolbar">
+        <details class="filter-group">
+          <summary>絞り込み</summary>
+          <div class="filter-group__body">
+            <div class="toolbar mypage-toolbar">
           <label class="search">
             <span>Title</span>
             <input id="mypageSearchInput" type="search" placeholder="search title" autocomplete="off">
@@ -133,13 +136,15 @@
               </label>
             </div>
           </details>
-        </div>
+            </div>
+          </div>
+        </details>
 
         <p class="table-hint">曲名をタップすると詳細ページに移動します<br>表は左右にスクロールできます（モバイル表示時）</p>
         <p id="mypageMessage" class="mypage-message" role="status" aria-live="polite" hidden></p>
         <div id="mypageRowCount" class="row-count" aria-live="polite"></div>
         <div id="mypageTableShell" class="table-shell">
-          <table id="mypageTable">
+          <table id="mypageTable" class="chart-table">
             <colgroup>
               <col class="col-memo">
               <col class="col-orig">

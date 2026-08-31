@@ -6,7 +6,8 @@
   max-width: 62ch;
 }
 
-.settings-heading h2 {
+.settings-heading h2,
+.settings-recommendation h3 {
   margin: 0 0 8px;
   color: var(--accent);
   font-size: clamp(1.25rem, 2.4vw, 1.7rem);
@@ -111,10 +112,7 @@
 }
 
 .settings-recommendation h3 {
-  margin: 0;
-  color: var(--accent);
-  font-size: 1.05rem;
-  line-height: 1.3;
+  font-weight: 700;
 }
 
 .settings-recommendation p {
@@ -155,9 +153,14 @@
 }
 .settings-recommendation-filters {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px 12px;
   margin-top: 16px;
+}
+
+.settings-probability-range,
+.settings-recommendation-count {
+  grid-column: 1 / -1;
 }
 
 .settings-number-filter {
@@ -172,6 +175,7 @@
 
 .settings-number-input-wrap {
   display: flex;
+  flex: 1 1 0;
   min-width: 0;
   align-items: center;
   gap: 6px;
@@ -195,6 +199,40 @@
   font-variant-numeric: tabular-nums;
 }
 
+.settings-probability-range__inputs {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-probability-range__separator {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 400;
+  letter-spacing: normal;
+}
+
+.settings-number-filter > select {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 42px;
+  padding: 9px 36px 9px 12px;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 400;
+  letter-spacing: normal;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #64748b 50%),
+    linear-gradient(135deg, #64748b 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 3px),
+    calc(100% - 12px) calc(50% - 3px);
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
+}
+
 .settings-recommendation-filter {
   min-width: 0;
 }
@@ -211,18 +249,19 @@
   right: auto;
 }
 
-.settings-recommendation > .settings-button {
+.settings-recommendation-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
   margin-top: 16px;
+}
+
+.settings-recommendation-actions .settings-button {
+  width: 100%;
 }
 
 @media (max-width: 720px) {
   .settings-recommendation-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 420px) {
-  .settings-recommendation-filters {
-    grid-template-columns: 1fr;
   }
 }

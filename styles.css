@@ -87,6 +87,61 @@ body::before {
   padding: 18px;
 }
 
+.filter-group {
+  margin-bottom: 14px;
+}
+
+.filter-group > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 42px;
+  box-sizing: border-box;
+  padding: 11px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--panel-strong);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  list-style: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.filter-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.filter-group > summary::after {
+  width: 7px;
+  height: 7px;
+  margin: -4px 0 0 12px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  content: "";
+  transform: rotate(45deg);
+  transition: transform 160ms ease;
+}
+
+.filter-group[open] > summary {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.filter-group[open] > summary::after {
+  margin-top: 4px;
+  transform: rotate(225deg);
+}
+
+.filter-group__body {
+  padding-top: 14px;
+}
+
+.filter-group__body > .toolbar {
+  margin-bottom: 0;
+}
+
 .toolbar {
   display: flex;
   align-items: flex-end;
@@ -648,6 +703,35 @@ tbody td:nth-child(5) {
   border-radius: 8px;
   color: var(--ink);
   overflow-wrap: anywhere;
+}
+
+/* Keep chart rows compact when titles or features are longer than their cells. */
+.chart-table tbody td.chart-title-cell,
+.chart-table tbody td:last-child {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.chart-table tbody td.chart-title-cell .chart-link {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart-table tbody td:last-child .feature-chips {
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.chart-table tbody td:last-child .feature-chip {
+  flex: 0 0 auto;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chart-title-cell .difficulty--normal,

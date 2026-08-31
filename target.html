@@ -19,12 +19,12 @@
     gtag('config', 'G-M0BX4638PS');
   </script>
   <script src="analytics.js?v=20260831-3" defer></script>
-  <link rel="stylesheet" href="styles.css?v=20260831-6">
+  <link rel="stylesheet" href="styles.css?v=20260831-8">
   <link rel="stylesheet" href="menu.css?v=20260831-1">
-  <link rel="stylesheet" href="target.css?v=20260831-12">
-  <script src="menu.js?v=20260831-1" defer></script>
+  <link rel="stylesheet" href="target.css?v=20260831-18">
+  <script src="menu.js?v=20260831-3" defer></script>
   <script src="data.js?v=20260831-1" defer></script>
-  <script src="target.js?v=20260831-12" defer></script>
+  <script src="target.js?v=20260831-16" defer></script>
   <script src="target-tabs.js?v=20260831-2" defer></script>
 </head>
 <body data-page="target">
@@ -63,13 +63,10 @@
         <div id="targetContent" hidden>
           <div class="target-highlights">
             <section id="targetAutoPanel" class="target-highlight-section">
-              <div class="target-auto-actions">
-                <button id="targetAutoRegenerateButton" class="load-more" type="button">リコメンド再生成</button>
-              </div>
               <p id="targetAutoEmpty" class="target-manual-empty" hidden>設定条件に該当する譜面がありません。</p>
               <p id="targetAutoRowCount" class="row-count" aria-live="polite"></p>
               <div id="targetAutoTableShell" class="table-shell" hidden>
-                <table class="target-table target-table--recommendation">
+                <table class="chart-table target-table target-table--recommendation">
                   <colgroup>
                     <col class="col-memo">
                     <col class="col-orig">
@@ -83,17 +80,20 @@
                   <thead>
                     <tr>
                       <th class="memo-heading">Memo</th>
-                      <th>Level</th>
-                      <th>Title</th>
-                      <th>Pred</th>
-                      <th>補正Pred</th>
-                      <th>Status</th>
-                      <th>BPM</th>
-                      <th>Feature</th>
+                      <th><button type="button" data-sort-key="original_level"><span>Level</span><span class="sort-mark"></span></button></th>
+                      <th><button type="button" data-sort-key="title"><span>Title</span><span class="sort-mark"></span></button></th>
+                      <th><button type="button" data-sort-key="calibrated_pred_skill"><span>Pred</span><span class="sort-mark"></span></button></th>
+                      <th><button type="button" data-sort-key="adjusted_pred"><span>補正Pred</span><span class="sort-mark"></span></button></th>
+                      <th><button type="button" data-sort-key="status"><span>Status</span><span class="sort-mark"></span></button></th>
+                      <th><button type="button" data-sort-key="bpm"><span>BPM</span><span class="sort-mark"></span></button></th>
+                      <th><button type="button" data-sort-key="features"><span>Feature</span><span class="sort-mark"></span></button></th>
                     </tr>
                   </thead>
                   <tbody id="targetAutoTableBody"></tbody>
                 </table>
+              </div>
+              <div class="target-auto-actions">
+                <button id="targetAutoRegenerateButton" class="load-more" type="button">リコメンド再生成</button>
               </div>
             </section>
 
@@ -101,7 +101,7 @@
               <p id="targetManualRowCount" class="row-count" aria-live="polite"></p>
               <p id="targetManualEmpty" class="target-manual-empty">譜面詳細ページで「手動メモに登録」を押した譜面を表示します。</p>
               <div id="targetManualTableShell" class="table-shell" hidden>
-                <table class="target-table target-table--manual">
+                <table class="chart-table target-table target-table--manual">
                   <colgroup>
                     <col class="col-memo">
                     <col class="col-orig">
@@ -115,13 +115,13 @@
                   <thead>
                     <tr>
                       <th class="memo-heading">Memo</th>
-                      <th>Level</th>
-                      <th>Title</th>
-                      <th>Pred</th>
-                      <th>補正Pred</th>
-                      <th>Status</th>
-                      <th>BPM</th>
-                      <th>Feature</th>
+                      <th><button type="button" data-sort-key="original_level"><span>Level</span><span class="sort-mark"></span></button></th>
+                      <th><button type="button" data-sort-key="title"><span>Title</span><span class="sort-mark"></span></button></th>
+                      <th><button type="button" data-sort-key="calibrated_pred_skill"><span>Pred</span><span class="sort-mark"></span></button></th>
+                      <th><button type="button" data-sort-key="adjusted_pred"><span>補正Pred</span><span class="sort-mark"></span></button></th>
+                      <th><button type="button" data-sort-key="status"><span>Status</span><span class="sort-mark"></span></button></th>
+                      <th><button type="button" data-sort-key="bpm"><span>BPM</span><span class="sort-mark"></span></button></th>
+                      <th><button type="button" data-sort-key="features"><span>Feature</span><span class="sort-mark"></span></button></th>
                     </tr>
                   </thead>
                   <tbody id="targetManualTableBody"></tbody>
@@ -131,7 +131,7 @@
           </div>
           <section class="target-main-list">
             <h2 class="target-section-heading target-main-list__heading">候補を一覧から探す</h2>
-            <p class="target-main-list__description">補正Pred: あなたの得意傾向に合わせて補正したPredです。補正が-なら、相対的に得意な譜面の可能性が高いです。</p>
+            <p class="target-main-list__description">補正Pred: あなたの得意傾向に合わせて補正したPredです。元のPredよりも低い値なら、相対的に得意な譜面の可能性が高いです。</p>
             <div class="toolbar target-toolbar">
           <label class="search">
             <span>Title</span>
@@ -189,6 +189,14 @@
                 <span>Pred_Max</span>
                 <input id="targetPredMaxInput" type="number" inputmode="decimal" min="0" max="999" step="0.1" value="999.0">
               </label>
+              <label class="filter pred-filter">
+                <span>補正Pred_Min</span>
+                <input id="targetAdjustedPredMinInput" type="number" inputmode="decimal" min="0" max="999" step="0.1" value="0.0">
+              </label>
+              <label class="filter pred-filter">
+                <span>補正Pred_Max</span>
+                <input id="targetAdjustedPredMaxInput" type="number" inputmode="decimal" min="0" max="999" step="0.1" value="999.0">
+              </label>
             </div>
           </details>
         </div>
@@ -198,7 +206,7 @@
         <div id="targetRowCount" class="row-count" aria-live="polite"></div>
 
         <div id="targetTableShell" class="table-shell">
-          <table class="target-table">
+          <table class="chart-table target-table">
             <colgroup>
               <col class="col-memo">
               <col class="col-orig">

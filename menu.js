@@ -13,6 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
     { page: "main", label: "Pred難易度表", href: staticPrefix + "index.html" },
     { page: "record", label: "クリアランプ登録", href: staticPrefix + "record.html" },
     { page: "mypage", label: "マイページ", href: staticPrefix + "mypage.html" },
+    { page: "target", label: "マイターゲット", href: staticPrefix + "target.html" },
     { page: "settings", label: "設定", href: staticPrefix + "settings.html" },
     { page: "diagnosis", label: "適正診断", href: staticPrefix + "diagnosis.html" },
     { page: "about", label: "About", href: staticPrefix + "about.html" },

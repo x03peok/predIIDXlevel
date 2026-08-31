@@ -105,8 +105,9 @@
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
+  margin-top: 10px;
   align-items: stretch;
-  min-height: 150px;
+  min-height: 0;
 }
 .mypage-status-distribution__chart::before {
   position: absolute;
@@ -144,7 +145,7 @@
   grid-template-rows: auto 120px;
   gap: 6px;
   min-width: 0;
-  height: 100%;
+  height: auto;
   justify-items: center;
   align-content: end;
   position: relative;
@@ -544,7 +545,7 @@
 }
 
 .mypage-panel tbody td:nth-child(3) {
-  text-align: left;
+  text-align: center;
 }
 
 .mypage-status-select {
