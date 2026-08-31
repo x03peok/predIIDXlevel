@@ -1,8 +1,9 @@
 "use strict";
 
 const mypageDatabaseName = "cpi-next-clear-status";
-const mypageDatabaseVersion = 1;
+const mypageDatabaseVersion = 2;
 const mypageStoreName = "chart-statuses";
+const mypageManualMemoStoreName = "manual-targets";
 const mypagePageSize = 100;
 const mypageFeatureNone = "特徴なし";
 const mypageFeatureNames = [
@@ -1394,6 +1395,9 @@ function mypageOpenDatabase() {
       const database = request.result;
       if (!database.objectStoreNames.contains(mypageStoreName)) {
         database.createObjectStore(mypageStoreName, { keyPath: "chartId" });
+      }
+      if (!database.objectStoreNames.contains(mypageManualMemoStoreName)) {
+        database.createObjectStore(mypageManualMemoStoreName, { keyPath: "chartId" });
       }
     };
     request.onsuccess = () => resolve(request.result);

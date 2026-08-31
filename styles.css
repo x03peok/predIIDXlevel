@@ -844,6 +844,48 @@ body .title-lock {
   text-decoration: none;
 }
 
+.chart-detail__topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chart-memo-button {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.42rem 0.78rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--panel-strong);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.chart-memo-button:hover,
+.chart-memo-button:focus-visible {
+  border-color: var(--accent);
+  background: rgba(219, 234, 254, 0.55);
+  color: var(--accent);
+}
+
+.chart-memo-button[disabled] {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.chart-memo-button[hidden] {
+  display: none;
+}
+
 .chart-share-button {
   display: inline-flex;
   align-items: center;

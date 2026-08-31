@@ -1,8 +1,9 @@
 "use strict";
 
 const recordDbName = "cpi-next-clear-status";
-const recordDbVersion = 1;
+const recordDbVersion = 2;
 const recordStoreName = "chart-statuses";
+const recordManualMemoStoreName = "manual-targets";
 const recordPageSize = 100;
 const recordDifficultyLabels = {
   NORMAL: "N",
@@ -173,6 +174,9 @@ function recordOpenDatabase() {
       const database = request.result;
       if (!database.objectStoreNames.contains(recordStoreName)) {
         database.createObjectStore(recordStoreName, { keyPath: "chartId" });
+      }
+      if (!database.objectStoreNames.contains(recordManualMemoStoreName)) {
+        database.createObjectStore(recordManualMemoStoreName, { keyPath: "chartId" });
       }
     };
     request.onsuccess = () => resolve(request.result);

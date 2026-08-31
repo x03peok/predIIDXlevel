@@ -1,3 +1,14 @@
+const chartDatabaseName = "cpi-next-clear-status";
+const chartDatabaseVersion = 2;
+const chartStatusStoreName = "chart-statuses";
+const chartManualMemoStoreName = "manual-targets";
+const chartState = {
+  db: null,
+  chartId: "",
+  manualMemo: false,
+  manualMemoBusy: false,
+};
+
 const chartDifficultyNames = {
   NORMAL: "NORMAL",
   HYPER: "HYPER",
@@ -445,6 +456,103 @@ function setTextageLink(element, url) {
   element.tabIndex = -1;
 }
 
+function chartOpenDatabase() {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) {
+      reject(new Error("ローカル保存を利用できません。"));
+      return;
+    }
+    const request = window.indexedDB.open(chartDatabaseName, chartDatabaseVersion);
+    request.onupgradeneeded = () => {
+      const database = request.result;
+      if (!database.objectStoreNames.contains(chartStatusStoreName)) {
+        database.createObjectStore(chartStatusStoreName, { keyPath: "chartId" });
+      }
+      if (!database.objectStoreNames.contains(chartManualMemoStoreName)) {
+        database.createObjectStore(chartManualMemoStoreName, { keyPath: "chartId" });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error("ローカル保存を開けませんでした。"));
+  });
+}
+
+function chartReadManualMemo(chartId) {
+  return new Promise((resolve, reject) => {
+    const transaction = chartState.db.transaction(chartManualMemoStoreName, "readonly");
+    const request = transaction.objectStore(chartManualMemoStoreName).get(chartId);
+    request.onsuccess = () => resolve(Boolean(request.result));
+    request.onerror = () => reject(request.error ?? new Error("手動メモを読み込めませんでした。"));
+  });
+}
+
+function chartWriteManualMemo(chartId, registered) {
+  return new Promise((resolve, reject) => {
+    if (!chartState.db) {
+      reject(new Error("ローカル保存を開けませんでした。"));
+      return;
+    }
+    const transaction = chartState.db.transaction(chartManualMemoStoreName, "readwrite");
+    const store = transaction.objectStore(chartManualMemoStoreName);
+    if (registered) {
+      store.put({ chartId, updatedAt: new Date().toISOString() });
+    } else {
+      store.delete(chartId);
+    }
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(
+      transaction.error ?? new Error("手動メモを保存できませんでした。"),
+    );
+  });
+}
+
+function chartUpdateManualMemoButton() {
+  const button = document.getElementById("chartManualMemoButton");
+  if (!button) {
+    return;
+  }
+  button.textContent = chartState.manualMemo ? "手動メモから削除" : "手動メモに登録";
+  button.setAttribute("aria-pressed", String(chartState.manualMemo));
+  button.hidden = false;
+}
+
+async function chartLoadManualMemoState(chartId) {
+  const button = document.getElementById("chartManualMemoButton");
+  if (!button) {
+    return;
+  }
+  try {
+    chartState.db = chartState.db ?? await chartOpenDatabase();
+    chartState.manualMemo = await chartReadManualMemo(chartId);
+    chartUpdateManualMemoButton();
+  } catch (error) {
+    button.hidden = true;
+  }
+}
+
+async function chartHandleManualMemo() {
+  const button = document.getElementById("chartManualMemoButton");
+  if (!button || chartState.manualMemoBusy || !chartState.db || !chartState.chartId) {
+    return;
+  }
+  chartState.manualMemoBusy = true;
+  button.disabled = true;
+  const nextValue = !chartState.manualMemo;
+  try {
+    await chartWriteManualMemo(chartState.chartId, nextValue);
+    chartState.manualMemo = nextValue;
+    chartUpdateManualMemoButton();
+    window.cpiAnalytics?.track(nextValue ? "manual_memo_add" : "manual_memo_remove", {
+      chart_id: chartState.chartId,
+    });
+  } catch (error) {
+    button.title = error.message || "手動メモを保存できませんでした。";
+  } finally {
+    chartState.manualMemoBusy = false;
+    button.disabled = false;
+  }
+}
+
 function getSimilarChartRows(targetRow, rowsById) {
   const similarMap = window.__SIMILAR_CHARTS__ ?? {};
   const similarIds = similarMap[normalizeChartId(targetRow.chart_id)] ?? [];
@@ -462,6 +570,12 @@ function renderSimilarChartRows(targetRow, rows) {
 
   body.innerHTML = similarRows.map((row) => {
     const difficulty = String(row.difficulty ?? "").trim().toUpperCase();
+    chartState.chartId = chartId;
+    const manualMemoButton = document.getElementById("chartManualMemoButton");
+    if (manualMemoButton && !manualMemoButton.dataset.bound) {
+      manualMemoButton.dataset.bound = "true";
+      manualMemoButton.addEventListener("click", chartHandleManualMemo);
+    }
     const difficultyClass = chartDifficultyClasses[difficulty] ?? "";
     const difficultyText = chartDifficultyLabels[difficulty] ?? difficulty;
     const originalText = "☆" + (row.original_level ?? "");
@@ -519,6 +633,12 @@ function renderChart() {
     }
 
     const difficulty = String(row.difficulty ?? "").trim().toUpperCase();
+    chartState.chartId = chartId;
+    const manualMemoButton = document.getElementById("chartManualMemoButton");
+    if (manualMemoButton && !manualMemoButton.dataset.bound) {
+      manualMemoButton.dataset.bound = "true";
+      manualMemoButton.addEventListener("click", chartHandleManualMemo);
+    }
     const titleElement = document.getElementById("chartTitle");
     titleElement.textContent = row.title;
     const difficultyElement = document.getElementById("chartDifficulty");
@@ -566,6 +686,7 @@ function renderChart() {
       shareButton.hidden = false;
     }
     document.getElementById("chartDetail").hidden = false;
+    void chartLoadManualMemoState(chartId);
     renderSimilarChartRows(row, rowsById);
     if (typeof window.addEventListener === "function") {
       window.addEventListener("resize", updateSimilarTableOverflowState, { passive: true });

@@ -1,8 +1,9 @@
 "use strict";
 
 const targetDatabaseName = "cpi-next-clear-status";
-const targetDatabaseVersion = 1;
+const targetDatabaseVersion = 2;
 const targetStoreName = "chart-statuses";
+const targetManualMemoStoreName = "manual-targets";
 const targetPageSize = 100;
 const targetFeatureNone = "特徴なし";
 const targetFeatureNames = [
@@ -18,6 +19,22 @@ const targetFeatureNames = [
 ];
 const targetNotClearStatuses = new Set(["failed", "assisted", "easy"]);
 const targetClearStatuses = new Set(["clear", "hard"]);
+const targetStatuses = [
+  { value: "unregistered", label: "未登録" },
+  { value: "unowned", label: "未所持・未解禁" },
+  { value: "no-play", label: "NO PLAY" },
+  { value: "failed", label: "FAILED" },
+  { value: "assisted", label: "ASSISTED" },
+  { value: "easy", label: "EASY" },
+  { value: "clear", label: "CLEAR" },
+  { value: "hard", label: "HARD以上" },
+];
+const targetStatusValues = new Set(targetStatuses.map(({ value }) => value));
+const targetDefaultStatusFilter = targetStatuses
+  .filter(({ value }) => !["unowned", "clear", "hard"].includes(value))
+  .map(({ value }) => value);
+const targetRecommendationSettingsKey = "cpi-next-target-recommendation-statuses";
+const targetDefaultRecommendationStatuses = ["unregistered", "no-play", "failed", "assisted", "easy"];
 const targetDifficultyOrder = ["N", "H", "A", "L"];
 const targetDifficultyLabels = {
   N: "[N] NORMAL",
@@ -40,7 +57,11 @@ const targetState = {
   rows: [],
   rowsByChartId: new Map(),
   records: new Map(),
+  manualMemoIds: new Set(),
   searchQuery: "",
+  statusFilter: new Set(targetDefaultStatusFilter),
+  recommendationStatuses: new Set(targetDefaultRecommendationStatuses),
+  mode: "auto",
   levelFilter: new Set(),
   difficultyFilter: new Set(),
   featureFilter: new Map(),
@@ -511,6 +532,9 @@ function targetMatchesFilters(row) {
   if (targetState.searchQuery && !row.__search.includes(targetState.searchQuery)) {
     return false;
   }
+  if (!targetState.statusFilter.has(targetGetStatus(row))) {
+    return false;
+  }
   if (!targetState.levelFilter.has(row.original_level)) {
     return false;
   }
@@ -556,6 +580,10 @@ function targetCompareRows(left, right) {
   } else if (targetState.sortKey === "bpm") {
     const key = targetState.sortDirection === "desc" ? "bpm_max" : "bpm_min";
     comparison = targetCompareNumeric(left[key], right[key]);
+  } else if (targetState.sortKey === "status") {
+    const leftIndex = targetStatuses.findIndex(({ value }) => value === targetGetStatus(left));
+    const rightIndex = targetStatuses.findIndex(({ value }) => value === targetGetStatus(right));
+    comparison = leftIndex - rightIndex;
   } else if (targetState.sortKey === "original_level" || targetState.sortKey === "calibrated_pred_skill") {
     comparison = targetCompareNumeric(left[targetState.sortKey], right[targetState.sortKey]);
   } else {
@@ -676,6 +704,7 @@ function targetRenderTableRow(row) {
     + '<td class="chart-title-cell"><a class="chart-link ' + targetGetDifficultyClass(difficulty) + '" href="' + targetEscapeHtml(targetGetChartHref(row)) + '"><span class="chart-title-cell__name">' + targetEscapeHtml(row.title) + '</span> <span class="chart-title-cell__difficulty">[' + targetEscapeHtml(difficulty) + "]</span></a></td>"
     + '<td class="numeric-cell"' + targetGetNumericColorStyle(row.calibrated_pred_skill) + ">" + targetEscapeHtml(rawPred) + "</td>"
     + '<td class="numeric-cell target-adjusted-pred"' + targetGetNumericColorStyle(targetGetAdjustedPred(row)) + ">" + targetEscapeHtml(adjustedPred) + "</td>"
+    + '<td class="target-status-cell">' + targetRenderStatusSelect(row) + "</td>"
     + "<td>" + targetFormatBpmCell(row) + "</td>"
     + '<td class="feature-cell">' + targetRenderFeatureChips(row) + "</td>"
     + "</tr>";
@@ -691,17 +720,72 @@ function targetUpdateSortIndicators() {
 }
 
 function targetUpdateTableOverflow() {
-  const shell = targetElements.tableShell;
+  const shell = targetState.mode === "manual"
+    ? targetElements.manualTableShell
+    : targetElements.tableShell;
+  if (!shell) {
+    return;
+  }
   shell.classList.toggle("is-overflowing", shell.scrollWidth > shell.clientWidth + 1);
 }
 
-function targetRender() {
-  const filteredRows = targetGetFilteredRows();
-  const visibleRows = filteredRows.slice(0, targetState.visibleLimit);
-  targetElements.rowCount.textContent = visibleRows.length.toLocaleString() + "件表示 / " + filteredRows.length.toLocaleString() + "件中";
-  targetElements.tableBody.innerHTML = visibleRows.map(targetRenderTableRow).join("");
-  targetElements.loadMore.hidden = visibleRows.length >= filteredRows.length;
+function targetGetAutoCandidateRows() {
+  return targetGetFilteredRows().filter((row) => targetState.recommendationStatuses.has(targetGetStatus(row)));
+}
+
+function targetRenderAutoRecommendations() {
+  const candidates = targetGetAutoCandidateRows();
+  const recommendedRows = targetShuffleRows(candidates)
+    .slice(0, 10)
+    .sort(targetCompareRows);
+  targetElements.rowCount.textContent = recommendedRows.length.toLocaleString()
+    + "件表示 / " + candidates.length.toLocaleString() + "件中";
+  targetElements.tableBody.innerHTML = recommendedRows.map(targetRenderTableRow).join("");
+  targetElements.loadMore.hidden = true;
   targetUpdateSortIndicators();
+}
+
+function targetRenderManualMemos() {
+  const memoRows = targetState.rows
+    .filter((row) => targetState.manualMemoIds.has(String(row.chart_id)))
+    .sort(targetCompareRows);
+  targetElements.manualRowCount.textContent = memoRows.length.toLocaleString() + "件";
+  targetElements.manualTableBody.innerHTML = memoRows.map(targetRenderTableRow).join("");
+  targetElements.manualTableShell.hidden = memoRows.length === 0;
+  targetElements.manualEmpty.hidden = memoRows.length > 0;
+}
+
+function targetSetMode(mode) {
+  targetState.mode = mode === "manual" ? "manual" : "auto";
+  const isManual = targetState.mode === "manual";
+  targetElements.autoTab.classList.toggle("is-active", !isManual);
+  targetElements.manualTab.classList.toggle("is-active", isManual);
+  targetElements.autoTab.setAttribute("aria-selected", String(!isManual));
+  targetElements.manualTab.setAttribute("aria-selected", String(isManual));
+  targetElements.autoPanel.hidden = isManual;
+  targetElements.manualPanel.hidden = !isManual;
+  targetRender();
+
+  if (isManual && targetState.db) {
+    targetReadAllManualMemos()
+      .then((memos) => {
+        targetApplyManualMemos(memos);
+        if (targetState.mode === "manual") {
+          targetRender();
+        }
+      })
+      .catch(() => {
+        // Keep the last successfully loaded manual memo list on read failure.
+      });
+  }
+}
+
+function targetRender() {
+  if (targetState.mode === "manual") {
+    targetRenderManualMemos();
+  } else {
+    targetRenderAutoRecommendations();
+  }
   requestAnimationFrame(targetUpdateTableOverflow);
 }
 
@@ -733,6 +817,51 @@ function targetSigmoid(value) {
   }
   const exponential = Math.exp(value);
   return exponential / (1 + exponential);
+}
+
+function targetStatusOptions(selected) {
+  return targetStatuses.map(({ value, label }) => (
+    '<option value="' + value + '"' + (value === selected ? ' selected' : '') + ">" + label + "</option>"
+  )).join("");
+}
+
+function targetRenderStatusSelect(row) {
+  const status = targetGetStatus(row);
+  return '<select class="target-status-select" data-status="' + targetEscapeHtml(status)
+    + '" data-chart-id="' + targetEscapeHtml(row.chart_id)
+    + '" aria-label="' + targetEscapeHtml(row.title) + 'のクリア状況">'
+    + targetStatusOptions(status) + "</select>";
+}
+
+function targetUpdateStatusSelect(select) {
+  select.dataset.status = select.value;
+}
+
+function targetGetStatus(row) {
+  const status = String(targetState.records.get(String(row.chart_id))?.status ?? "").toLowerCase();
+  return targetStatusValues.has(status) ? status : "unregistered";
+}
+
+function targetReadRecommendationStatuses() {
+  try {
+    const raw = window.localStorage?.getItem(targetRecommendationSettingsKey);
+    const parsed = JSON.parse(raw ?? "null");
+    if (Array.isArray(parsed)) {
+      return new Set(parsed.filter((value) => targetStatusValues.has(value)));
+    }
+  } catch (error) {
+    // Fall back to the default when local storage is unavailable or invalid.
+  }
+  return new Set(targetDefaultRecommendationStatuses);
+}
+
+function targetShuffleRows(rows) {
+  const shuffled = [...rows];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return shuffled;
 }
 
 function targetGetPredObservations() {
@@ -1000,6 +1129,9 @@ function targetOpenDatabase() {
       if (!database.objectStoreNames.contains(targetStoreName)) {
         database.createObjectStore(targetStoreName, { keyPath: "chartId" });
       }
+      if (!database.objectStoreNames.contains(targetManualMemoStoreName)) {
+        database.createObjectStore(targetManualMemoStoreName, { keyPath: "chartId" });
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error("Unable to open IndexedDB"));
@@ -1019,14 +1151,97 @@ function targetApplyRecords(records) {
   targetState.records = new Map();
   records.forEach((record) => {
     const chartId = String(record?.chartId ?? "").trim();
-    if (/^\d+$/.test(chartId)) {
-      targetState.records.set(chartId, record);
+    const status = String(record?.status ?? "").toLowerCase();
+    if (/^\d+$/.test(chartId) && targetStatusValues.has(status)) {
+      targetState.records.set(chartId, { ...(record ?? {}), chartId, status });
     }
   });
 }
 
+function targetReadAllManualMemos() {
+  return new Promise((resolve, reject) => {
+    const transaction = targetState.db.transaction(targetManualMemoStoreName, "readonly");
+    const request = transaction.objectStore(targetManualMemoStoreName).getAll();
+    request.onsuccess = () => resolve(request.result ?? []);
+    request.onerror = () => reject(request.error ?? new Error("Unable to read manual memos"));
+  });
+}
+
+function targetApplyManualMemos(memos) {
+  targetState.manualMemoIds = new Set(
+    memos
+      .map((memo) => String(memo?.chartId ?? "").trim())
+      .filter((chartId) => targetState.rowsByChartId.has(chartId)),
+  );
+}
+
+function targetWriteStatus(chartId, status) {
+  return new Promise((resolve, reject) => {
+    if (!targetState.db) {
+      reject(new Error("ローカル保存を開けませんでした。"));
+      return;
+    }
+    const transaction = targetState.db.transaction(targetStoreName, "readwrite");
+    const store = transaction.objectStore(targetStoreName);
+    if (status === "unregistered") {
+      store.delete(chartId);
+    } else {
+      store.put({ chartId, status, updatedAt: new Date().toISOString() });
+    }
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(
+      transaction.error ?? new Error("記録を保存できませんでした。"),
+    );
+  });
+}
+
+async function targetHandleStatusChange(event) {
+  const select = event.target.closest?.(".target-status-select");
+  if (!select || !targetStatusValues.has(select.value)) {
+    return;
+  }
+
+  const chartId = String(select.dataset.chartId ?? "").trim();
+  const row = targetState.rowsByChartId.get(chartId);
+  if (!row) {
+    return;
+  }
+  const previousStatus = targetGetStatus(row);
+  const status = select.value;
+  select.disabled = true;
+  try {
+    await targetWriteStatus(chartId, status);
+    if (status === "unregistered") {
+      targetState.records.delete(chartId);
+    } else {
+      targetState.records.set(chartId, {
+        chartId,
+        status,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+    targetRecalculateModel();
+    targetUpdateAvailability();
+    targetState.visibleLimit = targetPageSize;
+    targetRender();
+    targetShowError("");
+  } catch (error) {
+    select.value = previousStatus;
+    targetUpdateStatusSelect(select);
+    targetShowError(error.message || "記録を保存できませんでした。");
+  } finally {
+    select.disabled = false;
+  }
+}
+
 function targetInitializeElements() {
+  targetElements.autoTab = document.getElementById("targetAutoTab");
+  targetElements.manualTab = document.getElementById("targetManualTab");
+  targetElements.autoPanel = document.getElementById("targetAutoPanel");
+  targetElements.manualPanel = document.getElementById("targetManualPanel");
   targetElements.searchInput = document.getElementById("targetSearchInput");
+  targetElements.statusMenu = document.getElementById("targetStatusFilterMenu");
+  targetElements.statusSummary = document.getElementById("targetStatusFilterSummary");
   targetElements.levelMenu = document.getElementById("targetLevelFilterMenu");
   targetElements.levelSummary = document.getElementById("targetLevelFilterSummary");
   targetElements.difficultyMenu = document.getElementById("targetDifficultyFilterMenu");
@@ -1046,6 +1261,10 @@ function targetInitializeElements() {
   targetElements.table = targetElements.tableShell.querySelector("table");
   targetElements.tableBody = document.getElementById("targetTableBody");
   targetElements.loadMore = document.getElementById("targetLoadMoreButton");
+  targetElements.manualEmpty = document.getElementById("targetManualEmpty");
+  targetElements.manualRowCount = document.getElementById("targetManualRowCount");
+  targetElements.manualTableShell = document.getElementById("targetManualTableShell");
+  targetElements.manualTableBody = document.getElementById("targetManualTableBody");
   targetElements.scrollTop = document.getElementById("targetScrollTopButton");
 }
 
@@ -1056,6 +1275,13 @@ function targetPopulateFilters() {
   targetState.difficultyFilter = new Set(difficulties);
   targetFillMultiFilterOptions(targetElements.levelMenu, levels, "levelFilter", (value) => "☆" + value, targetElements.levelSummary);
   targetFillMultiFilterOptions(targetElements.difficultyMenu, difficulties, "difficultyFilter", (value) => targetDifficultyLabels[value] ?? value, targetElements.difficultySummary);
+  targetFillMultiFilterOptions(
+    targetElements.statusMenu,
+    targetStatuses.map(({ value }) => value),
+    "statusFilter",
+    (value) => targetStatuses.find((status) => status.value === value)?.label ?? value,
+    targetElements.statusSummary,
+  );
   targetFillFeatureFilterOptions(targetElements.featureMenu);
 }
 
@@ -1075,6 +1301,8 @@ function targetSetupFilterDetails() {
 }
 
 function targetBindEvents() {
+  targetElements.autoTab.addEventListener("click", () => targetSetMode("auto"));
+  targetElements.manualTab.addEventListener("click", () => targetSetMode("manual"));
   targetElements.searchInput.addEventListener("input", () => {
     targetState.searchQuery = targetElements.searchInput.value.trim().toLocaleLowerCase("ja");
     targetState.visibleLimit = targetPageSize;
@@ -1091,6 +1319,8 @@ function targetBindEvents() {
   targetElements.table.querySelectorAll("thead button[data-sort-key]").forEach((button) => {
     button.addEventListener("click", () => targetSetSort(button.dataset.sortKey));
   });
+  targetElements.tableBody.addEventListener("change", targetHandleStatusChange);
+  targetElements.manualTableBody.addEventListener("change", targetHandleStatusChange);
   targetElements.loadMore.addEventListener("click", () => {
     targetState.visibleLimit += targetPageSize;
     targetRender();
@@ -1124,6 +1354,8 @@ function targetShowError(message) {
 
 async function targetInitialize() {
   targetInitializeElements();
+  targetState.recommendationStatuses = targetReadRecommendationStatuses();
+  targetState.statusFilter = new Set(targetState.recommendationStatuses);
   targetSetupFilterDetails();
   try {
     if (typeof window.__CSV_BUNDLE__ !== "string") {
@@ -1145,6 +1377,7 @@ async function targetInitialize() {
   try {
     targetState.db = await targetOpenDatabase();
     targetApplyRecords(await targetReadAllRecords());
+    targetApplyManualMemos(await targetReadAllManualMemos());
     targetRecalculateModel();
     targetUpdateAvailability();
     targetRender();

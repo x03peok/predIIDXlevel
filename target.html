@@ -19,12 +19,12 @@
     gtag('config', 'G-M0BX4638PS');
   </script>
   <script src="analytics.js?v=20260831-3" defer></script>
-  <link rel="stylesheet" href="styles.css?v=20260831-4">
+  <link rel="stylesheet" href="styles.css?v=20260831-5">
   <link rel="stylesheet" href="menu.css?v=20260831-1">
-  <link rel="stylesheet" href="target.css?v=20260831-2">
+  <link rel="stylesheet" href="target.css?v=20260831-4">
   <script src="menu.js?v=20260831-1" defer></script>
   <script src="data.js?v=20260831-1" defer></script>
-  <script src="target.js?v=20260831-3" defer></script>
+  <script src="target.js?v=20260831-7" defer></script>
 </head>
 <body data-page="target">
   <main class="app">
@@ -56,6 +56,12 @@
 
     <section class="view view--main" aria-live="polite">
       <div class="panel target-panel">
+        <div class="target-mode-switch" role="tablist" aria-label="これを狙えの表示切り替え">
+          <button id="targetAutoTab" class="target-mode-switch__button is-active" type="button" role="tab" aria-selected="true" aria-controls="targetAutoPanel">自動リコメンド</button>
+          <button id="targetManualTab" class="target-mode-switch__button" type="button" role="tab" aria-selected="false" aria-controls="targetManualPanel">手動メモ</button>
+        </div>
+
+        <section id="targetAutoPanel" class="target-mode-panel" role="tabpanel" aria-labelledby="targetAutoTab">
         <p id="targetInsufficientMessage" class="target-insufficient-message">
           登録譜面数が不足しています。<a href="record.html">クリアランプ登録</a>してください
         </p>
@@ -65,6 +71,14 @@
             <span>Title</span>
             <input id="targetSearchInput" type="search" placeholder="search title" autocomplete="off">
           </label>
+
+          <div class="multi-filter target-status-filter">
+            <span>Status</span>
+            <details id="targetStatusFilterDetails" class="multi-filter__details target-filter-details">
+              <summary id="targetStatusFilterSummary">5 selected</summary>
+              <div id="targetStatusFilterMenu" class="multi-filter__options"></div>
+            </details>
+          </div>
 
           <div class="multi-filter level-filter">
             <span>Level</span>
@@ -124,6 +138,7 @@
               <col class="col-title">
               <col class="col-pred">
               <col class="target-col-adjusted-pred">
+              <col class="target-col-status">
               <col class="col-bpm">
               <col class="col-features">
             </colgroup>
@@ -133,6 +148,7 @@
                 <th><button type="button" data-sort-key="title"><span>Title</span><span class="sort-mark"></span></button></th>
                 <th><button type="button" data-sort-key="calibrated_pred_skill"><span>Pred</span><span class="sort-mark"></span></button></th>
                 <th><button type="button" data-sort-key="adjusted_pred"><span>補正Pred</span><span class="sort-mark"></span></button></th>
+                <th><button type="button" data-sort-key="status"><span>Status</span><span class="sort-mark"></span></button></th>
                 <th><button type="button" data-sort-key="bpm"><span>BPM</span><span class="sort-mark"></span></button></th>
                 <th><button type="button" data-sort-key="features"><span>Feature</span><span class="sort-mark"></span></button></th>
               </tr>
@@ -144,6 +160,37 @@
           <button class="load-more" id="targetLoadMoreButton" type="button" hidden>さらに表示</button>
         </div>
         </div>
+        </section>
+
+        <section id="targetManualPanel" class="target-mode-panel" role="tabpanel" aria-labelledby="targetManualTab" hidden>
+          <p id="targetManualRowCount" class="row-count" aria-live="polite"></p>
+          <p id="targetManualEmpty" class="target-manual-empty">譜面詳細ページで「手動メモに登録」を押した譜面を表示します。</p>
+          <div id="targetManualTableShell" class="table-shell" hidden>
+            <table class="target-table target-table--manual">
+              <colgroup>
+                <col class="col-orig">
+                <col class="col-title">
+                <col class="col-pred">
+                <col class="target-col-adjusted-pred">
+                <col class="target-col-status">
+                <col class="col-bpm">
+                <col class="col-features">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Level</th>
+                  <th>Title</th>
+                  <th>Pred</th>
+                  <th>補正Pred</th>
+                  <th>Status</th>
+                  <th>BPM</th>
+                  <th>Feature</th>
+                </tr>
+              </thead>
+              <tbody id="targetManualTableBody"></tbody>
+            </table>
+          </div>
+        </section>
       </div>
     </section>
   </main>
