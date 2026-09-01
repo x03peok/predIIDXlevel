@@ -352,6 +352,30 @@ function recordSetupFilterDetails() {
     closeOtherFilterDetails(target?.closest(".record-filter-details") ?? null);
   });
 }
+function recordSetupTabs() {
+  const manualTab = document.getElementById("recordManualTab");
+  const csvTab = document.getElementById("recordCsvTab");
+  const manualPanel = document.getElementById("recordManualPanel");
+  const csvPanel = document.getElementById("recordCsvPanel");
+  if (!manualTab || !csvTab || !manualPanel || !csvPanel) {
+    return;
+  }
+
+  const setActiveTab = (mode) => {
+    const isCsv = mode === "csv";
+    manualTab.classList.toggle("is-active", !isCsv);
+    csvTab.classList.toggle("is-active", isCsv);
+    manualTab.setAttribute("aria-selected", String(!isCsv));
+    csvTab.setAttribute("aria-selected", String(isCsv));
+    manualPanel.hidden = isCsv;
+    csvPanel.hidden = !isCsv;
+  };
+
+  manualTab.addEventListener("click", () => setActiveTab("manual"));
+  csvTab.addEventListener("click", () => setActiveTab("csv"));
+  setActiveTab("manual");
+}
+
 function recordGetFilteredRows() {
   const query = recordState.query.trim().toLowerCase();
   let rows = recordState.rows;
@@ -509,6 +533,7 @@ function recordBindEvents() {
 }
 async function recordInitialize() {
   recordEntityDecoder = document.createElement("textarea");
+  recordSetupTabs();
   recordSetupFilterDetails();
   recordElements.search = document.getElementById("recordSearchInput");
   recordElements.statusFilterSummary = document.getElementById("recordStatusFilterSummary");

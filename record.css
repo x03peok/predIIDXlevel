@@ -1,3 +1,53 @@
+.record-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.record-mode-switch__button {
+  min-height: 2.5rem;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--panel-strong);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.record-mode-switch__button:hover,
+.record-mode-switch__button:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.record-mode-switch__button.is-active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.record-mode-panel[hidden] {
+  display: none;
+}
+
+.record-import-card {
+  max-width: 48rem;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(248, 250, 252, 0.72);
+}
+
+.record-import-coming-soon {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
 .record-panel {
   width: min(1200px, 100%);
 }

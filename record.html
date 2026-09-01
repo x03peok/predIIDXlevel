@@ -16,11 +16,11 @@
   <!-- Google Analytics -->
   <script defer src="analytics.js?v=20260831-3"></script>
   <link rel="stylesheet" href="styles.css?v=20260831-5">
-  <link rel="stylesheet" href="record.css?v=20260831-9">
+  <link rel="stylesheet" href="record.css?v=20260901-3">
   <link rel="stylesheet" href="menu.css">
   <script defer src="menu.js?v=20260831-3"></script>
   <script defer src="data.js?v=20260821-5"></script>
-  <script defer src="record.js?v=20260831-4"></script>
+  <script defer src="record.js?v=20260901-3"></script>
 </head>
 <body data-page="record">
   <main class="app">
@@ -52,58 +52,86 @@
 
     <section class="view view--record" aria-live="polite">
       <div class="panel record-panel">
-        <div class="toolbar record-toolbar">
-          <label class="search record-search">
-            <span>Title</span>
-            <input id="recordSearchInput" type="search" placeholder="search title" autocomplete="off">
-          </label>
-
-          <div class="multi-filter record-status-filter">
-            <span>Status</span>
-            <details id="recordStatusFilterDetails" class="multi-filter__details record-filter-details">
-              <summary id="recordStatusFilterSummary">all</summary>
-              <div id="recordStatusFilterOptions" class="multi-filter__options"></div>
-            </details>
-          </div>
-
-          <div class="multi-filter record-level-filter">
-            <span>Level</span>
-            <details id="recordLevelFilterDetails" class="multi-filter__details record-filter-details">
-              <summary id="recordLevelFilterSummary">all</summary>
-              <div id="recordLevelFilterOptions" class="multi-filter__options"></div>
-            </details>
-          </div>
-
-          <div class="multi-filter record-difficulty-filter">
-            <span>Difficulty</span>
-            <details id="recordDifficultyFilterDetails" class="multi-filter__details record-filter-details">
-              <summary id="recordDifficultyFilterSummary">all</summary>
-              <div id="recordDifficultyFilterOptions" class="multi-filter__options"></div>
-            </details>
-          </div>
-        </div>        <p id="recordMessage" class="record-message" role="status" aria-live="polite"></p>
-        <p id="recordSummary" class="record-summary" aria-live="polite"></p>
-
-        <div class="table-shell record-table-shell">
-          <table class="record-table">
-                        <colgroup>
-              <col class="record-col-level">
-              <col class="record-col-title">
-              <col class="record-col-status">
-            </colgroup>
-                        <thead>
-              <tr>
-                <th scope="col">Level</th>
-                <th scope="col">Title</th>
-                <th scope="col">Status</th>
-              </tr>
-            </thead>
-            <tbody id="recordTableBody"></tbody>
-          </table>
+        <div class="record-mode-switch" role="tablist" aria-label="クリアランプ登録方法">
+          <button
+            id="recordManualTab"
+            class="record-mode-switch__button is-active"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            aria-controls="recordManualPanel"
+          >手動登録</button>
+          <button
+            id="recordCsvTab"
+            class="record-mode-switch__button"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="recordCsvPanel"
+          >CSVインポート</button>
         </div>
-        <div class="record-pagination">
-          <button id="recordLoadMoreButton" class="record-button record-button--secondary" type="button" hidden>さらに表示</button>
-        </div>
+
+        <section id="recordManualPanel" class="record-mode-panel" role="tabpanel" aria-labelledby="recordManualTab">
+          <div class="toolbar record-toolbar">
+            <label class="search record-search">
+              <span>Title</span>
+              <input id="recordSearchInput" type="search" placeholder="search title" autocomplete="off">
+            </label>
+
+            <div class="multi-filter record-status-filter">
+              <span>Status</span>
+              <details id="recordStatusFilterDetails" class="multi-filter__details record-filter-details">
+                <summary id="recordStatusFilterSummary">all</summary>
+                <div id="recordStatusFilterOptions" class="multi-filter__options"></div>
+              </details>
+            </div>
+
+            <div class="multi-filter record-level-filter">
+              <span>Level</span>
+              <details id="recordLevelFilterDetails" class="multi-filter__details record-filter-details">
+                <summary id="recordLevelFilterSummary">all</summary>
+                <div id="recordLevelFilterOptions" class="multi-filter__options"></div>
+              </details>
+            </div>
+
+            <div class="multi-filter record-difficulty-filter">
+              <span>Difficulty</span>
+              <details id="recordDifficultyFilterDetails" class="multi-filter__details record-filter-details">
+                <summary id="recordDifficultyFilterSummary">all</summary>
+                <div id="recordDifficultyFilterOptions" class="multi-filter__options"></div>
+              </details>
+            </div>
+          </div>
+          <p id="recordMessage" class="record-message" role="status" aria-live="polite"></p>
+          <p id="recordSummary" class="record-summary" aria-live="polite"></p>
+
+          <div class="table-shell record-table-shell">
+            <table class="record-table">
+              <colgroup>
+                <col class="record-col-level">
+                <col class="record-col-title">
+                <col class="record-col-status">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th scope="col">Level</th>
+                  <th scope="col">Title</th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody id="recordTableBody"></tbody>
+            </table>
+          </div>
+          <div class="record-pagination">
+            <button id="recordLoadMoreButton" class="record-button record-button--secondary" type="button" hidden>さらに表示</button>
+          </div>
+        </section>
+
+        <section id="recordCsvPanel" class="record-mode-panel" role="tabpanel" aria-labelledby="recordCsvTab" hidden>
+          <div class="record-import-card">
+            <p class="record-import-coming-soon">近日実装予定</p>
+          </div>
+        </section>
       </div>
     </section>
   </main>

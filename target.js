@@ -1245,6 +1245,9 @@ function targetGetAvailability() {
     observationCount: observations.length,
     clearCount,
     notClearCount,
+    clearShortage: Math.max(0, 3 - clearCount),
+    notClearShortage: Math.max(0, 3 - notClearCount),
+    totalShortage: Math.max(0, 10 - observations.length),
   };
 }
 
@@ -1274,6 +1277,9 @@ function targetTrackUnlockEvent(availability) {
 function targetUpdateAvailability() {
   const availability = targetGetAvailability();
   const available = availability.available;
+  if (!available) {
+    targetElements.insufficientMessageText.textContent = "あとクリア" + availability.clearShortage.toLocaleString() + "件、未クリア" + availability.notClearShortage.toLocaleString() + "件、全体" + availability.totalShortage.toLocaleString() + "件登録で、マイターゲット機能が解禁されます。";
+  }
   targetElements.content.hidden = !available;
   targetElements.insufficientMessage.hidden = available;
   if (available && !targetState.targetWasAvailable) {
@@ -1469,6 +1475,7 @@ function targetInitializeElements() {
   targetElements.featureSummary = document.getElementById("targetFeatureFilterSummary");
   targetElements.content = document.getElementById("targetContent");
   targetElements.insufficientMessage = document.getElementById("targetInsufficientMessage");
+  targetElements.insufficientMessageText = document.getElementById("targetInsufficientMessageText");
   targetElements.advancedSummary = document.getElementById("targetAdvancedFilterSummary");
   targetElements.bpmMinInput = document.getElementById("targetBpmMinInput");
   targetElements.bpmMaxInput = document.getElementById("targetBpmMaxInput");
