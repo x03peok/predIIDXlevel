@@ -127,6 +127,7 @@
     const buttonEvents = {
       loadMoreButton: "load_more",
       recordLoadMoreButton: "load_more",
+      recordCsvImportButton: "record_csv_import",
       mypageLoadMoreButton: "load_more",
       scrollTopButton: "scroll_to_top",
       mypageScrollTopButton: "scroll_to_top",
@@ -196,6 +197,10 @@
       });
     }
 
+    if (target.matches("#recordCsvInput")) {
+      track("record_csv_file_selected");
+      return;
+    }
     if (target.matches("#settingsImportInput")) {
       track("data_import_file_selected");
     }

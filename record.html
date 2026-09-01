@@ -14,13 +14,14 @@
   <meta property="og:locale" content="ja_JP">
   <meta name="twitter:card" content="summary">
   <!-- Google Analytics -->
-  <script defer src="analytics.js?v=20260831-3"></script>
+  <script defer src="analytics.js?v=20260902-1"></script>
   <link rel="stylesheet" href="styles.css?v=20260831-5">
-  <link rel="stylesheet" href="record.css?v=20260901-3">
+  <link rel="stylesheet" href="record.css?v=20260902-1">
   <link rel="stylesheet" href="menu.css">
   <script defer src="menu.js?v=20260831-3"></script>
   <script defer src="data.js?v=20260821-5"></script>
-  <script defer src="record.js?v=20260901-3"></script>
+  <script defer src="record-import-index.js?v=20260902-1"></script>
+  <script defer src="record.js?v=20260902-1"></script>
 </head>
 <body data-page="record">
   <main class="app">
@@ -129,7 +130,15 @@
 
         <section id="recordCsvPanel" class="record-mode-panel" role="tabpanel" aria-labelledby="recordCsvTab" hidden>
           <div class="record-import-card">
-            <p class="record-import-coming-soon">近日実装予定</p>
+            <p class="record-import-description">公式CSVのクリアタイプを読み込み、対応する譜面のStatusを登録します。CSVにない譜面の記録は変更しません。</p>
+            <label class="record-import-file">
+              <span>公式CSVファイル</span>
+              <input id="recordCsvInput" type="file" accept=".csv,text/csv">
+            </label>
+            <div class="record-import-actions">
+              <button id="recordCsvImportButton" class="record-button" type="button" disabled>CSVをインポート</button>
+            </div>
+            <p id="recordCsvImportMessage" class="record-import-message" role="status" aria-live="polite"></p>
           </div>
         </section>
       </div>

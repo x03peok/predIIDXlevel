@@ -35,18 +35,45 @@
 }
 
 .record-import-card {
+  display: grid;
   max-width: 48rem;
+  gap: 14px;
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: rgba(248, 250, 252, 0.72);
 }
-
-.record-import-coming-soon {
+.record-import-description,
+.record-import-message {
   margin: 0;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.86rem;
   line-height: 1.6;
+}
+.record-import-file {
+  display: grid;
+  gap: 8px;
+}
+.record-import-file > span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+.record-import-file input[type="file"] {
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.record-import-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+.record-import-message {
+  min-height: 1.4em;
+}
+.record-import-message[data-state="error"] {
+  color: #b91c1c;
 }
 .record-panel {
   width: min(1200px, 100%);
@@ -123,6 +150,12 @@
 .record-button--secondary:hover,
 .record-button--secondary:focus-visible {
   background: rgba(219, 234, 254, 0.55);
+}
+.record-button:disabled,
+.record-button:disabled:hover,
+.record-button:disabled:focus-visible {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .record-message {
@@ -304,3 +337,4 @@
     min-width: 0;
   }
 }
+

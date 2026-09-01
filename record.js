@@ -34,6 +34,9 @@ const recordStatuses = [
   { value: "hard", label: "HARD以上" },
 ];
 const recordStatusValues = new Set(recordStatuses.map(({ value }) => value));
+const recordImportDifficulties = ["NORMAL", "HYPER", "ANOTHER", "LEGGENDARIA"];
+const recordImportIndex = window.__RECORD_IMPORT_INDEX__ ?? null;
+const recordImportCollisionTitles = new Set(recordImportIndex?.collisionTitles ?? []);
 
 const recordState = {
   rows: [],
@@ -45,6 +48,7 @@ const recordState = {
   levelFilter: null,
   difficultyFilter: null,
   visibleLimit: recordPageSize,
+  importFile: null,
   db: null,
 };
 
@@ -104,6 +108,123 @@ function recordParseCsv(text) {
   return rows;
 }
 
+function recordNormalizeImportText(value) {
+  return recordNormalizeTitle(value)
+    .normalize("NFKC")
+    .replace(/\u3000/g, " ")
+    .replace(/[‐‑‒–—―]/g, "-")
+    .replace(/[〜～]/g, "~")
+    .replace(/\s+/g, "")
+    .toUpperCase();
+}
+function recordGetImportChartIds(title, version, difficulty) {
+  if (!recordImportIndex) return [];
+  const titleKey = recordNormalizeImportText(title);
+  const difficultyKey = String(difficulty ?? "").trim().toUpperCase();
+  const versionKey = recordNormalizeImportText(version);
+  const separator = String.fromCharCode(0);
+  const isCollision = recordImportCollisionTitles.has(titleKey);
+  const key = isCollision ? [titleKey, versionKey, difficultyKey].join(separator) : [titleKey, difficultyKey].join(separator);
+  const source = isCollision ? recordImportIndex.versioned : recordImportIndex.plain;
+  const values = source?.[key];
+  if (Array.isArray(values)) return values;
+  return values ? [values] : [];
+}
+function recordMapImportClearType(clearType) {
+  const value = String(clearType ?? "").trim().toUpperCase();
+  if (!value || value === "---") return null;
+  if (value === "NO PLAY") return "no-play";
+  if (value === "FAILED") return "failed";
+  if (value.includes("ASSIST")) return "assisted";
+  if (value.includes("EASY")) return "easy";
+  if (value === "CLEAR") return "clear";
+  if (value.includes("HARD") || value.includes("FULLCOMBO")) return "hard";
+  return undefined;
+}
+function recordWriteStatuses(statuses) {
+  return new Promise((resolve, reject) => {
+    if (!recordState.db) { reject(new Error("ローカル保存を開けませんでした。")); return; }
+    const transaction = recordState.db.transaction(recordStoreName, "readwrite");
+    const store = transaction.objectStore(recordStoreName);
+    const updatedAt = new Date().toISOString();
+    try {
+      for (const [chartId, status] of statuses) store.put({ chartId, status, updatedAt });
+    } catch (error) { reject(error); return; }
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error ?? new Error("記録を保存できませんでした。"));
+    transaction.onabort = () => reject(transaction.error ?? new Error("記録を保存できませんでした。"));
+  });
+}
+function recordParseOfficialCsv(text) {
+  const parsed = recordParseCsv(text);
+  if (!parsed.length) throw new Error("CSVが空です。");
+  const headers = parsed.shift().map((header) => header.trim());
+  const headerIndex = new Map(headers.map((header, index) => [header, index]));
+  if (!headerIndex.has("バージョン") || !headerIndex.has("タイトル")) throw new Error("公式CSVの列を確認できませんでした。");
+  const availableDifficulties = recordImportDifficulties.filter((difficulty) => headerIndex.has(difficulty + " クリアタイプ"));
+  if (!availableDifficulties.length) throw new Error("対応するクリアタイプ列がありません。");
+  const get = (cells, key) => (cells[headerIndex.get(key)] ?? "").trim();
+  const updates = new Map();
+  let matched = 0;
+  let unmatched = 0;
+  let ambiguous = 0;
+  let unsupported = 0;
+  let duplicate = 0;
+  for (const cells of parsed) {
+    const title = get(cells, "タイトル");
+    if (!title) continue;
+    const version = get(cells, "バージョン");
+    for (const difficulty of availableDifficulties) {
+      const status = recordMapImportClearType(get(cells, difficulty + " クリアタイプ"));
+      if (status === null) continue;
+      if (status === undefined) { unsupported += 1; continue; }
+      const chartIds = recordGetImportChartIds(title, version, difficulty);
+      if (chartIds.length === 0) { unmatched += 1; continue; }
+      if (chartIds.length !== 1) { ambiguous += 1; continue; }
+      if (updates.has(chartIds[0])) duplicate += 1;
+      updates.set(chartIds[0], status);
+      matched += 1;
+    }
+  }
+  return { updates, matched, unmatched, ambiguous, unsupported, duplicate };
+}
+function recordSetCsvMessage(message, isError = false) {
+  if (!recordElements.csvMessage) return;
+  recordElements.csvMessage.textContent = message;
+  recordElements.csvMessage.dataset.state = isError ? "error" : "ok";
+}
+function recordSyncCsvImportButton() {
+  if (recordElements.csvImportButton) recordElements.csvImportButton.disabled = !recordState.importFile || !recordState.db;
+}
+function recordHandleCsvFileChange() {
+  recordState.importFile = recordElements.csvInput.files?.[0] ?? null;
+  recordSetCsvMessage(recordState.importFile ? recordState.importFile.name + "を選択しました。" : "");
+  recordSyncCsvImportButton();
+}
+async function recordHandleCsvImport() {
+  const file = recordState.importFile;
+  if (!file) return;
+  recordElements.csvInput.disabled = true;
+  recordElements.csvImportButton.disabled = true;
+  recordSetCsvMessage("CSVを読み込んでいます。");
+  try {
+    const result = recordParseOfficialCsv(await file.text());
+    if (!result.updates.size) throw new Error("対応する譜面が見つかりませんでした。");
+    await recordWriteStatuses(result.updates);
+    const updatedAt = new Date().toISOString();
+    for (const [chartId, status] of result.updates) recordState.records.set(chartId, { chartId, status, updatedAt });
+    recordRender();
+    let message = result.updates.size.toLocaleString() + "譜面を登録しました。";
+    if (result.unmatched) message += " 対応しない譜面 " + result.unmatched.toLocaleString() + "件は変更していません。";
+    if (result.ambiguous) message += " 判別できない譜面 " + result.ambiguous.toLocaleString() + "件は変更していません。";
+    recordSetCsvMessage(message);
+  } catch (error) {
+    recordSetCsvMessage(error.message || "CSVをインポートできませんでした。", true);
+  } finally {
+    recordElements.csvInput.disabled = false;
+    recordSyncCsvImportButton();
+  }
+}
 function recordDecodeEntities(value) {
   recordEntityDecoder.innerHTML = String(value ?? "");
   return recordEntityDecoder.value;
@@ -530,6 +651,8 @@ function recordBindEvents() {
     recordState.visibleLimit += recordPageSize;
     recordRender();
   });
+  recordElements.csvInput.addEventListener("change", recordHandleCsvFileChange);
+  recordElements.csvImportButton.addEventListener("click", recordHandleCsvImport);
 }
 async function recordInitialize() {
   recordEntityDecoder = document.createElement("textarea");
@@ -546,6 +669,9 @@ async function recordInitialize() {
   recordElements.summary = document.getElementById("recordSummary");
   recordElements.tableBody = document.getElementById("recordTableBody");
   recordElements.loadMore = document.getElementById("recordLoadMoreButton");
+  recordElements.csvInput = document.getElementById("recordCsvInput");
+  recordElements.csvImportButton = document.getElementById("recordCsvImportButton");
+  recordElements.csvMessage = document.getElementById("recordCsvImportMessage");
 
   try {
     recordState.rows = recordLoadRows();
@@ -553,6 +679,7 @@ async function recordInitialize() {
     recordBindEvents();
     recordRender();
     recordState.db = await recordOpenDatabase();
+    recordSyncCsvImportButton();
     recordApplyRecords(await recordReadAll());
     recordRender();
   } catch (error) {
