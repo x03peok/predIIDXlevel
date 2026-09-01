@@ -35,6 +35,7 @@ const recordStatuses = [
 ];
 const recordStatusValues = new Set(recordStatuses.map(({ value }) => value));
 const recordImportDifficulties = ["NORMAL", "HYPER", "ANOTHER", "LEGGENDARIA"];
+const recordImportMinimumLevel = 8;
 const recordImportIndex = window.__RECORD_IMPORT_INDEX__ ?? null;
 const recordImportCollisionTitles = new Set(recordImportIndex?.collisionTitles ?? []);
 
@@ -49,6 +50,7 @@ const recordState = {
   difficultyFilter: null,
   visibleLimit: recordPageSize,
   importFile: null,
+  importText: "",
   db: null,
 };
 
@@ -178,8 +180,13 @@ function recordParseOfficialCsv(text) {
       const status = recordMapImportClearType(get(cells, difficulty + " クリアタイプ"));
       if (status === null) continue;
       if (status === undefined) { unsupported += 1; continue; }
+      const csvLevel = Number(get(cells, difficulty + " 難易度"));
+      const countAsUnmatched = Number.isFinite(csvLevel) && csvLevel >= recordImportMinimumLevel;
       const chartIds = recordGetImportChartIds(title, version, difficulty);
-      if (chartIds.length === 0) { unmatched += 1; continue; }
+      if (chartIds.length === 0) {
+        if (countAsUnmatched) unmatched += 1;
+        continue;
+      }
       if (chartIds.length !== 1) { ambiguous += 1; continue; }
       if (updates.has(chartIds[0])) duplicate += 1;
       updates.set(chartIds[0], status);
@@ -193,22 +200,49 @@ function recordSetCsvMessage(message, isError = false) {
   recordElements.csvMessage.textContent = message;
   recordElements.csvMessage.dataset.state = isError ? "error" : "ok";
 }
+function recordHasCsvImportSource() {
+  return Boolean(recordState.importFile || recordState.importText.trim());
+}
 function recordSyncCsvImportButton() {
-  if (recordElements.csvImportButton) recordElements.csvImportButton.disabled = !recordState.importFile || !recordState.db;
+  if (recordElements.csvImportButton) {
+    recordElements.csvImportButton.disabled = !recordHasCsvImportSource() || !recordState.db;
+  }
 }
 function recordHandleCsvFileChange() {
-  recordState.importFile = recordElements.csvInput.files?.[0] ?? null;
-  recordSetCsvMessage(recordState.importFile ? recordState.importFile.name + "を選択しました。" : "");
+  const file = recordElements.csvInput.files?.[0] ?? null;
+  recordState.importFile = file;
+  if (file) {
+    recordState.importText = "";
+    if (recordElements.csvText) recordElements.csvText.value = "";
+  }
+  const message = file
+    ? file.name + "を選択しました。"
+    : recordState.importText.trim() ? "CSVテキストを入力しました。" : "";
+  recordSetCsvMessage(message);
+  recordSyncCsvImportButton();
+}
+function recordHandleCsvTextInput() {
+  recordState.importText = recordElements.csvText.value;
+  if (recordState.importText.trim()) {
+    recordState.importFile = null;
+    if (recordElements.csvInput) recordElements.csvInput.value = "";
+    recordSetCsvMessage("CSVテキストを入力しました。");
+  } else if (!recordState.importFile) {
+    recordSetCsvMessage("");
+  }
   recordSyncCsvImportButton();
 }
 async function recordHandleCsvImport() {
   const file = recordState.importFile;
-  if (!file) return;
+  const pastedText = recordState.importText;
+  if (!file && !pastedText.trim()) return;
   recordElements.csvInput.disabled = true;
+  recordElements.csvText.disabled = true;
   recordElements.csvImportButton.disabled = true;
   recordSetCsvMessage("CSVを読み込んでいます。");
   try {
-    const result = recordParseOfficialCsv(await file.text());
+    const csvText = pastedText.trim() ? pastedText : await file.text();
+    const result = recordParseOfficialCsv(csvText);
     if (!result.updates.size) throw new Error("対応する譜面が見つかりませんでした。");
     await recordWriteStatuses(result.updates);
     const updatedAt = new Date().toISOString();
@@ -222,6 +256,7 @@ async function recordHandleCsvImport() {
     recordSetCsvMessage(error.message || "CSVをインポートできませんでした。", true);
   } finally {
     recordElements.csvInput.disabled = false;
+    recordElements.csvText.disabled = false;
     recordSyncCsvImportButton();
   }
 }
@@ -652,6 +687,7 @@ function recordBindEvents() {
     recordRender();
   });
   recordElements.csvInput.addEventListener("change", recordHandleCsvFileChange);
+  recordElements.csvText.addEventListener("input", recordHandleCsvTextInput);
   recordElements.csvImportButton.addEventListener("click", recordHandleCsvImport);
 }
 async function recordInitialize() {
@@ -670,6 +706,7 @@ async function recordInitialize() {
   recordElements.tableBody = document.getElementById("recordTableBody");
   recordElements.loadMore = document.getElementById("recordLoadMoreButton");
   recordElements.csvInput = document.getElementById("recordCsvInput");
+  recordElements.csvText = document.getElementById("recordCsvText");
   recordElements.csvImportButton = document.getElementById("recordCsvImportButton");
   recordElements.csvMessage = document.getElementById("recordCsvImportMessage");
 

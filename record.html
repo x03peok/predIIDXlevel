@@ -14,14 +14,14 @@
   <meta property="og:locale" content="ja_JP">
   <meta name="twitter:card" content="summary">
   <!-- Google Analytics -->
-  <script defer src="analytics.js?v=20260902-1"></script>
-  <link rel="stylesheet" href="styles.css?v=20260831-5">
-  <link rel="stylesheet" href="record.css?v=20260902-1">
+  <script defer src="analytics.js?v=20260902-3"></script>
+  <link rel="stylesheet" href="styles.css?v=20260902-1">
+  <link rel="stylesheet" href="record.css?v=20260902-7">
   <link rel="stylesheet" href="menu.css">
   <script defer src="menu.js?v=20260831-3"></script>
   <script defer src="data.js?v=20260821-5"></script>
-  <script defer src="record-import-index.js?v=20260902-1"></script>
-  <script defer src="record.js?v=20260902-1"></script>
+  <script defer src="record-import-index.js?v=20260902-3"></script>
+  <script defer src="record.js?v=20260902-3"></script>
 </head>
 <body data-page="record">
   <main class="app">
@@ -130,10 +130,18 @@
 
         <section id="recordCsvPanel" class="record-mode-panel" role="tabpanel" aria-labelledby="recordCsvTab" hidden>
           <div class="record-import-card">
-            <p class="record-import-description">公式CSVのクリアタイプを読み込み、対応する譜面のStatusを登録します。CSVにない譜面の記録は変更しません。</p>
+            <ul class="record-import-description">
+              <li><a href="https://p.eagate.573.jp/game/2dx/33/djdata/score_download.html?style=SP" target="_blank" rel="noopener noreferrer">公式CSV</a>を読み込み、対応譜面のランプを上書き登録します。</li>
+              <li>未対応譜面がある場合は変更しません。</li>
+              <li>誤動作の原因となるため、編集・改変したCSVは登録しないでください。</li>
+            </ul>
             <label class="record-import-file">
-              <span>公式CSVファイル</span>
+              <span>CSVファイルを登録</span>
               <input id="recordCsvInput" type="file" accept=".csv,text/csv">
+            </label>
+            <label class="record-import-text">
+              <span>CSVテキストを貼り付け</span>
+              <textarea id="recordCsvText" rows="8" spellcheck="false" placeholder="CSVテキストをここに貼り付け"></textarea>
             </label>
             <div class="record-import-actions">
               <button id="recordCsvImportButton" class="record-button" type="button" disabled>CSVをインポート</button>

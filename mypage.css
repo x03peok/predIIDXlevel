@@ -612,3 +612,18 @@
     font-size: 0.72rem;
   }
 }
+
+
+.mypage-panel > .filter-group > summary {
+  border: 1.5px solid rgba(100, 116, 139, 0.5);
+  background: rgba(241, 245, 249, 0.9);
+  font-weight: 700;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.mypage-panel > .filter-group[open] > summary {
+  border-color: rgba(37, 99, 235, 0.7);
+  background: rgba(219, 234, 254, 0.55);
+}
