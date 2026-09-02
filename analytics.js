@@ -101,7 +101,7 @@
       return;
     }
 
-    if (target.matches(".chart-share-button, .diagnosis-share__button")) {
+    if (target.matches(".chart-share-button, .diagnosis-share__button, .mypage-share__button")) {
       track("share_click", { share_type: "x" });
       return;
     }

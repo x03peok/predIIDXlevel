@@ -1102,6 +1102,60 @@ function mypageRenderFeatureResult(predResult) {
   bars.innerHTML = scale + rows;
   section.hidden = false;
 }
+
+function mypageGetFeatureShareTendencies(scores) {
+  const epsilon = 1e-9;
+  const positive = scores.filter(({ score }) => score > 50 + epsilon);
+  const negative = scores.filter(({ score }) => score < 50 - epsilon);
+  const strongestPositive = positive.length
+    ? Math.max(...positive.map(({ score }) => score - 50))
+    : 0;
+  const strongestNegative = negative.length
+    ? Math.max(...negative.map(({ score }) => 50 - score))
+    : 0;
+
+  return {
+    strong: positive
+      .filter(({ score }) => Math.abs((score - 50) - strongestPositive) < epsilon)
+      .map(({ name }) => name),
+    weak: negative
+      .filter(({ score }) => Math.abs((50 - score) - strongestNegative) < epsilon)
+      .map(({ name }) => name),
+  };
+}
+
+function mypageGetPublicUrl() {
+  return "https://cpi-next.com/mypage.html";
+}
+
+function mypageBuildShareText(result, scores) {
+  const tendencies = mypageGetFeatureShareTendencies(scores);
+  const lines = [
+    "推定適正Pred: " + (result.range || "ー"),
+  ];
+
+  if (tendencies.strong.length) {
+    lines.push("得意傾向: " + tendencies.strong.join("、"));
+  }
+  if (tendencies.weak.length) {
+    lines.push("不得意傾向: " + tendencies.weak.join("、"));
+  }
+
+  lines.push("", mypageGetPublicUrl(), "", "#CPINext");
+  return lines.join("\n");
+}
+
+function mypageUpdateShare(shareText) {
+  const button = mypageElements.shareButton;
+  if (!button) {
+    return;
+  }
+
+  button.href = "https://x.com/intent/tweet?"
+    + new URLSearchParams({ text: shareText }).toString();
+  button.hidden = false;
+}
+
 function mypageRenderPredEstimate() {
   const result = mypageFitPredRegression();
   const element = mypageElements.predEstimate;
@@ -1151,6 +1205,10 @@ function mypageRenderPredEstimate() {
     }
   }
   note.hidden = !result.message;
+  const featureScores = Array.isArray(result.observations) && result.observations.length >= 5
+    ? mypageGetFeatureScores(result.observations, result.model)
+    : [];
+  mypageUpdateShare(mypageBuildShareText(result, featureScores));
   mypageRenderStatusDistribution();
   mypageRenderFeatureResult(result);
 }
@@ -1603,6 +1661,7 @@ function mypageInitializeElements() {
   mypageElements.includeUnregistered = document.getElementById("mypageIncludeUnregistered");
   mypageElements.includeUnowned = document.getElementById("mypageIncludeUnowned");
   mypageElements.predEstimateNote = document.getElementById("mypagePredEstimateNote");
+  mypageElements.shareButton = document.getElementById("mypageShareButton");
 }
 
 async function mypageInitialize() {

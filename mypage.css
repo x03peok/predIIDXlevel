@@ -627,3 +627,40 @@
   border-color: rgba(37, 99, 235, 0.7);
   background: rgba(219, 234, 254, 0.55);
 }
+
+
+.mypage-share {
+  grid-column: 1 / -1;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  text-align: left;
+}
+
+.mypage-share__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 40px;
+  margin: 0 auto;
+  padding: 9px 16px;
+  border: 1px solid #111827;
+  border-radius: 999px;
+  background: #111827;
+  color: #fff;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.mypage-share__button:hover,
+.mypage-share__button:focus-visible {
+  background: #374151;
+}
+
+.mypage-share__button[hidden] {
+  display: none;
+}
