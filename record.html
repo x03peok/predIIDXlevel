@@ -16,12 +16,12 @@
   <!-- Google Analytics -->
   <script defer src="analytics.js?v=20260902-3"></script>
   <link rel="stylesheet" href="styles.css?v=20260902-1">
-  <link rel="stylesheet" href="record.css?v=20260902-7">
+  <link rel="stylesheet" href="record.css?v=20260902-8">
   <link rel="stylesheet" href="menu.css">
   <script defer src="menu.js?v=20260831-3"></script>
   <script defer src="data.js?v=20260821-5"></script>
   <script defer src="record-import-index.js?v=20260902-3"></script>
-  <script defer src="record.js?v=20260902-3"></script>
+  <script defer src="record.js?v=20260902-4"></script>
 </head>
 <body data-page="record">
   <main class="app">
@@ -135,6 +135,8 @@
               <li>未対応譜面がある場合は変更しません。</li>
               <li>誤動作の原因となるため、編集・改変したCSVは登録しないでください。</li>
             </ul>
+            <p class="record-import-warning">SPのプレーデータのみ対応しています。</p>
+            <p class="record-import-privacy">CSVの内容はこのブラウザ内で処理され、サーバーには送信されません。</p>
             <label class="record-import-file">
               <span>CSVファイルを登録</span>
               <input id="recordCsvInput" type="file" accept=".csv,text/csv">
@@ -147,6 +149,13 @@
               <button id="recordCsvImportButton" class="record-button" type="button" disabled>CSVをインポート</button>
             </div>
             <p id="recordCsvImportMessage" class="record-import-message" role="status" aria-live="polite"></p>
+            <div id="recordCsvImportLinks" class="record-import-links" hidden>
+              <p class="record-import-links__message">推定適正Predとおすすめ譜面を確認できます。</p>
+              <div class="record-import-links__actions">
+                <a class="record-button" href="target.html">マイターゲットを見る</a>
+                <a class="record-button record-button--secondary" href="mypage.html">マイページを見る</a>
+              </div>
+            </div>
           </div>
         </section>
       </div>

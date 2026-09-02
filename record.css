@@ -103,6 +103,48 @@
 .record-import-message[data-state="error"] {
   color: #b91c1c;
 }
+.record-import-message[data-state="warning"] {
+  color: #92400e;
+}
+.record-import-warning,
+.record-import-privacy {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+.record-import-warning {
+  border: 1px solid rgba(245, 158, 11, 0.72);
+  background: rgba(254, 243, 199, 0.72);
+  color: #92400e;
+  font-weight: 700;
+}
+.record-import-privacy {
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  background: rgba(219, 234, 254, 0.42);
+  color: #1e40af;
+}
+.record-import-links {
+  display: grid;
+  gap: 10px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+.record-import-links__message {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+.record-import-links__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.record-import-links__actions .record-button {
+  flex: 1 1 12rem;
+}
 .record-panel {
   width: min(1200px, 100%);
 }
