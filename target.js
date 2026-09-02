@@ -35,6 +35,7 @@ const targetDefaultStatusFilter = targetStatuses
   .filter(({ value }) => !["unowned", "clear", "hard"].includes(value))
   .map(({ value }) => value);
 const targetRecommendationSettingsKey = "cpi-next-target-recommendation-statuses";
+const targetAutoRecommendationNoticeStorageKey = "cpi-next-target-auto-recommendation-notice-dismissed";
 const targetRecommendationLevelValues = [8, 9, 10, 11, 12];
 const targetRecommendationCountValues = [5, 10, 20];
 const targetDefaultRecommendationSettings = {
@@ -99,6 +100,22 @@ const targetState = {
 };
 
 const targetElements = {};
+
+function targetReadAutoRecommendationNoticeDismissed() {
+  try {
+    return window.localStorage.getItem(targetAutoRecommendationNoticeStorageKey) === "1";
+  } catch {
+    return false;
+  }
+}
+function targetDismissAutoRecommendationNotice() {
+  try {
+    window.localStorage.setItem(targetAutoRecommendationNoticeStorageKey, "1");
+  } catch {
+    // Continue hiding the notice even when storage is unavailable.
+  }
+  if (targetElements.autoNotice) targetElements.autoNotice.hidden = true;
+}
 
 function targetEscapeHtml(value) {
   return String(value ?? "")
@@ -1459,6 +1476,8 @@ async function targetHandleManualMemoChange(event) {
 }
 
 function targetInitializeElements() {
+  targetElements.autoNotice = document.getElementById("targetAutoNotice");
+  targetElements.autoNoticeClose = document.getElementById("targetAutoNoticeClose");
   targetElements.autoEmpty = document.getElementById("targetAutoEmpty");
   targetElements.autoRowCount = document.getElementById("targetAutoRowCount");
   targetElements.autoRegenerate = document.getElementById("targetAutoRegenerateButton");
@@ -1528,6 +1547,9 @@ function targetSetupFilterDetails() {
 }
 
 function targetBindEvents() {
+  if (targetElements.autoNoticeClose) {
+    targetElements.autoNoticeClose.addEventListener("click", targetDismissAutoRecommendationNotice);
+  }
   targetElements.autoRegenerate.addEventListener("click", () => {
     targetGenerateAutoRecommendations();
     targetRender();
@@ -1611,6 +1633,9 @@ function targetShowError(message) {
 
 async function targetInitialize() {
   targetInitializeElements();
+  if (targetElements.autoNotice) {
+    targetElements.autoNotice.hidden = targetReadAutoRecommendationNoticeDismissed();
+  }
   targetState.recommendationSettings = targetReadRecommendationSettings();
   targetState.statusFilter = new Set(targetDefaultStatusFilter);
   targetSetupFilterDetails();

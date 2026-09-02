@@ -21,10 +21,10 @@
   <script src="analytics.js?v=20260831-3" defer></script>
   <link rel="stylesheet" href="styles.css?v=20260902-2">
   <link rel="stylesheet" href="menu.css?v=20260831-1">
-  <link rel="stylesheet" href="target.css?v=20260902-1">
+  <link rel="stylesheet" href="target.css?v=20260902-2">
   <script src="menu.js?v=20260831-3" defer></script>
   <script src="data.js?v=20260831-1" defer></script>
-  <script src="target.js?v=20260901-2" defer></script>
+  <script src="target.js?v=20260902-3" defer></script>
   <script src="target-tabs.js?v=20260831-2" defer></script>
 </head>
 <body data-page="target">
@@ -63,6 +63,10 @@
         <div id="targetContent" hidden>
           <div class="target-highlights">
             <section id="targetAutoPanel" class="target-highlight-section">
+              <div id="targetAutoNotice" class="target-auto-notice" role="note">
+                <p>あなたの得意傾向に合わせた補正難易度を基に、挑戦レベルに近い譜面を自動的にランダム選出します。選出基準は<a href="settings.html">設定</a>から変更できます。</p>
+                <button id="targetAutoNoticeClose" class="target-auto-notice__close" type="button" aria-label="案内を閉じる">×</button>
+              </div>
               <p id="targetAutoEmpty" class="target-manual-empty" hidden>設定条件に該当する譜面がありません。</p>
               <p id="targetAutoRowCount" class="row-count" aria-live="polite"></p>
               <div id="targetAutoTableShell" class="table-shell" hidden>
@@ -99,7 +103,7 @@
 
             <section id="targetManualPanel" class="target-highlight-section">
               <p id="targetManualRowCount" class="row-count" aria-live="polite"></p>
-              <p id="targetManualEmpty" class="target-manual-empty">譜面詳細ページで「手動メモに登録」を押した譜面を表示します。</p>
+              <p id="targetManualEmpty" class="target-manual-empty">譜面詳細ページで「手動メモに登録」を押した譜面を表示します。譜面表のチェックボックスからも直接登録できます。</p>
               <div id="targetManualTableShell" class="table-shell" hidden>
                 <table class="chart-table target-table target-table--manual">
                   <colgroup>

@@ -544,6 +544,11 @@
   text-align: center;
 }
 
+.mypage-panel tbody td.numeric-value--level {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
 .mypage-panel tbody td:nth-child(3) {
   text-align: center;
 }
