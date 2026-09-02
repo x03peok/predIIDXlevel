@@ -1612,6 +1612,9 @@ body[data-page="mypage"] .chart-table tbody td.chart-title-cell .chart-title-cel
 
 .numeric-value--level {
   color: var(--ink);
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: keep-all;
 }
 
 .numeric-value--pred {
