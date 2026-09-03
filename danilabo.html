@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>段位認定ラボ | CPI:Next</title>
+  <meta name="description" content="beatmania IIDXの段位認定課題曲をバージョン別に確認できるページです。">
+  <link rel="canonical" href="https://cpi-next.com/danilabo.html">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://cpi-next.com/danilabo.html">
+  <meta property="og:site_name" content="CPI:Next">
+  <meta property="og:title" content="段位認定ラボ | CPI:Next">
+  <meta property="og:description" content="beatmania IIDXの段位認定課題曲をバージョン別に確認できるページです。">
+  <meta property="og:locale" content="ja_JP">
+  <meta name="twitter:card" content="summary">
+  <!-- Google Analytics -->
+  <script defer src="analytics.js?v=20260831-3"></script>
+  <link rel="stylesheet" href="styles.css?v=20260902-2">
+  <link rel="stylesheet" href="menu.css?v=20260831-1">
+  <link rel="stylesheet" href="danilabo-table.css?v=20260903-11">
+  <link rel="stylesheet" href="record.css?v=20260902-9">
+  <script defer src="menu.js?v=20260903-1"></script>
+  <script defer src="data.js?v=20260903-1"></script>
+  <script defer src="danilabo-data.js?v=20260903-1"></script>
+  <script defer src="danilabo-table.js?v=20260903-8"></script>
+</head>
+<body data-page="danilabo">
+  <main class="app">
+    <header class="masthead">
+      <div class="masthead__bar">
+        <div class="site-menu" id="menuRoot">
+          <button
+            id="menuButton"
+            class="menu-button"
+            type="button"
+            aria-label="メニューを開く"
+            aria-controls="siteMenu"
+            aria-expanded="false"
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <div id="siteMenu" class="menu-popover" hidden>
+            <button type="button" class="menu-item" data-page="main" data-href="index.html">Pred難易度表</button>
+            <button type="button" class="menu-item" data-page="about" data-href="about.html">About</button>
+            <button type="button" class="menu-item" data-page="diagnosis" data-href="diagnosis.html">適正診断</button>
+            <button type="button" class="menu-item" data-page="history" data-href="history.html">サイト更新履歴</button>
+          </div>
+        </div>
+        <h1>段位認定ラボ</h1>
+      </div>
+    </header>
+
+    <section class="view view--danilabo" aria-live="polite">
+      <div class="panel danilabo-panel">
+        <div class="record-mode-switch danilabo-version-switch" role="tablist" aria-label="バージョンを選択">
+          <button
+            id="danilaboSparkleTab"
+            class="record-mode-switch__button is-active"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            aria-controls="danilaboTables"
+            data-version="Sparkle Shower"
+          >Sparkle Shower</button>
+          <button
+            id="danilaboInfinitasTab"
+            class="record-mode-switch__button"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="danilaboTables"
+            data-version="INFINITAS"
+            tabindex="-1"
+          >INFINITAS</button>
+        </div>
+
+
+        <p class="danilabo-hint">曲名をタップすると詳細ページに移動します</p>
+        <div id="danilaboTables" class="danilabo-tables"></div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

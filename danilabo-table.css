@@ -1,0 +1,394 @@
+.danilabo-panel {
+  width: min(1200px, 100%);
+}
+
+.danilabo-toolbar {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.danilabo-version-control {
+  display: grid;
+  width: min(260px, 100%);
+  gap: 8px;
+}
+
+.danilabo-version-control > span {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.danilabo-version-control select {
+  min-height: 42px;
+  padding-right: 36px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #64748b 50%),
+    linear-gradient(135deg, #64748b 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 3px),
+    calc(100% - 12px) calc(50% - 3px);
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
+  font-size: 0.9rem;
+}
+
+.danilabo-toolbar .row-count {
+  margin-bottom: 12px;
+}
+
+.danilabo-tables {
+  display: grid;
+  gap: 18px;
+}
+
+.danilabo-rank {
+  min-width: 0;
+}
+
+.danilabo-rank__title {
+  margin: 0 0 8px 2px;
+  color: var(--accent);
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  line-height: 1.2;
+}
+
+.danilabo-table-shell {
+  border-radius: 20px;
+}
+
+.danilabo-table {
+  min-width: 720px;
+}
+
+.danilabo-table .danilabo-col-stage {
+  width: 7%;
+}
+
+.danilabo-table .danilabo-col-level {
+  width: 8%;
+}
+
+.danilabo-table .danilabo-col-title {
+  width: 36%;
+}
+
+.danilabo-table .danilabo-col-pred {
+  width: 10%;
+}
+
+.danilabo-table .danilabo-col-bpm {
+  width: 11%;
+}
+
+.danilabo-table .danilabo-col-feature {
+  width: 28%;
+}
+
+.danilabo-table thead th {
+  padding: 7px 8px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.danilabo-table tbody td {
+  padding: 6px 8px;
+  font-size: 0.85rem;
+}
+
+.danilabo-table tbody td:nth-child(1),
+.danilabo-table tbody td:nth-child(2),
+.danilabo-table tbody td:nth-child(4),
+.danilabo-table tbody td:nth-child(5) {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.danilabo-table tbody td:nth-child(3) {
+  text-align: center;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.danilabo-table tbody td:nth-child(6) {
+  text-align: left;
+  overflow: hidden;
+}
+
+.danilabo-table .chart-title-cell .chart-link {
+  display: inline-block;
+  width: auto;
+  max-width: 100%;
+  color: var(--ink);
+  text-decoration: none;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.danilabo-table .chart-title-cell .chart-link:hover,
+.danilabo-table .chart-title-cell .chart-link:focus-visible {
+  text-decoration: underline;
+}
+
+.danilabo-table .chart-title-cell .difficulty--normal,
+.danilabo-table .chart-title-cell .difficulty--hyper,
+.danilabo-table .chart-title-cell .difficulty--another,
+.danilabo-table .chart-title-cell .difficulty--leggendaria {
+  color: var(--ink);
+}
+
+.danilabo-table .danilabo-feature-cell .feature-chips {
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.danilabo-table .danilabo-feature-cell .feature-chip {
+  flex: 0 0 auto;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .danilabo-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .danilabo-version-control {
+    width: 100%;
+  }
+
+  .danilabo-toolbar .row-count {
+    margin-bottom: 0;
+  }
+}
+
+
+.danilabo-rank__title[data-rank="九段"] .danilabo-rank__name,
+.danilabo-rank__title[data-rank="十段"] .danilabo-rank__name {
+  color: #dc2626;
+}
+
+.danilabo-rank__title[data-rank="中伝"] .danilabo-rank__name {
+  color: #64748b;
+  font-weight: 900;
+}
+
+.danilabo-rank__title[data-rank="皆伝"] .danilabo-rank__name {
+  color: #b8860b;
+  font-weight: 900;
+}
+
+
+.danilabo-rank__title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.danilabo-rank__name {
+  display: inline-block;
+}
+
+.danilabo-rank__average {
+  color: var(--ink);
+  font-size: 0.68em;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.danilabo-rank__average .numeric-value--pred {
+  font-size: 1.2em;
+}
+
+
+.danilabo-stage-list {
+  display: grid;
+  gap: 10px;
+}
+
+.danilabo-stage-card {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.danilabo-stage-card__stage {
+  padding: 6px 12px;
+  background: #eef1f5;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+}
+
+.danilabo-stage-card__content {
+  display: grid;
+  gap: 6px;
+  padding: 9px 12px 10px;
+  background: #fff;
+}
+
+.danilabo-stage-card__title {
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.danilabo-stage-card__title .chart-link {
+  display: inline-block;
+  width: auto;
+  max-width: 100%;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.danilabo-stage-card__metrics {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.65rem;
+  color: var(--ink);
+  font-size: 0.88rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.danilabo-stage-card__pred {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28rem;
+}
+
+.danilabo-stage-card__feature {
+  min-width: 0;
+  text-align: left;
+}
+
+.danilabo-stage-card__feature .feature-chips {
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .danilabo-stage-card__content {
+    padding: 8px 10px 9px;
+  }
+
+  .danilabo-stage-card__title {
+    font-size: 0.9rem;
+  }
+}
+
+
+.danilabo-tables {
+  gap: 28px;
+}
+
+.danilabo-rank {
+  padding: 12px 14px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.danilabo-stage-card__stage {
+  text-align: center;
+}
+
+.danilabo-stage-card__feature {
+  text-align: center;
+}
+
+.danilabo-stage-card__feature .feature-chips {
+  justify-content: center;
+}
+
+@media (max-width: 640px) {
+  .danilabo-rank {
+    padding: 10px 9px 11px;
+  }
+}
+
+
+/* Separate ranks with a heading treatment instead of a surrounding panel. */
+.danilabo-tables {
+  gap: 32px;
+}
+
+.danilabo-rank {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.danilabo-rank__title {
+  position: relative;
+  margin: 0 0 12px 2px;
+  padding: 0 0 8px 12px;
+  border-bottom: 1px solid rgba(100, 116, 139, 0.32);
+}
+
+.danilabo-rank__title::before {
+  content: "";
+  position: absolute;
+  top: 0.12em;
+  bottom: 0.5em;
+  left: 0;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.danilabo-rank__title[data-rank="九段"]::before,
+.danilabo-rank__title[data-rank="十段"]::before {
+  background: #dc2626;
+}
+
+.danilabo-rank__title[data-rank="中伝"]::before {
+  background: #94a3b8;
+}
+
+.danilabo-rank__title[data-rank="皆伝"]::before {
+  background: #b8860b;
+}
+
+@media (max-width: 640px) {
+  .danilabo-rank__title {
+    margin-left: 0;
+  }
+}
+
+
+.danilabo-hint {
+  margin: 0 0 12px 2px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+@media (max-width: 640px) {
+  .danilabo-hint {
+    margin-left: 0;
+  }
+}

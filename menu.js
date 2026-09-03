@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const staticPrefix = document.body.dataset.staticChartPage === "true" ? "../" : "";
   const menuDefinitions = [
     { page: "main", label: "Pred難易度表", href: staticPrefix + "index.html" },
+    { page: "danilabo", label: "段位認定ラボ", href: staticPrefix + "danilabo.html" },
     { page: "record", label: "クリアランプ登録", href: staticPrefix + "record.html" },
     { page: "mypage", label: "マイページ", href: staticPrefix + "mypage.html" },
     { page: "target", label: "マイターゲット", href: staticPrefix + "target.html" },
