@@ -74,9 +74,11 @@ body .title-lock {
   border: 0;
   background: transparent;
   color: inherit;
-  padding: 0.7rem 0.9rem;
+  padding: 0.52rem 0.9rem;
   border-radius: 0.75rem;
   text-align: left;
+  line-height: 1.2;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -146,4 +148,24 @@ body .title-lock {
     margin-left: -4px;
     margin-right: -4px;
   }
+}
+#menuRoot .menu-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+#menuRoot .menu-group + .menu-group {
+  margin-top: 0.45rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid rgba(98, 108, 132, 0.16);
+}
+
+#menuRoot .menu-group__title {
+  padding: 0.35rem 0.75rem 0.1rem;
+  color: rgba(71, 84, 111, 0.72);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
 }

@@ -9,32 +9,60 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const currentPage = document.body.dataset.page || "";
   const staticPrefix = document.body.dataset.staticChartPage === "true" ? "../" : "";
-  const menuDefinitions = [
-    { page: "main", label: "Pred難易度表", href: staticPrefix + "pred.html" },
-    { page: "danilabo", label: "段位認定ラボ", href: staticPrefix + "danilabo.html" },
-    { page: "record", label: "クリアランプ登録", href: staticPrefix + "record.html" },
-    { page: "mypage", label: "マイページ", href: staticPrefix + "mypage.html" },
-    { page: "target", label: "マイターゲット", href: staticPrefix + "target.html" },
-    { page: "settings", label: "設定", href: staticPrefix + "settings.html" },
-    { page: "diagnosis", label: "適正診断", href: staticPrefix + "diagnosis.html" },
-    { page: "about", label: "About", href: staticPrefix + "about.html" },
-    { page: "history", label: "サイト更新履歴", href: staticPrefix + "history.html" },
-    { page: "support", label: "開発者支援", href: staticPrefix + "support.html" },
+  const menuGroups = [
+    {
+      label: "データ・診断",
+      items: [
+        { page: "home", label: "メインページ", href: staticPrefix + "main.html" },
+        { page: "main", label: "Pred難易度表", href: staticPrefix + "pred.html" },
+        { page: "danilabo", label: "段位認定ラボ", href: staticPrefix + "danilabo.html" },
+        { page: "diagnosis", label: "適正診断", href: staticPrefix + "diagnosis.html" },
+      ],
+    },
+    {
+      label: "マイページ",
+      items: [
+        { page: "record", label: "クリアランプ登録", href: staticPrefix + "record.html" },
+        { page: "mypage", label: "マイページ", href: staticPrefix + "mypage.html" },
+        { page: "target", label: "マイターゲット", href: staticPrefix + "target.html" },
+        { page: "settings", label: "設定", href: staticPrefix + "settings.html" },
+      ],
+    },
+    {
+      label: "サイト情報",
+      items: [
+        { page: "about", label: "About", href: staticPrefix + "about.html" },
+        { page: "history", label: "サイト更新履歴", href: staticPrefix + "history.html" },
+        { page: "support", label: "開発者支援", href: staticPrefix + "support.html" },
+      ],
+    },
   ];
 
-  for (const definition of menuDefinitions) {
-    const selector = '[data-page="' + definition.page + '"]';
-    const matchingItems = Array.from(siteMenu.querySelectorAll(selector));
-    const item = matchingItems.shift() || document.createElement("button");
-    for (const duplicate of matchingItems) {
-      duplicate.remove();
+  for (const group of menuGroups) {
+    const groupElement = document.createElement("div");
+    groupElement.className = "menu-group";
+
+    const heading = document.createElement("div");
+    heading.className = "menu-group__title";
+    heading.textContent = group.label;
+    groupElement.append(heading);
+
+    for (const definition of group.items) {
+      const selector = '[data-page="' + definition.page + '"]';
+      const matchingItems = Array.from(siteMenu.querySelectorAll(selector));
+      const item = matchingItems.shift() || document.createElement("button");
+      for (const duplicate of matchingItems) {
+        duplicate.remove();
+      }
+      item.type = "button";
+      item.className = "menu-item";
+      item.dataset.page = definition.page;
+      item.dataset.href = definition.href;
+      item.textContent = definition.label;
+      groupElement.append(item);
     }
-    item.type = "button";
-    item.className = "menu-item";
-    item.dataset.page = definition.page;
-    item.dataset.href = definition.href;
-    item.textContent = definition.label;
-    siteMenu.append(item);
+
+    siteMenu.append(groupElement);
   }
 
   const menuItems = Array.from(siteMenu.querySelectorAll(".menu-item"));

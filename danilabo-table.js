@@ -288,7 +288,7 @@
       : null;
     const averagePredHtml = averagePred === null
       ? ""
-      : " <span class=\"danilabo-rank__average\"><span class=\"danilabo-rank__average-label\">平均Pred</span> <span class=\"numeric-value numeric-value--pred\"" + numericStyle(averagePred) + ">" + averagePred.toFixed(2) + "</span></span>";
+      : " <span class=\"danilabo-rank__average\"><span class=\"danilabo-rank__average-label\">課題曲平均Pred</span> <span class=\"numeric-value numeric-value--pred\"" + numericStyle(averagePred) + ">" + averagePred.toFixed(2) + "</span></span>";
 
     return [
       "<section class=\"danilabo-rank\" aria-labelledby=\"danilabo-rank-" + rankIndex + "\">",

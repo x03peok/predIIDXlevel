@@ -166,7 +166,7 @@ function createPage(template, row) {
   const bpm = formatBpm(row);
   const feature = String(row.features ?? "").trim() || "\u7279\u5fb4\u306a\u3057";
   const displayTitle = `${level} ${title}${difficulty ? ` [${difficulty}]` : ""}`;
-  const pageTitle = `${displayTitle} | ${siteTitle}`;
+  const pageTitle = `${displayTitle}｜${siteTitle}`;
   const description = `${displayTitle}。Pred ${pred} / BPM ${bpm} / Feature ${feature}`;
   const canonicalUrl = `${publicBaseUrl}chart-pages/${encodeURIComponent(chartId)}.html`;
   const metadata = [
@@ -174,12 +174,12 @@ function createPage(template, row) {
     `  <meta name="robots" content="index,follow">`,
     `  <meta property="og:type" content="article">`,
     `  <meta property="og:site_name" content="${escapeHtml(siteTitle)}">`,
-    `  <meta property="og:title" content="${escapeHtml(displayTitle)}">`,
+    `  <meta property="og:title" content="${escapeHtml(pageTitle)}">`,
     `  <meta property="og:description" content="${escapeHtml(description)}">`,
     `  <meta property="og:url" content="${escapeHtml(canonicalUrl)}">`,
     `  <meta property="og:locale" content="ja_JP">`,
     `  <meta name="twitter:card" content="summary">`,
-    `  <meta name="twitter:title" content="${escapeHtml(displayTitle)}">`,
+    `  <meta name="twitter:title" content="${escapeHtml(pageTitle)}">`,
     `  <meta name="twitter:description" content="${escapeHtml(description)}">`,
   ].join("\n");
 
@@ -189,7 +189,7 @@ function createPage(template, row) {
   page = replaceOnce(page, "  <!-- Google Analytics -->", `${metadata}\n  <!-- Google Analytics -->`, "OGP");
   page = page.replace('<body data-page="chart">', `<body data-page="chart" data-static-chart-page="true" data-chart-id="${escapeHtml(chartId)}">`);
   page = page.replace('href="styles.css?', 'href="../styles.css?');
-  page = page.replace('href="menu.css"', 'href="../menu.css"');
+  page = page.replace('href="menu.css?v=20260904-2"', 'href="../menu.css?v=20260904-2"');
   page = page.replace('src="menu.js?', 'src="../menu.js?');
   page = page.replace('src="analytics.js?', 'src="../analytics.js?');
   page = page.replace('src="data.js?', 'src="../data.js?');

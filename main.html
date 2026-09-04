@@ -3,32 +3,34 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CPI:Next</title>
+  <title>メインページ｜CPI:Next</title>
   <meta name="description" content="CPI:Nextの主要機能とPred難易度表をまとめたページです。">
   <link rel="canonical" href="https://cpi-next.com/main.html">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://cpi-next.com/main.html">
   <meta property="og:site_name" content="CPI:Next">
-  <meta property="og:title" content="CPI:Next">
+  <meta property="og:title" content="メインページ｜CPI:Next">
   <meta property="og:description" content="CPI:Nextの主要機能とPred難易度表をまとめたページです。">
   <meta property="og:locale" content="ja_JP">
   <meta name="twitter:card" content="summary">
   <link rel="icon" type="image/jpeg" href="site-icon.jpg">
   <link rel="apple-touch-icon" href="site-icon.jpg">
-  <meta property="og:image" content="https://cpi-next.com/site-icon.jpg">
-  <meta property="og:image:secure_url" content="https://cpi-next.com/site-icon.jpg">
+  <meta property="og:image" content="https://cpi-next.com/site-icon.jpg?v=20260904-2">
+  <meta property="og:image:secure_url" content="https://cpi-next.com/site-icon.jpg?v=20260904-2">
   <meta property="og:image:type" content="image/jpeg">
   <meta property="og:image:width" content="1254">
   <meta property="og:image:height" content="1254">
   <meta property="og:image:alt" content="CPI:Next">
-  <meta name="twitter:image" content="https://cpi-next.com/site-icon.jpg">
+  <meta name="twitter:image" content="https://cpi-next.com/site-icon.jpg?v=20260904-2">
   <meta name="twitter:image:alt" content="CPI:Next">
+  <meta name="twitter:title" content="メインページ｜CPI:Next">
+  <meta name="twitter:description" content="CPI:Nextの主要機能とPred難易度表をまとめたページです。">
   <!-- Google Analytics -->
   <script defer src="analytics.js?v=20260904-1"></script>
   <link rel="stylesheet" href="styles.css?v=20260904-1">
   <link rel="stylesheet" href="home.css?v=20260904-18">
-  <link rel="stylesheet" href="menu.css">
-  <script defer src="menu.js?v=20260904-3"></script>
+  <link rel="stylesheet" href="menu.css?v=20260904-2">
+  <script defer src="menu.js?v=20260904-6"></script>
   <script defer src="data.js?v=20260904-1"></script>
   <script defer src="app.js?v=20260904-1"></script>
 </head>
@@ -63,7 +65,7 @@
     <section class="home-intro" aria-label="CPI:Nextの案内">
       <div class="home-intro__lead">
         <p class="home-intro__description">IIDX SP☆8〜☆12の難易度を細かく推定し、「次の選曲」をサポートします。</p>
-        <span class="home-intro__availability">ログイン不要で<a href="record.html">クリアランプを登録</a>できます。</span>
+        <span class="home-intro__availability">ログイン不要で<a href="record.html" data-home-destination="record" data-home-link-type="record">クリアランプを登録</a>できます。</span>
       </div>
       <nav class="home-links" aria-label="主要リンク">
         <div class="home-link-item">
@@ -74,7 +76,7 @@
             </svg>
           </span>
           <strong class="home-link-label">譜面の難易度を<br class="home-link-label__break">調べる</strong>
-          <a class="home-link" href="pred.html"><span aria-hidden="true">→ </span>Pred難易度表</a>
+          <a class="home-link" href="pred.html" data-home-destination="pred"><span aria-hidden="true">→ </span>Pred難易度表</a>
         </div>
         <div class="home-link-item">
           <span class="home-link-item__icon" aria-hidden="true">
@@ -84,7 +86,7 @@
             </svg>
           </span>
           <strong class="home-link-label">自分の実力を知る</strong>
-          <a class="home-link" href="diagnosis.html"><span aria-hidden="true">→ </span>適正Pred診断</a>
+          <a class="home-link" href="diagnosis.html" data-home-destination="diagnosis"><span aria-hidden="true">→ </span>適正Pred診断</a>
         </div>
         <div class="home-link-item">
           <span class="home-link-item__icon" aria-hidden="true">
@@ -93,7 +95,7 @@
             </svg>
           </span>
           <strong class="home-link-label">次に狙う曲を探す</strong>
-          <a class="home-link" href="target.html"><span aria-hidden="true">→ </span>マイターゲット</a>
+          <a class="home-link" href="target.html" data-home-destination="target"><span aria-hidden="true">→ </span>マイターゲット</a>
         </div>
         <div class="home-link-item">
           <span class="home-link-item__icon" aria-hidden="true">
@@ -108,7 +110,7 @@
             </svg>
           </span>
           <strong class="home-link-label">段位認定を<br class="home-link-label__break">分析する</strong>
-          <a class="home-link" href="danilabo.html"><span aria-hidden="true">→ </span>段位認定ラボ</a>
+          <a class="home-link" href="danilabo.html" data-home-destination="danilabo"><span aria-hidden="true">→ </span>段位認定ラボ</a>
         </div>
       </nav>
     </section>

@@ -46,6 +46,41 @@
   gap: 18px;
 }
 
+.danilabo-rank-nav__label {
+  margin: 10px 0 3px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.danilabo-rank-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 6px;
+  align-items: baseline;
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.danilabo-rank-nav a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.danilabo-rank-nav a:hover,
+.danilabo-rank-nav a:focus-visible {
+  color: var(--ink);
+}
+
+.danilabo-rank-nav__separator {
+  color: var(--muted);
+}
+
 .danilabo-rank {
   min-width: 0;
 }
@@ -381,6 +416,7 @@
 
 
 .danilabo-hint {
+  margin-top: 6px;
   margin: 0 0 12px 2px;
   color: var(--muted);
   font-size: 0.74rem;

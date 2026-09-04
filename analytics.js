@@ -101,6 +101,13 @@
       return;
     }
 
+    if (target.matches(".home-link, .home-intro__availability a")) {
+      track("home_cta_click", {
+        destination: target.dataset.homeDestination,
+        link_type: target.dataset.homeLinkType || "card",
+      });
+      return;
+    }
     if (target.matches(".chart-share-button, .diagnosis-share__button, .mypage-share__button")) {
       track("share_click", { share_type: "x" });
       return;
