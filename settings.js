@@ -140,7 +140,7 @@ function settingsGetValidManualMemos(memos) {
     }));
 }
 
-function settingsWriteAll(records, manualMemos = []) {
+function settingsWriteAll(records, manualMemos) {
   return new Promise((resolve, reject) => {
     if (!settingsDatabase) {
       reject(new Error("ローカル保存を開けませんでした。"));
@@ -154,12 +154,16 @@ function settingsWriteAll(records, manualMemos = []) {
     const store = transaction.objectStore(settingsStoreName);
     const manualMemoStore = transaction.objectStore(settingsManualMemoStoreName);
     store.clear();
-    manualMemoStore.clear();
+    if (Array.isArray(manualMemos)) {
+      manualMemoStore.clear();
+    }
     for (const record of records) {
       store.put(record);
     }
-    for (const memo of manualMemos) {
-      manualMemoStore.put(memo);
+    if (Array.isArray(manualMemos)) {
+      for (const memo of manualMemos) {
+        manualMemoStore.put(memo);
+      }
     }
     transaction.oncomplete = resolve;
     transaction.onerror = () => reject(transaction.error ?? new Error("データを保存できませんでした。"));
@@ -168,7 +172,7 @@ function settingsWriteAll(records, manualMemos = []) {
 }
 
 function settingsClearAll() {
-  return settingsWriteAll([], []);
+  return settingsWriteAll([]);
 }
 
 function settingsUpdateCount(records) {
@@ -504,7 +508,7 @@ function settingsValidateBackup(payload) {
     };
   });
 
-  return { records, manualMemos };
+  return { records, manualMemos, version: payload.version };
 }
 async function settingsHandleExport() {
   if (settingsBusy) {
@@ -565,13 +569,19 @@ async function settingsHandleImport(event) {
     return;
   }
 
-  if (!window.confirm("現在のクリアランプ記録を、このバックアップで置き換えます。よろしいですか？")) {
+  const importConfirmation = backup.version >= 2
+    ? "現在のクリアランプ記録と手動メモを、このバックアップで置き換えます。よろしいですか？"
+    : "現在のクリアランプ記録を、このバックアップで置き換えます。手動メモは保持されます。";
+  if (!window.confirm(importConfirmation)) {
     return;
   }
 
   settingsSetBusy(true);
   try {
-    await settingsWriteAll(backup.records, backup.manualMemos);
+    await settingsWriteAll(
+      backup.records,
+      backup.version >= 2 ? backup.manualMemos : undefined,
+    );
     settingsUpdateCount(backup.records);
     settingsSetMessage("データをインポートしました。");
     window.cpiAnalytics?.track("data_import", {
@@ -586,7 +596,7 @@ async function settingsHandleImport(event) {
 }
 
 async function settingsHandleReset() {
-  if (settingsBusy || !window.confirm("保存されているクリアランプ記録をすべて削除します。よろしいですか？")) {
+  if (settingsBusy || !window.confirm("保存されているクリアランプ記録のみを削除します。手動メモは保持されます。よろしいですか？")) {
     return;
   }
 
@@ -594,7 +604,7 @@ async function settingsHandleReset() {
   try {
     await settingsClearAll();
     settingsUpdateCount([]);
-    settingsSetMessage("全データをリセットしました。");
+    settingsSetMessage("クリアランプ記録をリセットしました。");
     window.cpiAnalytics?.track("data_reset");
   } catch (error) {
     settingsSetMessage(error.message || "データをリセットできませんでした。", true);

@@ -229,7 +229,7 @@
         }
         return;
       }
-      track("search", { search_term: term, search_length: term.length });
+      track("search", { has_search_term: true, search_length: term.length });
       lastSearches.set(target, term);
     }, 600);
     searchTimers.set(target, timer);
