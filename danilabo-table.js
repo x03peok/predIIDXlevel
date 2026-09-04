@@ -27,6 +27,18 @@
     ANOTHER: "difficulty--another",
     LEGGENDARIA: "difficulty--leggendaria",
   };
+  const featureDescriptions = {
+    "特徴なし": "既定の譜面特徴に強く当てはまらない譜面です。",
+    "BPM変化": "激しいBPM変化と、変化周辺の難しい配置が特徴です。",
+    "チャージノート": "CN/HCN/BSS/HBSS/MSSと、同時に来る難しい配置が特徴です。",
+    "ラスト難": "ラスト数十秒の難易度がそれ以前の平均と比べて高いことが特徴です。",
+    "皿複合": "スクラッチと同時に来る鍵盤の難しい配置が特徴です。",
+    "単鍵ラッシュ": "1個～2個押し主体の細かい配置が特徴です。",
+    "同時押し": "3個以上の横に広い同時押し主体の配置が特徴です。",
+    "物量": "曲全体を平均した1秒あたりのノーツ数の多さが特徴です。",
+    "連皿": "短い時間に連続するスクラッチの難しさが特徴です。",
+    "連打": "同じ鍵盤に連続して降ってくるノーツの難しさが特徴です。",
+  };
 
   function parseCsv(text) {
     if (!text) {
@@ -220,7 +232,12 @@
     return "<div class=\"feature-chips\">" + features.map((feature) => {
       const plusCount = (feature.match(/\+/g) ?? []).length;
       const colorLevel = Math.min(3, plusCount);
-      return "<span class=\"feature-chip feature-chip--plus-" + colorLevel + "\">"
+      const baseFeature = feature.replace(/\++$/, "");
+      const description = featureDescriptions[baseFeature] ?? "";
+      const tooltip = description
+        ? " data-tooltip=\"" + escapeHtml(description) + "\" tabindex=\"0\" role=\"button\" aria-label=\"特徴の説明\""
+        : "";
+      return "<span class=\"feature-chip feature-chip--plus-" + colorLevel + "\"" + tooltip + ">"
         + escapeHtml(feature) + "</span>";
     }).join("") + "</div>";
   }
