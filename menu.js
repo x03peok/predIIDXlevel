@@ -19,6 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
     { page: "diagnosis", label: "適正診断", href: staticPrefix + "diagnosis.html" },
     { page: "about", label: "About", href: staticPrefix + "about.html" },
     { page: "history", label: "サイト更新履歴", href: staticPrefix + "history.html" },
+    { page: "support", label: "開発者支援", href: staticPrefix + "support.html" },
   ];
 
   for (const definition of menuDefinitions) {

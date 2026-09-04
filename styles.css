@@ -1655,3 +1655,19 @@ body[data-page="mypage"] .chart-table tbody td.chart-title-cell .chart-title-cel
   border-color: rgba(37, 99, 235, 0.7);
   background: rgba(255, 255, 255, 0.96);
 }
+
+.support-panel {
+  display: flex;
+  justify-content: center;
+}
+
+.support-coffee-link {
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.support-coffee-link img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
