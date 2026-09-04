@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CPI:Next</title>
+  <meta name="description" content="CPI:Nextの主要機能とPred難易度表をまとめたページです。">
+  <link rel="canonical" href="https://cpi-next.com/main.html">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://cpi-next.com/main.html">
+  <meta property="og:site_name" content="CPI:Next">
+  <meta property="og:title" content="CPI:Next">
+  <meta property="og:description" content="CPI:Nextの主要機能とPred難易度表をまとめたページです。">
+  <meta property="og:locale" content="ja_JP">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/jpeg" href="site-icon.jpg">
+  <link rel="apple-touch-icon" href="site-icon.jpg">
+  <meta property="og:image" content="https://cpi-next.com/site-icon.jpg">
+  <meta property="og:image:secure_url" content="https://cpi-next.com/site-icon.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1254">
+  <meta property="og:image:height" content="1254">
+  <meta property="og:image:alt" content="CPI:Next">
+  <meta name="twitter:image" content="https://cpi-next.com/site-icon.jpg">
+  <meta name="twitter:image:alt" content="CPI:Next">
+  <!-- Google Analytics -->
+  <script defer src="analytics.js?v=20260904-1"></script>
+  <link rel="stylesheet" href="styles.css?v=20260904-1">
+  <link rel="stylesheet" href="home.css?v=20260904-18">
+  <link rel="stylesheet" href="menu.css">
+  <script defer src="menu.js?v=20260904-3"></script>
+  <script defer src="data.js?v=20260904-1"></script>
+  <script defer src="app.js?v=20260904-1"></script>
+</head>
+<body data-page="home">
+  <main class="app">
+    <header class="masthead">
+      <div class="masthead__bar">
+        <div class="site-menu" id="menuRoot">
+          <button
+            id="menuButton"
+            class="menu-button"
+            type="button"
+            aria-label="メニューを開く"
+            aria-controls="siteMenu"
+            aria-expanded="false"
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <div id="siteMenu" class="menu-popover" hidden>
+            <button type="button" class="menu-item" data-page="main" data-href="index.html">Pred難易度表</button>
+            <button type="button" class="menu-item" data-page="about" data-href="about.html">About</button>
+            <button type="button" class="menu-item" data-page="diagnosis" data-href="diagnosis.html">適正診断</button>
+            <button type="button" class="menu-item" data-page="history" data-href="history.html">サイト更新履歴</button>
+          </div>
+        </div>
+        <h1>CPI:Next</h1>
+      </div>
+    </header>
+
+    <section class="home-intro" aria-label="CPI:Nextの案内">
+      <div class="home-intro__lead">
+        <p class="home-intro__description">IIDX SP☆8〜☆12の難易度を細かく推定し、「次の選曲」をサポートします。</p>
+        <span class="home-intro__availability">ログイン不要で<a href="record.html">クリアランプを登録</a>できます。</span>
+      </div>
+      <nav class="home-links" aria-label="主要リンク">
+        <div class="home-link-item">
+          <span class="home-link-item__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <circle cx="10.5" cy="10.5" r="5.5"></circle>
+              <path d="m15 15 5 5"></path>
+            </svg>
+          </span>
+          <strong class="home-link-label">譜面の難易度を<br class="home-link-label__break">調べる</strong>
+          <a class="home-link" href="pred.html"><span aria-hidden="true">→ </span>Pred難易度表</a>
+        </div>
+        <div class="home-link-item">
+          <span class="home-link-item__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path d="M5 19V12M12 19V8M19 19V4"></path>
+              <path d="M3 19h18"></path>
+            </svg>
+          </span>
+          <strong class="home-link-label">自分の実力を知る</strong>
+          <a class="home-link" href="diagnosis.html"><span aria-hidden="true">→ </span>適正Pred診断</a>
+        </div>
+        <div class="home-link-item">
+          <span class="home-link-item__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3z"></path>
+            </svg>
+          </span>
+          <strong class="home-link-label">次に狙う曲を探す</strong>
+          <a class="home-link" href="target.html"><span aria-hidden="true">→ </span>マイターゲット</a>
+        </div>
+        <div class="home-link-item">
+          <span class="home-link-item__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path d="M4 17 8 12l3 2 5-7 4 2"></path>
+              <path d="M4 19h18"></path>
+              <circle cx="4" cy="17" r="1"></circle>
+              <circle cx="8" cy="12" r="1"></circle>
+              <circle cx="11" cy="14" r="1"></circle>
+              <circle cx="16" cy="7" r="1"></circle>
+              <circle cx="20" cy="9" r="1"></circle>
+            </svg>
+          </span>
+          <strong class="home-link-label">段位認定を<br class="home-link-label__break">分析する</strong>
+          <a class="home-link" href="danilabo.html"><span aria-hidden="true">→ </span>段位認定ラボ</a>
+        </div>
+      </nav>
+    </section>
+    <section id="mainView" class="view view--main" aria-live="polite">
+      <div class="panel">
+        <h2 class="home-table-title">Pred難易度表</h2>
+        <details class="filter-group">
+          <summary>絞り込み</summary>
+          <div class="filter-group__body">
+            <div class="toolbar">
+          <label class="search">
+            <span>Title</span>
+            <input id="searchInput" type="search" placeholder="search title">
+          </label>
+          <div class="multi-filter level-filter">
+            <span>Level</span>
+            <details id="origFilterDetails" class="multi-filter__details">
+              <summary id="origFilterSummary">all</summary>
+              <div id="origFilterOptions" class="multi-filter__options"></div>
+            </details>
+          </div>
+          <div class="multi-filter bpm-filter">
+            <span>Difficulty</span>
+            <details id="difficultyFilterDetails" class="multi-filter__details">
+              <summary id="difficultyFilterSummary">all</summary>
+              <div id="difficultyFilterOptions" class="multi-filter__options"></div>
+            </details>
+          </div>
+          <div class="multi-filter feature-filter">
+            <span>Feature</span>
+            <details id="featureFilterDetails" class="multi-filter__details">
+              <summary id="featureFilterSummary">all</summary>
+              <div id="featureFilterOptions" class="multi-filter__options"></div>
+            </details>
+          </div>
+          <details class="multi-filter__details advanced-filter">
+            <summary id="advancedFilterSummary">詳細絞り込み</summary>
+            <div class="advanced-filter__body">
+              <label class="filter bpm-filter">
+                <span>BPM_Min</span>
+                <input id="bpmMinFilter" type="number" inputmode="decimal" min="0" step="any" value="0">
+              </label>
+              <label class="filter bpm-filter">
+                <span>BPM_Max</span>
+                <input id="bpmMaxFilter" type="number" inputmode="decimal" min="0" step="any" value="999">
+              </label>
+              <label class="filter pred-filter">
+                <span>Pred_Min</span>
+                <input id="predMinFilter" type="number" inputmode="decimal" min="0" max="999" step="0.1" value="0.0">
+              </label>
+              <label class="filter pred-filter">
+                <span>Pred_Max</span>
+                <input id="predMaxFilter" type="number" inputmode="decimal" min="0" max="999" step="0.1" value="999.0">
+              </label>
+            </div>
+          </details>
+            </div>
+          </div>
+        </details>
+
+        <p class="table-hint">曲名をタップすると詳細ページに移動します<br>表は左右にスクロールできます（モバイル表示時）</p>
+        <div id="rowCount" class="row-count" aria-live="polite"></div>
+        <div id="tableShell" class="table-shell">
+          <table class="chart-table">
+            <colgroup>
+              <col class="col-orig">
+              <col class="col-title">
+              <col class="col-pred">
+              <col class="col-bpm">
+              <col class="col-features">
+            </colgroup>
+            <thead>
+              <tr>
+                <th><button type="button" data-sort-key="original_level"><span>Level</span><span class="sort-mark"></span></button></th>
+                <th><button type="button" data-sort-key="title"><span>Title</span><span class="sort-mark"></span></button></th>
+                <th><button type="button" data-sort-key="calibrated_pred_skill"><span>Pred</span><span class="sort-mark"></span></button></th>
+                <th><button type="button" data-sort-key="bpm"><span>BPM</span><span class="sort-mark"></span></button></th>
+                <th><button type="button" data-sort-key="features"><span>Feature</span><span class="sort-mark"></span></button></th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <button id="loadMoreButton" class="load-more" type="button" hidden>さらに表示</button>
+        </div>
+      </div>
+    </section>
+  </main>
+  <button id="scrollTopButton" class="scroll-top-button" type="button" aria-label="ページ上部へ戻る" hidden>↑</button>
+</body>
+</html>

@@ -1,0 +1,220 @@
+.home-intro {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  align-items: stretch;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.38);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(219, 234, 254, 0.72), transparent 36%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(239, 246, 255, 0.9));
+  box-shadow: 0 14px 34px rgba(37, 99, 235, 0.1);
+}
+
+.home-intro__lead {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  padding: 4px 8px 4px 2px;
+}
+
+.home-intro__description {
+  margin: 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--accent);
+  color: var(--ink);
+  font-size: 0.96rem;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.home-intro__availability {
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  margin: 12px 0 0 15px;
+  padding: 7px 11px;
+  border: 1px solid rgba(14, 165, 233, 0.28);
+  border-radius: 999px;
+  background: rgba(224, 242, 254, 0.92);
+  color: #0369a1;
+  font-size: 0.84rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.home-intro__availability a {
+  color: inherit;
+  font-weight: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.home-intro__availability a:hover,
+.home-intro__availability a:focus-visible {
+  color: #075985;
+}
+
+.home-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  min-width: 0;
+}
+
+.home-link-item {
+  position: relative;
+  container-type: inline-size;
+  display: grid;
+  min-width: 0;
+  align-content: center;
+  gap: 3px;
+  padding: 12px 12px 11px 48px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+
+}
+
+
+.home-link-item__icon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  display: grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--accent);
+  transform: translateY(-50%);
+}
+
+.home-link-item__icon svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.home-link-item:nth-child(2) .home-link-item__icon {
+  background: rgba(22, 163, 74, 0.11);
+  color: #15803d;
+}
+
+.home-link-item:nth-child(3) .home-link-item__icon {
+  background: rgba(234, 88, 12, 0.11);
+  color: #c2410c;
+}
+
+.home-link-item:nth-child(4) .home-link-item__icon {
+  background: rgba(100, 116, 139, 0.14);
+  color: #475569;
+}
+
+.home-link-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-link {
+  display: block;
+  min-width: 0;
+  color: var(--accent);
+  font-size: 0.77rem;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
+.home-link:hover,
+.home-link:focus-visible {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.home-link-label__break {
+  display: none;
+}
+
+@container (max-width: 185px) {
+  .home-link-label__break {
+    display: block;
+  }
+}
+
+.home-table-title {
+  margin: 0 0 12px;
+  color: var(--accent);
+  font-size: clamp(1.4rem, 2.5vw, 2rem);
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .home-intro {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 13px;
+  }
+
+  .home-intro__lead {
+    padding: 2px 3px 0;
+  }
+
+  .home-intro__description {
+    font-size: 0.86rem;
+  }
+
+  .home-intro__availability {
+    margin-top: 8px;
+    font-size: 0.77rem;
+  }
+
+  .home-link-item {
+    padding: 11px 9px 10px 43px;
+  }
+
+  .home-link-item__icon {
+    left: 9px;
+    width: 23px;
+    height: 23px;
+  }
+
+  .home-link-item__icon svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .home-link-label {
+    font-size: 0.74rem;
+  }
+
+  .home-link-label__break {
+    display: block;
+  }
+
+  .home-link {
+    font-size: 0.71rem;
+  }
+}

@@ -10,7 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const currentPage = document.body.dataset.page || "";
   const staticPrefix = document.body.dataset.staticChartPage === "true" ? "../" : "";
   const menuDefinitions = [
-    { page: "main", label: "Pred難易度表", href: staticPrefix + "index.html" },
+    { page: "main", label: "Pred難易度表", href: staticPrefix + "pred.html" },
     { page: "danilabo", label: "段位認定ラボ", href: staticPrefix + "danilabo.html" },
     { page: "record", label: "クリアランプ登録", href: staticPrefix + "record.html" },
     { page: "mypage", label: "マイページ", href: staticPrefix + "mypage.html" },
