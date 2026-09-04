@@ -200,6 +200,7 @@ function createPage(template, row) {
   page = page.replace('data-href="diagnosis.html"', 'data-href="../diagnosis.html"');
   page = page.replace('data-href="history.html"', 'data-href="../history.html"');
   page = page.replace('href="index.html"', 'href="../index.html"');
+  page = page.replaceAll('href="site-icon.jpg"', 'href="../site-icon.jpg"');
   return page;
 }
 
