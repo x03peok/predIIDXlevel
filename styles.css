@@ -1671,3 +1671,24 @@ body[data-page="mypage"] .chart-table tbody td.chart-title-cell .chart-title-cel
   max-width: 100%;
   height: auto;
 }
+.support-widget {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin-top: 1.25rem;
+  text-align: center;
+}
+
+.support-widget__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 11rem;
+  padding: 0.7rem 1.4rem;
+  border-radius: 999px;
+  background: #2882a7;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}

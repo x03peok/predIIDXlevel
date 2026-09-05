@@ -33,6 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
       items: [
         { page: "about", label: "About", href: staticPrefix + "about.html" },
         { page: "history", label: "サイト更新履歴", href: staticPrefix + "history.html" },
+        { page: "support", label: "開発者支援", href: staticPrefix + "support.html" },
       ],
     },
   ];
