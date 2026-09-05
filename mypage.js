@@ -1047,6 +1047,11 @@ function mypageRenderFeatureResult(predResult) {
     return;
   }
 
+  if (predResult?.usedLogistic !== true) {
+    bars.replaceChildren();
+    section.hidden = true;
+    return;
+  }
   const observations = Array.isArray(predResult?.observations)
     ? predResult.observations
     : [];
@@ -1205,7 +1210,7 @@ function mypageRenderPredEstimate() {
     }
   }
   note.hidden = !result.message;
-  const featureScores = Array.isArray(result.observations) && result.observations.length >= 5
+  const featureScores = result.usedLogistic === true && Array.isArray(result.observations) && result.observations.length >= 5
     ? mypageGetFeatureScores(result.observations, result.model)
     : [];
   mypageUpdateShare(mypageBuildShareText(result, featureScores));
