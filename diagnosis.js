@@ -23,6 +23,13 @@ const diagnosisDifficultyLabels = {
   LEGGENDARIA: "L",
 };
 
+const diagnosisDifficultyClasses = {
+  NORMAL: "difficulty--normal",
+  HYPER: "difficulty--hyper",
+  ANOTHER: "difficulty--another",
+  LEGGENDARIA: "difficulty--leggendaria",
+};
+
 const diagnosisFeatureOrder = [
   "特徴なし",
   "BPM変化",
@@ -202,6 +209,16 @@ function diagnosisHslToRgbString(hue, saturation, lightness) {
             : [chroma, 0, x];
   const match = l - chroma / 2;
   return "rgb(" + rgb.map((channel) => Math.round((channel + match) * 255)).join(", ") + ")";
+}
+function diagnosisGetAptitudeStyle(level, bounds) {
+  const color = diagnosisGetNumericScaleColor(level, bounds.min, bounds.max);
+  const match = color.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+  if (!match) {
+    return "";
+  }
+
+  const background = "rgba(" + match[1] + ", " + match[2] + ", " + match[3] + ", 0.14)";
+  return ' style="--diagnosis-aptitude-color:' + color + ';--diagnosis-aptitude-bg:' + background + '"';
 }
 function diagnosisFormatBpm(row) {
   const min = String(row.bpm_min ?? "").trim();
@@ -501,6 +518,7 @@ function diagnosisSelectFeatureCharts() {
 }
 function diagnosisRenderAptitudeOptions() {
   const container = document.getElementById("aptitudeOptions");
+  const aptitudeBounds = diagnosisGetLevelBounds();
   const groups = new Map();
   for (const option of diagnosisAptitudeOptions) {
     if (!groups.has(option.level)) {
@@ -514,7 +532,7 @@ function diagnosisRenderAptitudeOptions() {
       options.map((option) => (
         "<div class=\"diagnosis-aptitude-option\">" +
           "<input id=\"aptitude-" + option.value + "\" type=\"radio\" name=\"aptitude\" value=\"" + option.value + "\">" +
-          "<label for=\"aptitude-" + option.value + "\">" + diagnosisEscapeHtml(option.label) + "</label>" +
+          "<label for=\"aptitude-" + option.value + "\"" + diagnosisGetAptitudeStyle(option.level, aptitudeBounds) + ">" + diagnosisEscapeHtml(option.label) + "</label>" +
         "</div>"
       )).join("") +
     "</div>"
@@ -531,11 +549,16 @@ function diagnosisRenderQuestions() {
   const container = document.getElementById("diagnosisChartQuestions");
   container.innerHTML = diagnosisState.selectedCharts.map((row, index) => {
     const difficulty = diagnosisDifficultyLabels[row.difficulty] ?? row.difficulty;
+    const difficultyClass = diagnosisDifficultyClasses[row.difficulty] ?? "";
     const title = "☆" + row.original_level + " " + row.title + (difficulty ? " [" + difficulty + "]" : "");
+    const titleHtml = [
+      '<span class="diagnosis-chart__level">☆' + diagnosisEscapeHtml(row.original_level) + '</span>',
+      '<span class="diagnosis-chart__title chart-title-cell ' + difficultyClass + '"><span class="chart-title-cell__name">' + diagnosisEscapeHtml(row.title) + '</span>' + (difficulty ? ' <span class="chart-title-cell__difficulty">[' + diagnosisEscapeHtml(difficulty) + ']</span>' : "") + '</span>',
+    ].join("");
     return [
       "<article class=\"diagnosis-chart\">",
       "  <div class=\"diagnosis-chart__heading\">",
-      "    <div class=\"diagnosis-chart__title\">" + diagnosisEscapeHtml(title) + "</div>",
+      "    " + titleHtml,
       "  </div>",
       "  <fieldset class=\"diagnosis-status\">",
       "    <legend class=\"sr-only\">" + diagnosisEscapeHtml(title) + "のクリア状況</legend>",
@@ -551,11 +574,16 @@ function diagnosisRenderFeatureQuestions() {
   const container = document.getElementById("diagnosisFeatureQuestions");
   container.innerHTML = diagnosisState.featureSelectedCharts.map((row, index) => {
     const difficulty = diagnosisDifficultyLabels[row.difficulty] ?? row.difficulty;
+    const difficultyClass = diagnosisDifficultyClasses[row.difficulty] ?? "";
     const title = "☆" + row.original_level + " " + row.title + (difficulty ? " [" + difficulty + "]" : "");
+    const titleHtml = [
+      '<span class="diagnosis-chart__level">☆' + diagnosisEscapeHtml(row.original_level) + '</span>',
+      '<span class="diagnosis-chart__title chart-title-cell ' + difficultyClass + '"><span class="chart-title-cell__name">' + diagnosisEscapeHtml(row.title) + '</span>' + (difficulty ? ' <span class="chart-title-cell__difficulty">[' + diagnosisEscapeHtml(difficulty) + ']</span>' : "") + '</span>',
+    ].join("");
     return [
       '<article class="diagnosis-chart">',
       '  <div class="diagnosis-chart__heading">',
-      '    <div class="diagnosis-chart__title">' + diagnosisEscapeHtml(title) + '</div>',
+      '    ' + titleHtml,
       '  </div>',
       '  <fieldset class="diagnosis-status">',
       '    <legend class="sr-only">' + diagnosisEscapeHtml(title) + 'のクリア状況</legend>',

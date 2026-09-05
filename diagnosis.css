@@ -128,6 +128,20 @@
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
+.diagnosis-aptitude-option label {
+  background: var(--diagnosis-aptitude-bg, var(--panel-strong));
+}
+
+.diagnosis-aptitude-option label:hover {
+  border-color: var(--diagnosis-aptitude-color, rgba(37, 99, 235, 0.55));
+  background: var(--diagnosis-aptitude-bg, rgba(219, 234, 254, 0.45));
+}
+
+.diagnosis-aptitude-option input:checked + label {
+  border-color: var(--diagnosis-aptitude-color, var(--accent));
+  background: var(--diagnosis-aptitude-bg, rgba(37, 99, 235, 0.1));
+  box-shadow: 0 0 0 3px var(--diagnosis-aptitude-bg, rgba(37, 99, 235, 0.12));
+}
 .diagnosis-aptitude-option input:focus-visible + label,
 .diagnosis-status-option input:focus-visible + label {
   outline: 2px solid var(--accent);
@@ -214,6 +228,8 @@
   display: flex;
   align-items: baseline;
   gap: 8px;
+  justify-content: center;
+  text-align: center;
   min-width: 0;
   margin-bottom: 8px;
 }
@@ -225,13 +241,45 @@
   font-weight: 700;
 }
 
-.diagnosis-chart__title {
-  min-width: 0;
+.diagnosis-chart__level {
+  flex: 0 0 auto;
   color: var(--ink);
-  font-size: 1rem;
-  font-weight: 800;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.diagnosis-chart__title {
+  display: inline-block;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 400;
   line-height: 1.35;
   overflow-wrap: anywhere;
+  padding: 3px 8px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.diagnosis-chart__title.difficulty--normal,
+.diagnosis-chart__title.difficulty--hyper,
+.diagnosis-chart__title.difficulty--another,
+.diagnosis-chart__title.difficulty--leggendaria {
+  color: var(--ink);
+}
+
+.diagnosis-chart__title .chart-title-cell__name {
+  font-weight: 700;
+}
+
+.diagnosis-chart__title .chart-title-cell__difficulty {
+  color: var(--muted);
+  font-size: 0.75em;
+  font-weight: 400;
+  white-space: nowrap;
 }
 
 .diagnosis-chart__difficulty {
