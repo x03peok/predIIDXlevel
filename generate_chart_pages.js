@@ -195,11 +195,11 @@ function createPage(template, row) {
   page = page.replace('src="data.js?', 'src="../data.js?');
   page = page.replace('src="chart-similar-data.js?', 'src="../chart-similar-data.js?');
   page = page.replace('src="chart.js?', 'src="../chart.js?');
-  page = page.replace('data-href="../pred.html"', 'data-href="../index.html"');
+  page = page.replace('data-href="pred.html"', 'data-href="../pred.html"');
   page = page.replace('data-href="about.html"', 'data-href="../about.html"');
   page = page.replace('data-href="diagnosis.html"', 'data-href="../diagnosis.html"');
   page = page.replace('data-href="history.html"', 'data-href="../history.html"');
-  page = page.replace('href="../pred.html"', 'href="../index.html"');
+  page = page.replace('href="pred.html"', 'href="../pred.html"');
   page = page.replaceAll('href="site-icon.jpg"', 'href="../site-icon.jpg"');
   return page;
 }
