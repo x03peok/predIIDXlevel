@@ -192,9 +192,6 @@
       return;
     }
 
-    if (getPageType() === "main") {
-      return;
-    }
 
     const filterContainer = target.closest(".multi-filter, .advanced-filter");
     if (filterContainer && target.matches("input, select")) {
@@ -218,9 +215,6 @@
   document.addEventListener("input", (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target?.matches('input[type="search"]')) {
-      return;
-    }
-    if (getPageType() === "main") {
       return;
     }
 

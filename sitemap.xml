@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://cpi-next.com/</loc></url>
+  <url><loc>https://cpi-next.com/main.html</loc></url>
+  <url><loc>https://cpi-next.com/pred.html</loc></url>
   <url><loc>https://cpi-next.com/about.html</loc></url>
   <url><loc>https://cpi-next.com/history.html</loc></url>
   <url><loc>https://cpi-next.com/diagnosis.html</loc></url>
