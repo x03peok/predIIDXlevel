@@ -1,7 +1,8 @@
 const chartDatabaseName = "cpi-next-clear-status";
-const chartDatabaseVersion = 2;
+const chartDatabaseVersion = 3;
 const chartStatusStoreName = "chart-statuses";
 const chartManualMemoStoreName = "manual-targets";
+const chartDailyTargetsStoreName = "daily-targets";
 const chartState = {
   db: null,
   chartId: "",
@@ -470,6 +471,9 @@ function chartOpenDatabase() {
       }
       if (!database.objectStoreNames.contains(chartManualMemoStoreName)) {
         database.createObjectStore(chartManualMemoStoreName, { keyPath: "chartId" });
+      }
+      if (!database.objectStoreNames.contains(chartDailyTargetsStoreName)) {
+        database.createObjectStore(chartDailyTargetsStoreName, { keyPath: "date" });
       }
     };
     request.onsuccess = () => resolve(request.result);

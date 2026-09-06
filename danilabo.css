@@ -1,0 +1,220 @@
+.danilabo-panel {
+  width: min(1100px, 100%);
+}
+
+.danilabo-toolbar {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.danilabo-version-control {
+  display: grid;
+  width: min(260px, 100%);
+  gap: 8px;
+}
+
+.danilabo-version-control > span {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.danilabo-version-control select {
+  min-height: 42px;
+  padding-right: 36px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #64748b 50%),
+    linear-gradient(135deg, #64748b 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 3px),
+    calc(100% - 12px) calc(50% - 3px);
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
+  font-size: 0.9rem;
+}
+
+.danilabo-toolbar .row-count {
+  margin-bottom: 12px;
+}
+
+.danilabo-table-shell {
+  border-radius: 20px;
+}
+
+.danilabo-table {
+  min-width: 720px;
+}
+
+.danilabo-table .danilabo-col-class {
+  width: 13%;
+}
+
+.danilabo-table .danilabo-col-stage {
+  width: 10%;
+}
+
+.danilabo-table .danilabo-col-title {
+  width: 40%;
+}
+
+.danilabo-table .danilabo-col-difficulty {
+  width: 15%;
+}
+
+.danilabo-table .danilabo-col-level {
+  width: 10%;
+}
+
+.danilabo-table .danilabo-col-chart-id {
+  width: 12%;
+}
+
+.danilabo-table thead th {
+  padding: 9px 12px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.danilabo-table tbody td {
+  padding: 8px 12px;
+  font-size: 0.85rem;
+}
+
+.danilabo-table tbody td:nth-child(1),
+.danilabo-table tbody td:nth-child(2),
+.danilabo-table tbody td:nth-child(5),
+.danilabo-table tbody td:nth-child(6) {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.danilabo-table tbody td:nth-child(3) {
+  text-align: left;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.danilabo-title-link {
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.danilabo-title-link:hover,
+.danilabo-title-link:focus-visible,
+.danilabo-chart-id-link:hover,
+.danilabo-chart-id-link:focus-visible {
+  text-decoration: underline;
+}
+
+.danilabo-difficulty {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.danilabo-difficulty.difficulty--normal {
+  border-color: rgba(37, 99, 235, 0.24);
+}
+
+.danilabo-difficulty.difficulty--hyper {
+  border-color: rgba(202, 138, 4, 0.3);
+}
+
+.danilabo-difficulty.difficulty--another {
+  border-color: rgba(220, 38, 38, 0.3);
+}
+
+.danilabo-difficulty.difficulty--leggendaria {
+  border-color: rgba(124, 58, 237, 0.32);
+}
+
+.danilabo-chart-id-link {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+
+@media (max-width: 640px) {
+  .danilabo-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .danilabo-version-control {
+    width: 100%;
+  }
+
+  .danilabo-toolbar .row-count {
+    margin-bottom: 0;
+  }
+}
+
+
+.danilabo-tables {
+  display: grid;
+  gap: 18px;
+}
+
+.danilabo-rank {
+  min-width: 0;
+}
+
+.danilabo-rank__title {
+  margin: 0 0 8px 2px;
+  color: var(--accent);
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  line-height: 1.2;
+}
+
+.danilabo-table .danilabo-col-stage {
+  width: 12%;
+}
+
+.danilabo-table .danilabo-col-title {
+  width: 43%;
+}
+
+.danilabo-table .danilabo-col-difficulty {
+  width: 18%;
+}
+
+.danilabo-table .danilabo-col-level {
+  width: 12%;
+}
+
+.danilabo-table .danilabo-col-chart-id {
+  width: 15%;
+}
+
+.danilabo-table tbody td:nth-child(1),
+.danilabo-table tbody td:nth-child(4),
+.danilabo-table tbody td:nth-child(5) {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.danilabo-table tbody td:nth-child(2) {
+  text-align: left;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.danilabo-table tbody td:nth-child(3) {
+  text-align: center;
+}

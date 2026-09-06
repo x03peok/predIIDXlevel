@@ -1,9 +1,10 @@
 "use strict";
 
 const settingsDatabaseName = "cpi-next-clear-status";
-const settingsDatabaseVersion = 2;
+const settingsDatabaseVersion = 3;
 const settingsStoreName = "chart-statuses";
 const settingsManualMemoStoreName = "manual-targets";
+const settingsDailyTargetsStoreName = "daily-targets";
 const settingsBackupFormat = "cpi-next-clear-status-backup";
 const settingsBackupVersion = 2;
 const settingsMaxBackupBytes = 10 * 1024 * 1024;
@@ -64,6 +65,9 @@ function settingsOpenDatabase() {
       }
       if (!database.objectStoreNames.contains(settingsManualMemoStoreName)) {
         database.createObjectStore(settingsManualMemoStoreName, { keyPath: "chartId" });
+      }
+      if (!database.objectStoreNames.contains(settingsDailyTargetsStoreName)) {
+        database.createObjectStore(settingsDailyTargetsStoreName, { keyPath: "date" });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -172,7 +176,13 @@ function settingsWriteAll(records, manualMemos) {
 }
 
 function settingsClearAll() {
-  return settingsWriteAll([]);
+  return settingsWriteAll([]).then(() => new Promise((resolve, reject) => {
+    const transaction = settingsDatabase.transaction(settingsDailyTargetsStoreName, "readwrite");
+    transaction.objectStore(settingsDailyTargetsStoreName).clear();
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error ?? new Error("今日の10曲を削除できませんでした。"));
+    transaction.onabort = () => reject(transaction.error ?? new Error("今日の10曲を削除できませんでした。"));
+  }));
 }
 
 function settingsUpdateCount(records) {
@@ -596,7 +606,7 @@ async function settingsHandleImport(event) {
 }
 
 async function settingsHandleReset() {
-  if (settingsBusy || !window.confirm("保存されているクリアランプ記録のみを削除します。手動メモは保持されます。よろしいですか？")) {
+  if (settingsBusy || !window.confirm("保存されているクリアランプ記録と今日の10曲を削除します。手動メモは保持されます。よろしいですか？")) {
     return;
   }
 

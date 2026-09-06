@@ -453,6 +453,21 @@
 .mypage-message[hidden] {
   display: none;
 }
+
+.mypage-missing-data-message {
+  margin: 8px 0;
+  padding: 9px 12px;
+  border: 1px solid rgba(100, 116, 139, 0.3);
+  border-radius: 10px;
+  background: rgba(241, 245, 249, 0.8);
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.mypage-missing-data-message[hidden] {
+  display: none;
+}
 .mypage-pagination {
   display: flex;
   justify-content: center;

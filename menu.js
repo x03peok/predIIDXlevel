@@ -25,6 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
         { page: "record", label: "クリアランプ登録", href: staticPrefix + "record.html" },
         { page: "mypage", label: "マイページ", href: staticPrefix + "mypage.html" },
         { page: "target", label: "マイターゲット", href: staticPrefix + "target.html" },
+        { page: "daily-target", label: "今日の10曲", href: staticPrefix + "daily-target.html" },
         { page: "settings", label: "設定", href: staticPrefix + "settings.html" },
       ],
     },

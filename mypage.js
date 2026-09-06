@@ -1,9 +1,10 @@
 "use strict";
 
 const mypageDatabaseName = "cpi-next-clear-status";
-const mypageDatabaseVersion = 2;
+const mypageDatabaseVersion = 3;
 const mypageStoreName = "chart-statuses";
 const mypageManualMemoStoreName = "manual-targets";
+const mypageDailyTargetsStoreName = "daily-targets";
 const mypagePageSize = 100;
 const mypageFeatureNone = "特徴なし";
 const mypageFeatureNames = [
@@ -1239,7 +1240,29 @@ function mypageStatusMatchesFilter(status) {
   return mypageAreAllValuesSelected(selectedStatuses, mypageStatuses)
     || selectedStatuses.includes(status);
 }
+function mypageGetMissingSavedIds() {
+  const missingIds = new Set();
+  [...mypageState.records.keys(), ...mypageState.manualMemoIds].forEach((chartId) => {
+    const normalizedChartId = String(chartId ?? "").trim();
+    if (normalizedChartId && !mypageState.rowsByChartId.has(normalizedChartId)) {
+      missingIds.add(normalizedChartId);
+    }
+  });
+  return missingIds;
+}
+
+function mypageUpdateMissingDataMessage() {
+  const message = mypageElements.missingDataMessage;
+  if (!message) return;
+  const count = mypageGetMissingSavedIds().size;
+  message.hidden = count === 0;
+  message.textContent = count === 0
+    ? ""
+    : "譜面データなし: " + count.toLocaleString() + "譜面。保存されたクリアランプ・手動メモは保持されていますが、現在の譜面データがないため、表・Pred推定・リコメンドの対象外です。";
+}
+
 function mypageRender() {
+  mypageUpdateMissingDataMessage();
   mypageUpdateAdvancedSummary();
   mypageRenderPredEstimate();
   const filteredRows = mypageGetVisibleRows();
@@ -1475,6 +1498,9 @@ function mypageOpenDatabase() {
       if (!database.objectStoreNames.contains(mypageManualMemoStoreName)) {
         database.createObjectStore(mypageManualMemoStoreName, { keyPath: "chartId" });
       }
+      if (!database.objectStoreNames.contains(mypageDailyTargetsStoreName)) {
+        database.createObjectStore(mypageDailyTargetsStoreName, { keyPath: "date" });
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error("ローカル保存を開けませんでした。"));
@@ -1523,7 +1549,7 @@ function mypageApplyManualMemos(memos) {
   mypageState.manualMemoIds = new Set(
     (memos ?? [])
       .map((memo) => String(memo?.chartId ?? "").trim())
-      .filter((chartId) => mypageState.rowsByChartId.has(chartId)),
+      .filter((chartId) => /^\d+$/.test(chartId)),
   );
 }
 
@@ -1658,6 +1684,7 @@ function mypageInitializeElements() {
   mypageElements.loadMoreButton = document.getElementById("mypageLoadMoreButton");
   mypageElements.scrollTopButton = document.getElementById("mypageScrollTopButton");
   mypageElements.message = document.getElementById("mypageMessage");
+  mypageElements.missingDataMessage = document.getElementById("mypageMissingDataMessage");
   mypageElements.predEstimate = document.getElementById("mypagePredEstimate");
   mypageElements.statusDistributionChart = document.getElementById("mypageStatusDistributionChart");
   mypageElements.statusDistributionLegend = document.getElementById("mypageStatusDistributionLegend");

@@ -1,9 +1,10 @@
 "use strict";
 
 const recordDbName = "cpi-next-clear-status";
-const recordDbVersion = 2;
+const recordDbVersion = 3;
 const recordStoreName = "chart-statuses";
 const recordManualMemoStoreName = "manual-targets";
+const recordDailyTargetsStoreName = "daily-targets";
 const recordPageSize = 100;
 const recordDifficultyLabels = {
   NORMAL: "N",
@@ -41,6 +42,7 @@ const recordImportCollisionTitles = new Set(recordImportIndex?.collisionTitles ?
 
 const recordState = {
   rows: [],
+  rowsByChartId: new Map(),
   records: new Map(),
   query: "",
   statusFilter: recordStatuses
@@ -384,6 +386,9 @@ function recordOpenDatabase() {
       if (!database.objectStoreNames.contains(recordManualMemoStoreName)) {
         database.createObjectStore(recordManualMemoStoreName, { keyPath: "chartId" });
       }
+      if (!database.objectStoreNames.contains(recordDailyTargetsStoreName)) {
+        database.createObjectStore(recordDailyTargetsStoreName, { keyPath: "date" });
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error("ローカル保存を開けませんでした。"));
@@ -639,6 +644,24 @@ function recordUpdateStatusSelect(select) {
   select.dataset.status = select.value;
 }
 
+function recordGetMissingSavedCount() {
+  let count = 0;
+  for (const chartId of recordState.records.keys()) {
+    if (!recordState.rowsByChartId.has(String(chartId))) count += 1;
+  }
+  return count;
+}
+
+function recordUpdateMissingDataMessage() {
+  const message = recordElements.missingDataMessage;
+  if (!message) return;
+  const count = recordGetMissingSavedCount();
+  message.hidden = count === 0;
+  message.textContent = count === 0
+    ? ""
+    : "譜面データなし: " + count.toLocaleString() + "譜面。保存されたクリアランプは保持されていますが、現在の譜面データがないため、表の対象外です。";
+}
+
 function recordRender() {
   const filteredRows = recordGetFilteredRows();
   const visibleRows = filteredRows.slice(0, recordState.visibleLimit);
@@ -672,6 +695,7 @@ function recordRender() {
     visibleRows.length.toLocaleString() + "件表示 / " +
     filteredRows.length.toLocaleString() + "件中　登録 " +
     recordState.records.size.toLocaleString() + "件";
+  recordUpdateMissingDataMessage();
   recordElements.loadMore.hidden = visibleRows.length >= filteredRows.length;
 }
 
@@ -752,6 +776,7 @@ async function recordInitialize() {
   recordElements.difficultyFilterSummary = document.getElementById("recordDifficultyFilterSummary");
   recordElements.difficultyFilterOptions = document.getElementById("recordDifficultyFilterOptions");
   recordElements.message = document.getElementById("recordMessage");
+  recordElements.missingDataMessage = document.getElementById("recordMissingDataMessage");
   recordElements.summary = document.getElementById("recordSummary");
   recordElements.tableBody = document.getElementById("recordTableBody");
   recordElements.loadMore = document.getElementById("recordLoadMoreButton");
@@ -763,6 +788,7 @@ async function recordInitialize() {
 
   try {
     recordState.rows = recordLoadRows();
+    recordState.rowsByChartId = new Map(recordState.rows.map((row) => [String(row.chartId), row]));
     recordPopulateFilters();
     recordBindEvents();
     recordRender();

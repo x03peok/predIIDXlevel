@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>今日の10曲｜CPI:Next</title>
+  <meta name="description" content="今日挑戦する譜面を選び、クリア状況を記録するページです。">
+  <link rel="canonical" href="https://cpi-next.com/daily-target.html">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://cpi-next.com/daily-target.html">
+  <meta property="og:site_name" content="CPI:Next">
+  <meta property="og:title" content="今日の10曲｜CPI:Next">
+  <meta property="og:description" content="今日挑戦する譜面を選び、クリア状況を記録するページです。">
+  <meta property="og:locale" content="ja_JP">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="今日の10曲｜CPI:Next">
+  <meta name="twitter:description" content="今日挑戦する譜面を選び、クリア状況を記録するページです。">
+  <link rel="icon" type="image/jpeg" href="site-icon.jpg">
+  <link rel="apple-touch-icon" href="site-icon.jpg">
+  <meta property="og:image" content="https://cpi-next.com/site-icon.jpg?v=20260904-2">
+  <meta property="og:image:secure_url" content="https://cpi-next.com/site-icon.jpg?v=20260904-2">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1254">
+  <meta property="og:image:height" content="1254">
+  <meta property="og:image:alt" content="CPI:Next">
+  <meta name="twitter:image" content="https://cpi-next.com/site-icon.jpg?v=20260904-2">
+  <meta name="twitter:image:alt" content="CPI:Next">
+  <script src="analytics.js?v=20260905-1" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20260904-1">
+  <link rel="stylesheet" href="menu.css?v=20260904-2">
+  <link rel="stylesheet" href="daily-target.css?v=20260906-42">
+  <script src="menu.js?v=20260906-1" defer></script>
+  <script src="data.js?v=20260904-1" defer></script>
+  <script src="daily-target.js?v=20260906-49" defer></script>
+</head>
+<body data-page="daily-target">
+  <main class="app">
+    <header class="masthead">
+      <div class="masthead__bar">
+        <div class="site-menu" id="menuRoot">
+          <button id="menuButton" class="menu-button" type="button" aria-label="メニューを開く" aria-controls="siteMenu" aria-expanded="false">
+            <span></span><span></span><span></span>
+          </button>
+          <div id="siteMenu" class="menu-popover" hidden></div>
+        </div>
+        <h1>今日の10曲</h1>
+      </div>
+    </header>
+
+    <section class="view view--main" aria-live="polite">
+      <p id="dailyTargetLoading" class="daily-target-loading" role="status">読み込み中です。</p>
+      <p id="dailyTargetMissingDataMessage" class="daily-target-missing-data-message" role="status" aria-live="polite" hidden></p>
+      <div id="dailyTargetPanel" class="panel daily-target-panel" hidden inert>
+        <p id="dailyTargetError" class="daily-target-error" hidden></p>
+
+        <section id="dailyTargetSelection" class="daily-target-section">
+          <div class="daily-target-section__header">
+            <div>
+              <h2>今日の10曲を選ぶ</h2>
+              <p class="daily-target-count">目標を設定して挑戦できます。10曲未満でも確定できます。</p>
+            </div>
+          </div>
+          <div id="dailyTargetSelectedSongs" class="daily-target-selected-songs" hidden>
+            <h3>選択中の譜面</h3>
+            <div id="dailyTargetSelectedSongsList" class="daily-target-selected-songs__list"></div>
+          </div>
+          <div class="daily-target-selection-actions">
+            <p id="dailyTargetSelectedCount" class="daily-target-count"></p>
+            <div class="daily-target-selection-actions__buttons">
+              <button id="dailyTargetAutoFillButton" class="daily-target-secondary" type="button">リコメンドから自動選択</button>
+              <button id="dailyTargetManualAutoFillButton" class="daily-target-secondary" type="button">手動メモから自動選択</button>
+              <div class="daily-target-confirm-group"><button id="dailyTargetConfirmButton" class="daily-target-primary" type="button" disabled>今日の10曲を確定</button><button id="dailyTargetResetButton" class="daily-target-reset" type="button" hidden>候補をリセット</button></div>
+            </div>
+          </div>
+
+          <h2 class="daily-target-candidates-heading">候補を一覧から探す</h2>
+          <p class="daily-target-candidates-description">補正Pred: あなたの得意傾向に合わせて補正したPredです。元のPredよりも低い値なら、相対的に得意な譜面の可能性が高いです。</p>
+          <div class="toolbar target-toolbar daily-target-toolbar">
+            <label class="search">
+              <span>Title</span>
+              <input id="dailyTargetSearch" type="search" placeholder="search title" autocomplete="off">
+            </label>
+            <div class="multi-filter daily-target-status-filter">
+              <span>Status</span>
+              <details id="dailyTargetStatusFilterDetails" class="multi-filter__details daily-target-filter-details">
+                <summary id="dailyTargetStatusFilterSummary">5 selected</summary>
+                <div id="dailyTargetStatusFilterMenu" class="multi-filter__options"></div>
+              </details>
+            </div>
+            <div class="multi-filter daily-target-level-filter">
+              <span>Level</span>
+              <details id="dailyTargetLevelFilterDetails" class="multi-filter__details daily-target-filter-details">
+                <summary id="dailyTargetLevelFilterSummary">all</summary>
+                <div id="dailyTargetLevelFilterMenu" class="multi-filter__options"></div>
+              </details>
+            </div>
+            <div class="multi-filter daily-target-difficulty-filter">
+              <span>Difficulty</span>
+              <details id="dailyTargetDifficultyFilterDetails" class="multi-filter__details daily-target-filter-details">
+                <summary id="dailyTargetDifficultyFilterSummary">all</summary>
+                <div id="dailyTargetDifficultyFilterMenu" class="multi-filter__options"></div>
+              </details>
+            </div>
+            <div class="multi-filter feature-filter daily-target-feature-filter">
+              <span>Feature</span>
+              <details id="dailyTargetFeatureFilterDetails" class="multi-filter__details daily-target-filter-details">
+                <summary id="dailyTargetFeatureFilterSummary">all</summary>
+                <div id="dailyTargetFeatureFilterMenu" class="multi-filter__options"></div>
+              </details>
+            </div>
+            <details class="multi-filter__details advanced-filter daily-target-filter-details">
+              <summary id="dailyTargetAdvancedFilterSummary">詳細絞り込み</summary>
+              <div class="advanced-filter__body">
+                <label class="filter bpm-filter">
+                  <span>BPM_Min</span>
+                  <input id="dailyTargetBpmMinInput" type="number" inputmode="decimal" min="0" step="any" value="0">
+                </label>
+                <label class="filter bpm-filter">
+                  <span>BPM_Max</span>
+                  <input id="dailyTargetBpmMaxInput" type="number" inputmode="decimal" min="0" step="any" value="999">
+                </label>
+                <label class="filter pred-filter">
+                  <span>Pred_Min</span>
+                  <input id="dailyTargetPredMinInput" type="number" inputmode="decimal" min="0" max="999" step="0.1" value="0.0">
+                </label>
+                <label class="filter pred-filter">
+                  <span>Pred_Max</span>
+                  <input id="dailyTargetPredMaxInput" type="number" inputmode="decimal" min="0" max="999" step="0.1" value="999.0">
+                </label>
+                <label class="filter pred-filter">
+                  <span>補正Pred_Min</span>
+                  <input id="dailyTargetAdjustedPredMinInput" type="number" inputmode="decimal" min="0" max="999" step="0.1" value="0.0">
+                </label>
+                <label class="filter pred-filter">
+                  <span>補正Pred_Max</span>
+                  <input id="dailyTargetAdjustedPredMaxInput" type="number" inputmode="decimal" min="0" max="999" step="0.1" value="999.0">
+                </label>
+              </div>
+            </details>
+          </div>
+
+          <p id="dailyTargetCandidateCount" class="row-count daily-target-count"></p>
+          <div class="table-shell daily-target-table-shell">
+            <table class="chart-table daily-target-table">
+                                                        <colgroup>
+                <col class="daily-col-select">
+                <col class="daily-col-level">
+                <col class="daily-col-title">
+                <col class="daily-col-adjusted-pred">
+                <col class="daily-col-pred">
+                <col class="daily-col-status">
+                <col class="daily-col-feature">
+              </colgroup>
+                                                        <thead>
+                <tr>
+                  <th aria-label="&#x9078;&#x629e;"></th>
+                  <th>Level</th>
+                  <th>Title</th>
+                  <th>&#x88DC;&#x6B63;Pred</th>
+                  <th>Pred</th>
+                  <th>Status</th>
+                  <th>Feature</th>
+                </tr>
+              </thead><tbody id="dailyTargetCandidateBody"></tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <button id="dailyTargetLoadMore" class="load-more" type="button" hidden>さらに表示</button>
+          </div>
+        </section>
+
+        <section id="dailyTargetLocked" class="daily-target-section daily-target-locked" hidden>
+          <div class="daily-target-section__header">
+            <div>
+              <h2>今日の10曲</h2>
+              <p id="dailyTargetProgress" class="daily-target-count"></p>
+            </div>
+                      <div class="daily-target-locked-actions">
+            <button id="dailyTargetShare" class="daily-target-share-button" type="button">Xで共有</button>
+          </div>
+          </div>
+          <p class="daily-target-note">確定時のランプを基準に、今日の目標達成状況を表示しています。日付変更後ページ再読み込みで挑戦は終了します。</p>
+          <div class="table-shell daily-target-table-shell">
+            <table class="chart-table daily-target-table daily-target-table--locked">
+                                          <colgroup>
+                <col class="daily-col-status">
+                <col class="daily-col-level">
+                <col class="daily-col-title">
+                <col class="daily-col-start-goal">
+                <col class="daily-col-progress">
+                <col class="daily-col-adjusted-pred">
+                <col class="daily-col-pred">
+                <col class="daily-col-feature">
+              </colgroup>
+                                          <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Level</th>
+                  <th>Title</th>
+                  <th>&#x958B;&#x59CB;Status &#x2192; &#x76EE;&#x6A19;</th>
+                  <th>&#x9054;&#x6210;</th>
+                  <th>&#x88DC;&#x6B63;Pred</th>
+                  <th>Pred</th>
+                  <th>Feature</th>
+                </tr>
+              </thead><tbody id="dailyTargetLockedBody"></tbody>
+            </table>
+          </div>
+          <div class="daily-target-abandon-wrap">
+            <button id="dailyTargetAbandon" class="daily-target-abandon-all" type="button">挑戦をやめる</button>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+  <button id="dailyTargetScrollTop" class="scroll-top-button" type="button" aria-label="ページ上部へ戻る" hidden>↑</button>
+</body>
+</html>

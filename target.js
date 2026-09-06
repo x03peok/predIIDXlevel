@@ -1,9 +1,10 @@
 "use strict";
 
 const targetDatabaseName = "cpi-next-clear-status";
-const targetDatabaseVersion = 2;
+const targetDatabaseVersion = 3;
 const targetStoreName = "chart-statuses";
 const targetManualMemoStoreName = "manual-targets";
+const targetDailyTargetsStoreName = "daily-targets";
 const targetPageSize = 100;
 const targetFeatureNone = "特徴なし";
 const targetUnlockEventStorageKey = "cpi-next-target-unlocked-event-sent";
@@ -1268,6 +1269,27 @@ function targetGetAvailability() {
   };
 }
 
+function targetGetMissingSavedIds() {
+  const missingIds = new Set();
+  [...targetState.records.keys(), ...targetState.manualMemoIds].forEach((chartId) => {
+    const normalizedChartId = String(chartId ?? "").trim();
+    if (normalizedChartId && !targetState.rowsByChartId.has(normalizedChartId)) {
+      missingIds.add(normalizedChartId);
+    }
+  });
+  return missingIds;
+}
+
+function targetUpdateMissingDataMessage() {
+  const message = targetElements.missingDataMessage;
+  if (!message) return;
+  const count = targetGetMissingSavedIds().size;
+  message.hidden = count === 0;
+  message.textContent = count === 0
+    ? ""
+    : "譜面データなし: " + count.toLocaleString() + "譜面。保存されたクリアランプ・手動メモは保持されていますが、現在の譜面データがないため、表・Pred推定・リコメンドの対象外です。";
+}
+
 function targetCanShowContent() {
   return targetGetAvailability().available;
 }
@@ -1293,6 +1315,7 @@ function targetTrackUnlockEvent(availability) {
 
 function targetUpdateAvailability() {
   const availability = targetGetAvailability();
+  targetUpdateMissingDataMessage();
   const available = availability.available;
   if (!available) {
     targetElements.insufficientMessageText.textContent = "あとクリア" + availability.clearShortage.toLocaleString() + "件、未クリア" + availability.notClearShortage.toLocaleString() + "件、全体" + availability.totalShortage.toLocaleString() + "件登録で、マイターゲット機能が解禁されます。";
@@ -1319,6 +1342,9 @@ function targetOpenDatabase() {
       }
       if (!database.objectStoreNames.contains(targetManualMemoStoreName)) {
         database.createObjectStore(targetManualMemoStoreName, { keyPath: "chartId" });
+      }
+      if (!database.objectStoreNames.contains(targetDailyTargetsStoreName)) {
+        database.createObjectStore(targetDailyTargetsStoreName, { keyPath: "date" });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -1359,7 +1385,7 @@ function targetApplyManualMemos(memos) {
   targetState.manualMemoIds = new Set(
     memos
       .map((memo) => String(memo?.chartId ?? "").trim())
-      .filter((chartId) => targetState.rowsByChartId.has(chartId)),
+      .filter((chartId) => /^\d+$/.test(chartId)),
   );
 }
 
@@ -1495,6 +1521,7 @@ function targetInitializeElements() {
   targetElements.content = document.getElementById("targetContent");
   targetElements.insufficientMessage = document.getElementById("targetInsufficientMessage");
   targetElements.insufficientMessageText = document.getElementById("targetInsufficientMessageText");
+  targetElements.missingDataMessage = document.getElementById("targetMissingDataMessage");
   targetElements.advancedSummary = document.getElementById("targetAdvancedFilterSummary");
   targetElements.bpmMinInput = document.getElementById("targetBpmMinInput");
   targetElements.bpmMaxInput = document.getElementById("targetBpmMaxInput");
