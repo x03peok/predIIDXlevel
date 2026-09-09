@@ -153,7 +153,13 @@ function recordWriteStatuses(statuses) {
     const store = transaction.objectStore(recordStoreName);
     const updatedAt = new Date().toISOString();
     try {
-      for (const [chartId, status] of statuses) store.put({ chartId, status, updatedAt });
+      for (const [chartId, status] of statuses) {
+        if (status === "unregistered") {
+          store.delete(chartId);
+        } else {
+          store.put({ chartId, status, updatedAt });
+        }
+      }
     } catch (error) { reject(error); return; }
     transaction.oncomplete = resolve;
     transaction.onerror = () => reject(transaction.error ?? new Error("記録を保存できませんでした。"));
@@ -293,6 +299,12 @@ async function recordHandleCsvImport() {
     const csvText = pastedText.trim() ? pastedText : await file.text();
     const result = recordParseOfficialCsv(csvText);
     if (!result.updates.size) throw new Error("対応する譜面が見つかりませんでした。");
+    const previousStatuses = new Map(
+      [...result.updates.keys()].map((chartId) => [
+        chartId,
+        recordState.records.get(chartId)?.status ?? "unregistered",
+      ]),
+    );
     await recordWriteStatuses(result.updates);
     const updatedAt = new Date().toISOString();
     for (const [chartId, status] of result.updates) recordState.records.set(chartId, { chartId, status, updatedAt });
@@ -302,6 +314,24 @@ async function recordHandleCsvImport() {
     if (result.ambiguous) message += " 判別できない譜面 " + result.ambiguous.toLocaleString() + "件は変更していません。";
     if (fileWarning) message += " " + fileWarning;
     recordSetCsvMessage(message, false, Boolean(fileWarning));
+    window.cpiStatusToast?.show({
+      onUndo: async () => {
+        await recordWriteStatuses(previousStatuses);
+        for (const [chartId, status] of previousStatuses) {
+          if (status === "unregistered") {
+            recordState.records.delete(chartId);
+          } else {
+            recordState.records.set(chartId, {
+              chartId,
+              status,
+              updatedAt: new Date().toISOString(),
+            });
+          }
+        }
+        recordRender();
+        recordSetCsvMessage("CSV登録を元に戻しました。", false);
+      },
+    });
     if (showImportCta && recordElements.csvImportLinks) recordElements.csvImportLinks.hidden = false;
   } catch (error) {
     recordHideCsvImportLinks();
@@ -730,6 +760,7 @@ async function recordHandleStatusChange(event) {
     return;
   }
   const chartId = select.dataset.chartId;
+  const previousStatus = recordState.records.get(chartId)?.status ?? "unregistered";
   const status = select.value;
   select.disabled = true;
   try {
@@ -742,6 +773,22 @@ async function recordHandleStatusChange(event) {
     recordUpdateStatusSelect(select);
     recordRender();
     recordSetMessage("記録を保存しました。");
+    window.cpiStatusToast?.show({
+      onUndo: async () => {
+        await recordWriteStatus(chartId, previousStatus);
+        if (previousStatus === "unregistered") {
+          recordState.records.delete(chartId);
+        } else {
+          recordState.records.set(chartId, {
+            chartId,
+            status: previousStatus,
+            updatedAt: new Date().toISOString(),
+          });
+        }
+        recordRender();
+        recordSetMessage("記録を元に戻しました。");
+      },
+    });
   } catch (error) {
     recordSetMessage(error.message || "記録を保存できませんでした。", true);
   } finally {

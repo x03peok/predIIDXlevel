@@ -31,6 +31,11 @@ const mypageFeatureDescriptions = {
 };
 const mypagePredNotClearStatuses = new Set(["failed", "assisted", "easy"]);
 const mypagePredClearStatuses = new Set(["clear", "hard"]);
+const mypagePredModes = {
+  easy: { key: "easy_pred_skill", label: "イージーPred", clear: new Set(["easy", "clear", "hard"]), notClear: new Set(["failed", "assisted"]) },
+  normal: { key: "calibrated_pred_skill", label: "ノマゲPred", clear: new Set(["clear", "hard"]), notClear: new Set(["failed", "assisted", "easy"]) },
+  hard: { key: "hard_pred_skill", label: "ハードPred", clear: new Set(["hard"]), notClear: new Set(["failed", "assisted", "easy", "clear"]) },
+};
 const mypageDifficultyValues = {
   N: "NORMAL",
   H: "HYPER",
@@ -76,14 +81,12 @@ const mypageState = {
   featureFilter: null,
   bpmMinFilter: 0,
   bpmMaxFilter: 999,
-  predMinFilter: 0,
-  predMaxFilter: 999,
   predDataMin: 0,
   predDataMax: 999,
   includeUnregistered: false,
   includeUnowned: false,
   rowsByChartId: new Map(),
-  sortKey: "calibrated_pred_skill",
+  sortKey: "original_level",
   sortDir: "asc",
   visibleLimit: mypagePageSize,
   renderTimer: null,
@@ -552,7 +555,7 @@ function mypageCompareValues(left, right, key) {
     const bpmKey = mypageState.sortDir === "desc" ? "bpm_max" : "bpm_min";
     return mypageCompareNumericValues(left[bpmKey], right[bpmKey]);
   }
-  if (key === "original_level" || key === "calibrated_pred_skill") {
+  if (key === "original_level") {
     const numericResult = mypageCompareNumericValues(left[key], right[key]);
     if (numericResult !== 0) {
       return numericResult;
@@ -617,12 +620,6 @@ function mypageGetVisibleRows() {
       && rowMax <= mypageState.bpmMaxFilter;
   });
 
-  rows = rows.filter((row) => {
-    const predicted = mypageGetNumericValue(row.calibrated_pred_skill);
-    return predicted !== null
-      && predicted >= mypageState.predMinFilter
-      && predicted <= mypageState.predMaxFilter;
-  });
 
   const featureOptions = mypageGetFeatureOptions();
   if (mypageState.featureFilter && !mypageHasNoFeatureFilters(featureOptions)) {
@@ -711,26 +708,42 @@ function mypageRenderMemoCheckbox(row) {
     + ' aria-label="' + title + "を" + action + '" title="' + action + '">';
 }
 
+function mypageRenderPredStack(row) {
+  const bounds = mypageGetPredBounds("overall");
+  return `<div class="mypage-pred-stack">${Object.entries(mypagePredModes).map(([mode, definition]) => {
+    const value = row[definition.key];
+    const formatted = mypageFormatPredValue(value) ?? value ?? "";
+    const color = getNumericColorStyle(value, bounds.min, bounds.max);
+    return `<span class="mypage-pred-stack__item mypage-pred-stack__item--${mode}"><span>${definition.label}</span><strong class="numeric-value numeric-value--pred"${color}>${mypageEscapeHtml(formatted)}</strong></span>`;
+  }).join("")}</div>`;
+}
+
+
+function mypageGetCurrentPredMode(status) {
+  if (status === "easy") return "easy";
+  if (status === "clear") return "normal";
+  if (status === "hard") return "hard";
+  return null;
+}
+function mypageRenderCurrentPredCell(row, status) {
+  const mode = mypageGetCurrentPredMode(status);
+  const value = mode ? mypageGetNumericValue(row[mypagePredModes[mode].key]) : null;
+  const text = value === null ? "ー" : (mypageFormatPredValue(value) ?? "ー");
+  const color = value === null
+    ? ""
+    : getNumericColorStyle(value, mypageState.predDataMin - 0.5, mypageState.predDataMax + 1.0);
+  return '<td class="mono numeric-value numeric-value--pred mypage-current-pred"' + color + ">" + mypageEscapeHtml(text) + "</td>";
+}
 function mypageRenderTableRow(row) {
   const difficulty = String(row.difficulty ?? "").toUpperCase();
   const difficultyClass = mypageDifficultyClasses[difficulty] ?? "";
   const difficultyText = mypageDifficultyLabels[difficulty] ?? difficulty;
   const originalText = "☆" + (row.original_level ?? "");
-  const predictedText = mypageFormatPredValue(row.calibrated_pred_skill)
-    ?? row.calibrated_pred_skill ?? "";
   const status = mypageGetStatus(row);
-  const levelColorStyle = getNumericColorStyle(
-    row.original_level,
-    mypageState.predDataMin,
-    mypageState.predDataMax,
-  );
-  const predictedColorStyle = getNumericColorStyle(
-    row.calibrated_pred_skill,
-    mypageState.predDataMin,
-    mypageState.predDataMax,
-  );
+  const levelColorStyle = getNumericColorStyle(row.original_level, mypageState.predDataMin, mypageState.predDataMax);
   const titleHref = mypageGetChartPageHref(row.chart_id);
   const chartId = mypageEscapeHtml(row.chart_id);
+
   return [
     "<tr>",
     '<td class="memo-cell">', mypageRenderMemoCheckbox(row), "</td>",
@@ -739,14 +752,13 @@ function mypageRenderTableRow(row) {
     '<td class="chart-title-cell"><a class="chart-link ', difficultyClass,
     '" href="', titleHref, '"><span class="chart-title-cell__name">',
     mypageEscapeHtml(row.title ?? ""),
-    '</span> <span class="chart-title-cell__difficulty">[',
+    '</span> <span class="chart-title-cell__difficulty">[','',
     mypageEscapeHtml(difficultyText), "]</span></a></td>",
-    '<td class="mono numeric-value numeric-value--pred"', predictedColorStyle, ">",
-    mypageEscapeHtml(predictedText), "</td>",
     '<td><select class="mypage-status-select" data-status="', mypageEscapeHtml(status),
     '" data-chart-id="', chartId,
     '" aria-label="', mypageEscapeHtml(row.title ?? ""), 'のクリア状況">',
     mypageStatusOption(status), "</select></td>",
+    mypageRenderCurrentPredCell(row, status),
     '<td class="mono">', mypageFormatBpmCell(row.bpm_min, row.bpm_max), "</td>",
     "<td>", mypageRenderFeatureChips(row), "</td>",
     "</tr>",
@@ -778,18 +790,10 @@ function mypageUpdateAdvancedSummary() {
   if (mypageState.bpmMinFilter !== 0 || mypageState.bpmMaxFilter !== 999) {
     activeValues.push("BPM:" + mypageState.bpmMinFilter + "~" + mypageState.bpmMaxFilter);
   }
-  const predMin = mypageFormatPredValue(mypageState.predMinFilter);
-  const predMax = mypageFormatPredValue(mypageState.predMaxFilter);
-  const defaultMin = mypageFormatPredValue(mypageState.predDataMin);
-  const defaultMax = mypageFormatPredValue(mypageState.predDataMax);
-  if (predMin !== defaultMin || predMax !== defaultMax) {
-    activeValues.push("Pred:" + predMin + "~" + predMax);
-  }
   const text = activeValues.length > 0 ? activeValues.join(" / ") : "詳細絞り込み";
   mypageElements.advancedFilterSummary.textContent = text;
   mypageElements.advancedFilterSummary.title = text;
 }
-
 function mypageUpdateRowCount(visibleCount) {
   mypageElements.rowCount.textContent =
     visibleCount.toLocaleString() + "件表示 / " + mypageState.rows.length.toLocaleString() + "件中";
@@ -814,19 +818,22 @@ function mypageFormatPredRange(lower, upper) {
   return lowerText === upperText ? lowerText : lowerText + "-" + upperText;
 }
 
-function mypageGetPredObservations() {
+function mypageGetPredObservations(mode = "normal") {
   const observations = [];
+  const modes = mode === "overall" ? Object.values(mypagePredModes) : [mypagePredModes[mode] ?? mypagePredModes.normal];
   for (const [chartId, record] of mypageState.records) {
     const row = mypageState.rowsByChartId.get(String(chartId));
-    const pred = mypageGetNumericValue(row?.calibrated_pred_skill);
     const status = String(record?.status ?? "").toLowerCase();
-    const outcome = mypagePredClearStatuses.has(status)
-      ? 1
-      : mypagePredNotClearStatuses.has(status)
-        ? 0
-        : null;
-    if (row && pred !== null && outcome !== null) {
-      observations.push({ row, pred, outcome });
+    for (const modeDefinition of modes) {
+      const pred = mypageGetNumericValue(row?.[modeDefinition.key]);
+      const outcome = modeDefinition.clear.has(status)
+        ? 1
+        : modeDefinition.notClear.has(status)
+          ? 0
+          : null;
+      if (row && pred !== null && outcome !== null) {
+        observations.push({ row, pred, outcome, mode: modeDefinition.key });
+      }
     }
   }
   return observations;
@@ -871,14 +878,28 @@ function mypageBuildPredProvisionalResult(observations, counts) {
     counts,
   };
 }
-function mypageFitPredRegression() {
-  const observations = mypageGetPredObservations();
+function mypageGetPredBounds(mode = "normal") {
+  const keys = mode === "overall"
+    ? Object.values(mypagePredModes).map((definition) => definition.key)
+    : [mypagePredModes[mode]?.key ?? mypagePredModes.normal.key];
+  const values = mypageState.rows
+    .flatMap((row) => keys.map((key) => mypageGetNumericValue(row[key])))
+    .filter((value) => value !== null);
+  return {
+    min: values.length ? Math.min(...values) : mypageState.predDataMin,
+    max: values.length ? Math.max(...values) : mypageState.predDataMax,
+  };
+}
+
+function mypageFitPredRegression(mode = "normal") {
+  const observations = mypageGetPredObservations(mode);
   const counts = {
     total: observations.length,
     clear: observations.filter(({ outcome }) => outcome === 1).length,
     notClear: observations.filter(({ outcome }) => outcome === 0).length,
   };
-  if (counts.total < 5) {
+  const observedChartCount = new Set(observations.map(({ row }) => String(row.chart_id ?? ""))).size;
+  if (observedChartCount < 5) {
     return mypageBuildPredInsufficientResult(
       observations,
       counts,
@@ -886,10 +907,7 @@ function mypageFitPredRegression() {
     );
   }
 
-  const bounds = {
-    min: mypageState.predDataMin,
-    max: mypageState.predDataMax,
-  };
+  const bounds = mypageGetPredBounds(mode);
   if (counts.clear === 0) {
     return {
       range: mypageFormatPredValue(bounds.min) + "未満",
@@ -994,7 +1012,7 @@ function mypageFitPredRegression() {
     rangeUpper: upper,
     rangePrefix: "",
     rangeQualifier: "",
-    message: "クリア確率40%-60%範囲",
+    message: "",
     model: { intercept, slope, center, scale },
     usedLogistic: true,
     observations,
@@ -1134,11 +1152,15 @@ function mypageGetPublicUrl() {
   return "https://cpi-next.com/mypage.html";
 }
 
-function mypageBuildShareText(result, scores) {
+function mypageBuildShareText(result, scores, lampResults = {}) {
   const tendencies = mypageGetFeatureShareTendencies(scores);
   const lines = [
     "推定適正Pred: " + (result.range || "ー"),
   ];
+
+  for (const [mode, definition] of Object.entries(mypagePredModes)) {
+    lines.push(definition.label + ": " + (lampResults[mode]?.range || "ー"));
+  }
 
   if (tendencies.strong.length) {
     lines.push("得意傾向: " + tendencies.strong.join("、"));
@@ -1150,7 +1172,6 @@ function mypageBuildShareText(result, scores) {
   lines.push("", mypageGetPublicUrl(), "", "#CPINext");
   return lines.join("\n");
 }
-
 function mypageUpdateShare(shareText) {
   const button = mypageElements.shareButton;
   if (!button) {
@@ -1162,61 +1183,71 @@ function mypageUpdateShare(shareText) {
   button.hidden = false;
 }
 
-function mypageRenderPredEstimate() {
-  const result = mypageFitPredRegression();
-  const element = mypageElements.predEstimate;
+function mypageRenderPredResult(element, result, scaleMin, scaleMax) {
   element.replaceChildren();
   if (!Number.isFinite(result.rangeLower)) {
     element.textContent = result.range || "ー";
-  } else {
-    const appendValue = (value) => {
-      const valueElement = document.createElement("span");
-      valueElement.className = "mypage-pred-estimate__value-part";
-      valueElement.textContent = mypageFormatPredValue(value);
-      const color = getNumericScaleColor(value, mypageState.predDataMin, mypageState.predDataMax);
-      if (color) {
-        valueElement.style.setProperty("--numeric-color", color);
-      }
-      element.append(valueElement);
-    };
-    if (result.rangePrefix) {
-      element.append(document.createTextNode(result.rangePrefix));
-    }
-    appendValue(result.rangeLower);
-    if (Number.isFinite(result.rangeUpper) && result.rangeUpper !== result.rangeLower) {
-      const separator = document.createElement("span");
-      separator.className = "mypage-pred-estimate__separator";
-      separator.textContent = "-";
-      element.append(separator);
-      appendValue(result.rangeUpper);
-    }
-    if (result.rangeQualifier) {
-      element.append(document.createTextNode(result.rangeQualifier));
-    }
+    return;
   }
+  const appendValue = (value) => {
+    const valueElement = document.createElement("span");
+    valueElement.className = "mypage-pred-estimate__value-part";
+    valueElement.textContent = mypageFormatPredValue(value);
+    const color = getNumericScaleColor(value, scaleMin, scaleMax);
+    if (color) valueElement.style.setProperty("--numeric-color", color);
+    element.append(valueElement);
+  };
+  if (result.rangePrefix) element.append(document.createTextNode(result.rangePrefix));
+  appendValue(result.rangeLower);
+  if (Number.isFinite(result.rangeUpper) && result.rangeUpper !== result.rangeLower) {
+    const separator = document.createElement("span");
+    separator.className = "mypage-pred-estimate__separator";
+    separator.textContent = "-";
+    element.append(separator);
+    appendValue(result.rangeUpper);
+  }
+  if (result.rangeQualifier) element.append(document.createTextNode(result.rangeQualifier));
+}
 
+function mypageRenderPredEstimate() {
+  const overallResult = mypageFitPredRegression("overall");
+  mypageRenderPredResult(mypageElements.predEstimate, overallResult, mypageGetPredBounds("overall").min, mypageGetPredBounds("overall").max);
   const note = mypageElements.predEstimateNote;
   note.replaceChildren();
-  if (result.message) {
-    note.append(document.createTextNode(result.message));
+  if (overallResult.message) {
+    note.append(document.createTextNode(overallResult.message));
     if (mypageState.records.size === 0) {
       const link = document.createElement("a");
       link.href = "record.html";
       link.textContent = "クリアランプ登録";
-      note.append(
-        document.createElement("br"),
-        link,
-        document.createTextNode("を行ってください"),
-      );
+      note.append(document.createElement("br"), link, document.createTextNode("を行ってください"));
     }
   }
-  note.hidden = !result.message;
-  const featureScores = result.usedLogistic === true && Array.isArray(result.observations) && result.observations.length >= 5
-    ? mypageGetFeatureScores(result.observations, result.model)
+  note.hidden = !overallResult.message;
+  const lampResults = {};
+  if (mypageElements.predLampEstimates) {
+    mypageElements.predLampEstimates.replaceChildren();
+    for (const [mode, definition] of Object.entries(mypagePredModes)) {
+      const row = document.createElement("div");
+      row.className = `mypage-pred-lamp-row mypage-pred-lamp-row--${mode}`;
+      const label = document.createElement("span");
+      label.className = "mypage-pred-lamp-row__label";
+      label.textContent = definition.label.replace(/Pred$/, "");
+      const value = document.createElement("span");
+      value.className = "mypage-pred-lamp-row__value";
+      const result = mypageFitPredRegression(mode);
+      lampResults[mode] = result;
+      mypageRenderPredResult(value, result, mypageGetPredBounds(mode).min, mypageGetPredBounds(mode).max);
+      row.append(label, value);
+      mypageElements.predLampEstimates.append(row);
+    }
+  }
+  const featureScores = overallResult.usedLogistic === true && Array.isArray(overallResult.observations) && overallResult.observations.length >= 5
+    ? mypageGetFeatureScores(overallResult.observations, overallResult.model)
     : [];
-  mypageUpdateShare(mypageBuildShareText(result, featureScores));
+  mypageUpdateShare(mypageBuildShareText(overallResult, featureScores, lampResults));
   mypageRenderStatusDistribution();
-  mypageRenderFeatureResult(result);
+  mypageRenderFeatureResult(overallResult);
 }
 function mypageUpdateSortMarks() {
   mypageElements.table.querySelectorAll("thead button[data-sort-key]").forEach((button) => {
@@ -1311,22 +1342,6 @@ function mypageClampBpm(value, fallback) {
   return Math.min(999, Math.max(0, mypageParseFilterNumber(value, fallback)));
 }
 
-function mypageClampPred(value, fallback) {
-  return Math.min(
-    mypageState.predDataMax,
-    Math.max(mypageState.predDataMin, mypageParseFilterNumber(value, fallback)),
-  );
-}
-
-function mypageSetPredInputBounds() {
-  const min = mypageFormatPredValue(mypageState.predDataMin);
-  const max = mypageFormatPredValue(mypageState.predDataMax);
-  mypageElements.predMinFilter.min = min;
-  mypageElements.predMinFilter.max = max;
-  mypageElements.predMaxFilter.min = min;
-  mypageElements.predMaxFilter.max = max;
-}
-
 function mypageUpdateBpmFilters() {
   mypageState.bpmMinFilter = mypageClampBpm(mypageElements.bpmMinFilter.value, 0);
   mypageState.bpmMaxFilter = mypageClampBpm(mypageElements.bpmMaxFilter.value, 999);
@@ -1341,32 +1356,6 @@ function mypageCommitBpmFilters() {
   mypageCancelScheduledRender();
   mypageRender();
 }
-
-function mypageUpdatePredFilters() {
-  mypageState.predMinFilter = mypageClampPred(
-    mypageElements.predMinFilter.value,
-    mypageState.predDataMin,
-  );
-  mypageState.predMaxFilter = mypageClampPred(
-    mypageElements.predMaxFilter.value,
-    mypageState.predDataMax,
-  );
-  mypageScheduleRender();
-}
-
-function mypageCommitPredFilters() {
-  mypageState.predMinFilter = Math.round(
-    mypageClampPred(mypageElements.predMinFilter.value, mypageState.predDataMin) * 10,
-  ) / 10;
-  mypageState.predMaxFilter = Math.round(
-    mypageClampPred(mypageElements.predMaxFilter.value, mypageState.predDataMax) * 10,
-  ) / 10;
-  mypageElements.predMinFilter.value = mypageFormatPredValue(mypageState.predMinFilter);
-  mypageElements.predMaxFilter.value = mypageFormatPredValue(mypageState.predMaxFilter);
-  mypageCancelScheduledRender();
-  mypageRender();
-}
-
 function mypageCloseOtherFilterDetails(activeDetails) {
   document.querySelectorAll(".mypage-filter-details").forEach((details) => {
     if (details !== activeDetails) {
@@ -1435,10 +1424,6 @@ function mypageBindEvents() {
   mypageElements.bpmMaxFilter.addEventListener("input", mypageUpdateBpmFilters);
   mypageElements.bpmMinFilter.addEventListener("blur", mypageCommitBpmFilters);
   mypageElements.bpmMaxFilter.addEventListener("blur", mypageCommitBpmFilters);
-  mypageElements.predMinFilter.addEventListener("input", mypageUpdatePredFilters);
-  mypageElements.predMaxFilter.addEventListener("input", mypageUpdatePredFilters);
-  mypageElements.predMinFilter.addEventListener("blur", mypageCommitPredFilters);
-  mypageElements.predMaxFilter.addEventListener("blur", mypageCommitPredFilters);
   mypageElements.includeUnregistered.addEventListener("change", () => {
     mypageState.includeUnregistered = mypageElements.includeUnregistered.checked;
     mypageRenderStatusDistribution();
@@ -1604,6 +1589,9 @@ async function mypageHandleStatusChange(event) {
       });
     }
     mypageUpdateStatusSelect(select);
+    const row = mypageState.rowsByChartId.get(chartId);
+    const currentPredCell = select.closest("tr")?.querySelector(".mypage-current-pred");
+    if (row && currentPredCell) currentPredCell.outerHTML = mypageRenderCurrentPredCell(row, status);
     mypageRenderPredEstimate();
     if (mypageState.sortKey === "status" || !mypageStatusMatchesFilter(status)) {
       mypageRender();
@@ -1611,6 +1599,23 @@ async function mypageHandleStatusChange(event) {
       mypageCompactStatusSelect(select);
     }
     mypageSetMessage("記録を保存しました。");
+    window.cpiStatusToast?.show({
+      onUndo: async () => {
+        await mypageWriteStatus(chartId, previousStatus);
+        if (previousStatus === "unregistered") {
+          mypageState.records.delete(chartId);
+        } else {
+          mypageState.records.set(chartId, {
+            chartId,
+            status: previousStatus,
+            updatedAt: new Date().toISOString(),
+          });
+        }
+        mypageRenderPredEstimate();
+        mypageRender();
+        mypageSetMessage("記録を元に戻しました。");
+      },
+    });
   } catch (error) {
     select.value = previousStatus;
     mypageUpdateStatusSelect(select);
@@ -1674,8 +1679,6 @@ function mypageInitializeElements() {
   mypageElements.featureFilterOptions = document.getElementById("mypageFeatureFilterOptions");
   mypageElements.bpmMinFilter = document.getElementById("mypageBpmMinFilter");
   mypageElements.bpmMaxFilter = document.getElementById("mypageBpmMaxFilter");
-  mypageElements.predMinFilter = document.getElementById("mypagePredMinFilter");
-  mypageElements.predMaxFilter = document.getElementById("mypagePredMaxFilter");
   mypageElements.advancedFilterSummary = document.getElementById("mypageAdvancedFilterSummary");
   mypageElements.table = document.getElementById("mypageTable");
   mypageElements.tableBody = document.getElementById("mypageTableBody");
@@ -1693,6 +1696,7 @@ function mypageInitializeElements() {
   mypageElements.includeUnregistered = document.getElementById("mypageIncludeUnregistered");
   mypageElements.includeUnowned = document.getElementById("mypageIncludeUnowned");
   mypageElements.predEstimateNote = document.getElementById("mypagePredEstimateNote");
+  mypageElements.predLampEstimates = document.getElementById("mypagePredLampEstimates");
   mypageElements.shareButton = document.getElementById("mypageShareButton");
 }
 
@@ -1713,11 +1717,6 @@ async function mypageInitialize() {
     );
     mypageState.predDataMin = predRange.min;
     mypageState.predDataMax = predRange.max;
-    mypageState.predMinFilter = predRange.min;
-    mypageState.predMaxFilter = predRange.max;
-    mypageElements.predMinFilter.value = mypageFormatPredValue(predRange.min);
-    mypageElements.predMaxFilter.value = mypageFormatPredValue(predRange.max);
-    mypageSetPredInputBounds();
     mypagePopulateFilters();
     mypageBindEvents();
     mypageRender();
@@ -1737,3 +1736,4 @@ async function mypageInitialize() {
 }
 
 document.addEventListener("DOMContentLoaded", mypageInitialize);
+

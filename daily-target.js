@@ -9,6 +9,21 @@ const dailyFeatureNone = "特徴なし";
 const dailyFeatureNames = ["BPM変化", "チャージノート", "ラスト難", "皿複合", "単鍵ラッシュ", "同時押し", "物量", "連皿", "連打"];
 const dailyNotClearStatuses = new Set(["failed", "assisted", "easy"]);
 const dailyClearStatuses = new Set(["clear", "hard"]);
+const dailyPredModes = {
+  easy: { key: "easyPred", label: "イージーPred" },
+  normal: { key: "pred", label: "ノマゲPred" },
+  hard: { key: "hardPred", label: "ハードPred" },
+};
+
+function dailyGetPredValue(row, mode = "normal") {
+  return row[dailyPredModes[mode]?.key ?? dailyPredModes.normal.key] ?? row.pred;
+}
+
+function dailyGetPredModeForGoal(goal) {
+  if (goal === "easy") return "easy";
+  if (goal === "hard") return "hard";
+  return "normal";
+}
 const dailyFeatureDeltaLambda = 10;
 const dailyFeatureDeltaIterations = 50;
 const dailyFeatureDeltaTolerance = 0.00001;
@@ -58,11 +73,13 @@ const dailyDefaultRecommendationSettings = {
   probabilityMax: 60,
   levels: [...dailyRecommendationLevelValues],
   statuses: ["unregistered", "no-play", "failed", "assisted", "easy"],
+  targetGoals: dailyGoalStatuses.map(({ value }) => value),
 };
 const dailyEntityDecoder = document.createElement("textarea");
 
 const dailyState = {
-  rows: [], rowsById: new Map(), records: new Map(), manualMemoIds: new Set(), today: null, selected: new Map(), query: "",
+  rows: [], rowsById: new Map(), records: new Map(), manualMemoIds: new Set(), today: null, completionNoticeShownDate: "", selected: new Map(), manualGoalById: new Map(), query: "",
+  recommendationSettings: null,
   statusFilter: new Set(dailyStatuses.filter(({ value }) => !["unowned", "hard"].includes(value)).map(({ value }) => value)),
   levelFilter: new Set(), difficultyFilter: new Set(), featureFilter: new Map(), visibleLimit: dailyPageSize,
   bpmMinFilter: 0, bpmMaxFilter: 999, predMinFilter: 0, predMaxFilter: 999, predDataMin: 0, predDataMax: 999,
@@ -160,7 +177,9 @@ function dailyNormalizeRows(parsedRows) {
     const title = dailyNormalizeTitle(source.title);
     const difficulty = dailyNormalizeDifficulty(source.difficulty);
     const level = dailyGetNumber(source.original_level);
+    const easyPred = dailyGetNumber(source.easy_pred_skill);
     const pred = dailyGetNumber(source.calibrated_pred_skill);
+    const hardPred = dailyGetNumber(source.hard_pred_skill);
     if (!/^\d+$/.test(chartId) || !title || level === null || pred === null) return null;
     const features = dailyDecodeHtmlEntities(String(source.features ?? "").replace(/<[^>]*>/g, "")).trim();
     return {
@@ -168,7 +187,9 @@ function dailyNormalizeRows(parsedRows) {
       title,
       difficulty,
       level,
+      easyPred,
       pred,
+      hardPred,
       bpmMin: dailyGetNumber(source.bpm_min),
       bpmMax: dailyGetNumber(source.bpm_max),
       features,
@@ -392,7 +413,7 @@ function dailyUpdateAdvancedSummary() {
     ? "詳細絞り込み"
     : "BPM:" + dailyState.bpmMinFilter + "~" + dailyState.bpmMaxFilter
       + " / Pred:" + dailyFormatPred(dailyState.predMinFilter) + "~" + dailyFormatPred(dailyState.predMaxFilter)
-      + " / 補正Pred:" + dailyFormatPred(dailyState.adjustedPredMinFilter) + "~" + dailyFormatPred(dailyState.adjustedPredMaxFilter);
+      + " / 目標補正Pred:" + dailyFormatPred(dailyState.adjustedPredMinFilter) + "~" + dailyFormatPred(dailyState.adjustedPredMaxFilter);
 }
 
 function dailyCommitBpmFilters() {
@@ -454,45 +475,37 @@ function dailyFormatPred(value) {
 }
 
 function dailyGetNumericColor(value) {
-  const min = dailyState.predDataMin;
-  const max = dailyState.predDataMax;
-  const position = max > min ? Math.min(1, Math.max(0, (value - min) / (max - min))) : 0.5;
-  const yellowPosition = max > min ? Math.min(0.45, Math.max(0.1, (9 - min) / (max - min))) : 0.25;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return "";
+  }
+
   const stops = [
-    { position: 0, hue: 221, saturation: 83, lightness: 53 },
-    { position: yellowPosition, hue: 48, saturation: 92, lightness: 40 },
-    { position: 0.5, hue: 0, saturation: 80, lightness: 50 },
-    { position: 1, hue: 262, saturation: 72, lightness: 55 },
+    { value: 8, color: [37, 99, 235] },
+    { value: 9, color: [249, 115, 22] },
+    { value: 10, color: [22, 163, 74] },
+    { value: 11, color: [220, 38, 38] },
+    { value: 12, color: [147, 51, 234] },
+    { value: 13, color: [109, 40, 217] },
+    { value: 14, color: [76, 29, 149] },
   ];
-  let startStop = stops[0];
-  let endStop = stops[stops.length - 1];
+  const clamped = Math.min(stops[stops.length - 1].value, Math.max(stops[0].value, numeric));
+  let start = stops[0];
+  let end = stops[stops.length - 1];
   for (let index = 1; index < stops.length; index += 1) {
-    if (position <= stops[index].position) {
-      startStop = stops[index - 1];
-      endStop = stops[index];
+    if (clamped <= stops[index].value) {
+      start = stops[index - 1];
+      end = stops[index];
       break;
     }
   }
-  const range = endStop.position - startStop.position;
-  const ratio = range > 0 ? (position - startStop.position) / range : 0;
-  const hueDelta = ((endStop.hue - startStop.hue + 540) % 360) - 180;
-  const hue = (startStop.hue + hueDelta * ratio + 360) % 360;
-  const saturation = startStop.saturation + (endStop.saturation - startStop.saturation) * ratio;
-  const lightness = startStop.lightness + (endStop.lightness - startStop.lightness) * ratio;
-  const normalizedHue = ((hue % 360) + 360) % 360;
-  const s = saturation / 100;
-  const l = lightness / 100;
-  const chroma = (1 - Math.abs(2 * l - 1)) * s;
-  const sector = normalizedHue / 60;
-  const x = chroma * (1 - Math.abs((sector % 2) - 1));
-  const rgb = sector < 1 ? [chroma, x, 0]
-    : sector < 2 ? [x, chroma, 0]
-      : sector < 3 ? [0, chroma, x]
-        : sector < 4 ? [0, x, chroma]
-          : sector < 5 ? [x, 0, chroma]
-            : [chroma, 0, x];
-  const match = l - chroma / 2;
-  return "rgb(" + rgb.map((channel) => Math.round((channel + match) * 255)).join(", ") + ")";
+  const ratio = end.value > start.value
+    ? (clamped - start.value) / (end.value - start.value)
+    : 0;
+  const channels = start.color.map((channel, index) => Math.round(
+    channel + (end.color[index] - channel) * ratio,
+  ));
+  return "rgb(" + channels.join(", ") + ")";
 }
 
 function dailyGetStatus(chartId) {
@@ -510,15 +523,23 @@ function dailyGetStatusRank(status) {
 
 function dailyGetGoalOptions(status) {
   const rank = dailyGetStatusRank(status);
+  const targetGoals = dailyState.recommendationSettings?.targetGoals
+    ?? dailyGetDefaultRecommendationSettings().targetGoals;
+  return dailyGoalStatuses.filter((goal) => (
+    dailyGetStatusRank(goal.value) > rank && targetGoals.includes(goal.value)
+  ));
+}
+
+function dailyGetManualGoalOptions(status) {
+  const rank = dailyGetStatusRank(status);
   return dailyGoalStatuses.filter((goal) => dailyGetStatusRank(goal.value) > rank);
 }
 
+function dailyGetDefaultManualGoal(status) {
+  return dailyGetManualGoalOptions(status)[0]?.value ?? null;
+}
 function dailyGetDefaultGoal(status) {
-  const options = dailyGetGoalOptions(status);
-  if (options.length === 0) return null;
-  if (dailyGetStatusRank(status) < dailyGetStatusRank("easy")) return "easy";
-  if (status === "easy") return "clear";
-  return "hard";
+  return dailyGetGoalOptions(status)[0]?.value ?? null;
 }
 
 function dailyGetDefaultRecommendationSettings() {
@@ -527,6 +548,7 @@ function dailyGetDefaultRecommendationSettings() {
     probabilityMax: dailyDefaultRecommendationSettings.probabilityMax,
     levels: [...dailyDefaultRecommendationSettings.levels],
     statuses: [...dailyDefaultRecommendationSettings.statuses],
+    targetGoals: [...dailyDefaultRecommendationSettings.targetGoals],
   };
 }
 
@@ -552,18 +574,22 @@ function dailyReadRecommendationSettings() {
     const statuses = Array.isArray(parsed.statuses)
       ? [...new Set(parsed.statuses.filter((value) => dailyStatusValues.has(value)))]
       : [...fallback.statuses];
-    return { probabilityMin, probabilityMax, levels, statuses };
+    const targetGoals = Array.isArray(parsed.targetGoals)
+      ? [...new Set(parsed.targetGoals.filter((value) => dailyGoalStatuses.some((goal) => goal.value === value)))]
+      : [...fallback.targetGoals];
+    return { probabilityMin, probabilityMax, levels, statuses, targetGoals };
   } catch {
     return fallback;
   }
 }
 
-function dailyGetExpectedClearProbability(row) {
+function dailyGetExpectedClearProbability(row, mode = "normal") {
   if (!dailyState.model) return null;
-  const adjustedPred = dailyGetAdjustedPred(row);
+  const adjustedPred = dailyGetAdjustedPred(row, mode);
   const normalizedPred = (adjustedPred - dailyState.model.center) / dailyState.model.scale;
   return dailySigmoid(dailyState.model.intercept + dailyState.model.slope * normalizedPred);
 }
+
 
 function dailyShuffleRows(rows) {
   const shuffled = [...rows];
@@ -576,12 +602,15 @@ function dailyShuffleRows(rows) {
 
 function dailyGetAutoFillCandidates() {
   const settings = dailyReadRecommendationSettings();
+  dailyState.recommendationSettings = settings;
   return dailyState.rows.filter((row) => {
     if (dailyState.selected.has(String(row.chartId))) return false;
     const status = dailyGetStatus(row.chartId);
     if (!settings.statuses.includes(status) || !settings.levels.includes(row.level)) return false;
     if (dailyGetGoalOptions(status).length === 0) return false;
-    const probability = dailyGetExpectedClearProbability(row);
+    const goal = dailyGetDefaultGoal(status);
+    if (!goal || !settings.targetGoals.includes(goal)) return false;
+    const probability = goal ? dailyGetExpectedClearProbability(row, dailyGetPredModeForGoal(goal)) : null;
     if (probability === null) return false;
     const probabilityPercent = probability * 100;
     return probabilityPercent >= settings.probabilityMin && probabilityPercent <= settings.probabilityMax;
@@ -615,11 +644,21 @@ function dailyRenderStatusSelect(row, status) {
     + "</select>";
 }
 
+function dailyGetCandidateGoal(row, status) {
+  const options = dailyGetManualGoalOptions(status);
+  const stored = dailyState.manualGoalById.get(String(row.chartId));
+  if (stored && options.some((goal) => goal.value === stored)) return stored;
+  const automatic = dailyGetDefaultGoal(status);
+  if (automatic && options.some((goal) => goal.value === automatic)) return automatic;
+  return options[0]?.value ?? null;
+}
+
 function dailyRenderGoalSelect(row, status, selectedGoal) {
-  const options = dailyGetGoalOptions(status);
-  if (!dailyState.selected.has(row.chartId)) return '<span class="daily-target-placeholder">選択後に設定</span>';
-  return '<select class="daily-target-goal-select daily-goal" data-daily-goal-chart-id="' + dailyEscapeHtml(row.chartId) + '" data-status="' + dailyEscapeHtml(selectedGoal) + '" aria-label="' + dailyEscapeHtml(row.title) + 'の目標">'
-    + options.map((goal) => '<option value="' + goal.value + '"' + (goal.value === selectedGoal ? " selected" : "") + ">" + dailyEscapeHtml(goal.label) + "</option>").join("")
+  const options = dailyGetManualGoalOptions(status);
+  if (options.length === 0) return '<span class="daily-target-placeholder">ー</span>';
+  const value = options.some((goal) => goal.value === selectedGoal) ? selectedGoal : options[0].value;
+  return '<select class="daily-target-goal-select daily-goal" data-daily-goal-chart-id="' + dailyEscapeHtml(row.chartId) + '" data-status="' + dailyEscapeHtml(value) + '" aria-label="' + dailyEscapeHtml(row.title) + 'の目標">'
+    + options.map((goal) => '<option value="' + goal.value + '"' + (goal.value === value ? " selected" : "") + ">" + dailyEscapeHtml(goal.label) + "</option>").join("")
     + "</select>";
 }
 
@@ -633,12 +672,12 @@ function dailyRenderSelectedSongs() {
   dailyElements.selectedSongs.hidden = selectedRows.length === 0;
   dailyElements.selectedSongsList.innerHTML = selectedRows.map(({ row, status, selectedGoal }) => {
     const levelText = "☆" + String(row.level).replace(/\.0$/, "");
-    const adjustedPred = dailyGetAdjustedPred(row);
+    const adjustedPred = dailyGetAdjustedPred(row, dailyGetPredModeForGoal(selectedGoal));
     return '<div class="daily-target-selected-song">'
       + '<input class="memo-checkbox daily-target-selected-checkbox" type="checkbox" checked data-daily-selected-chart-id="' + dailyEscapeHtml(row.chartId) + '" aria-label="' + dailyEscapeHtml(row.title) + 'を今日の10曲から外す">'
       + '<div class="daily-target-selected-song__body">'
       + '<div class="chart-title-cell daily-target-selected-song__title">' + dailyRenderChartLink(row) + '</div>'
-      + '<div class="daily-target-selected-song__meta"><span class="daily-target-selected-song__level mono numeric-value numeric-value--level">' + dailyEscapeHtml(levelText) + '</span><span aria-hidden="true">　</span><span class="daily-target-selected-song__adjusted-pred-label">補正Pred</span><span aria-hidden="true"> </span><strong class="daily-target-selected-song__adjusted-pred mono numeric-value numeric-value--pred" style="--numeric-color:' + dailyGetNumericColor(adjustedPred) + '">' + dailyEscapeHtml(dailyFormatPred(adjustedPred)) + '</strong></div>'
+      + '<div class="daily-target-selected-song__meta"><span class="daily-target-selected-song__level mono numeric-value numeric-value--level">' + dailyEscapeHtml(levelText) + '</span><span aria-hidden="true">　</span><span class="daily-target-selected-song__adjusted-pred-label">目標補正Pred</span><span aria-hidden="true"> </span><strong class="daily-target-selected-song__adjusted-pred mono numeric-value numeric-value--pred" style="--numeric-color:' + dailyGetNumericColor(adjustedPred) + '">' + dailyEscapeHtml(dailyFormatPred(adjustedPred)) + '</strong></div>'
       + '<div class="daily-target-selected-song__state-labels" aria-hidden="true"><span>現在</span><span>→</span><span>目標</span></div>'
       + '<div class="daily-target-selected-song__state-values"><span class="daily-target-selected-song__status">' + dailyRenderStatus(status) + '</span><span aria-hidden="true"></span><span class="daily-target-selected-song__goal">' + dailyRenderGoalSelect(row, status, selectedGoal) + '</span></div>'
       + '</div>'
@@ -646,34 +685,62 @@ function dailyRenderSelectedSongs() {
   }).join("");
 }
 
-function dailyRenderAdjustedPredCell(row) {
-  const adjustedValue = dailyGetAdjustedPred(row);
+function dailyRenderPredStack(row, adjusted = false) {
+  return `<div class="daily-pred-stack">${Object.entries(dailyPredModes).map(([mode, definition]) => {
+    const raw = dailyGetPredValue(row, mode);
+    const value = adjusted ? dailyGetAdjustedPred(row, mode) : raw;
+    const difference = adjusted ? " (" + dailyFormatPredDifference(value - raw) + ")" : "";
+    return `<span class="daily-pred-stack__item"><span>${definition.label}</span><strong class="numeric-value numeric-value--pred" style="--numeric-color:${dailyGetNumericColor(value)}">${dailyEscapeHtml(dailyFormatPred(value))}</strong>${difference ? `<small>${dailyEscapeHtml(difference)}</small>` : ""}</span>`;
+  }).join("")}</div>`;
+}
+
+function dailyRenderAdjustedPredCell(row, mode = "all") {
+  if (mode === "all") return '<td class="daily-pred daily-adjusted-pred">' + dailyRenderPredStack(row, true) + "</td>";
+  const raw = dailyGetPredValue(row, mode);
+  const adjustedValue = dailyGetAdjustedPred(row, mode);
   const adjustedText = dailyFormatPred(adjustedValue);
-  const difference = dailyFormatPredDifference(adjustedValue - row.pred);
+  const difference = dailyFormatPredDifference(adjustedValue - raw);
   return '<td class="mono daily-pred daily-adjusted-pred" style="--numeric-color:' + dailyGetNumericColor(adjustedValue) + '"><span class="daily-adjusted-pred__value">'
-    + dailyEscapeHtml(adjustedText)
-    + '</span> <span class="daily-adjusted-pred__difference">('
-    + dailyEscapeHtml(difference)
-    + ")</span></td>";
+    + dailyEscapeHtml(adjustedText) + '</span> <span class="daily-adjusted-pred__difference">('
+    + dailyEscapeHtml(difference) + ")</span></td>";
 }
 
-function dailyRenderOriginalPredCell(row) {
-  return '<td class="mono daily-pred" style="--numeric-color:' + dailyGetNumericColor(row.pred) + '">' + dailyFormatPred(row.pred) + "</td>";
+function dailyRenderOriginalPredCell(row, mode = "all") {
+  if (mode === "all") return '<td class="daily-pred">' + dailyRenderPredStack(row, false) + "</td>";
+  const value = dailyGetPredValue(row, mode);
+  return '<td class="mono daily-pred" style="--numeric-color:' + dailyGetNumericColor(value) + '">' + dailyFormatPred(value) + "</td>";
 }
 
+
+function dailyFormatBpmPart(value) {
+  const numeric = dailyGetNumber(value);
+  return numeric === null ? String(value ?? "").trim() : String(numeric);
+}
+
+function dailyFormatBpmCell(row) {
+  const minText = dailyFormatBpmPart(row.bpmMin);
+  const maxText = dailyFormatBpmPart(row.bpmMax);
+  if (!minText && !maxText) return "";
+  if (minText === maxText || !maxText) return dailyEscapeHtml(minText);
+  return '<span class="bpm-range"><span class="bpm-range__min">' + dailyEscapeHtml(minText) + '~</span><span class="bpm-range__max">' + dailyEscapeHtml(maxText) + "</span></span>";
+}
 function dailyRenderCandidateRow(row) {
   const status = dailyGetStatus(row.chartId);
-  const goals = dailyGetGoalOptions(status);
+  const goals = dailyGetManualGoalOptions(status);
   const checked = dailyState.selected.has(row.chartId);
+  const selectedGoal = dailyState.selected.get(row.chartId) ?? dailyGetCandidateGoal(row, status);
+  const predMode = dailyGetPredModeForGoal(selectedGoal);
   const levelText = "☆" + String(row.level).replace(/\.0$/, "");
   const selectionLabel = checked ? "選択中" : "選択";
   return "<tr>"
     + '<td class="daily-select-cell"><button class="daily-target-select-button' + (checked ? " is-selected" : "") + '" type="button" data-daily-select-chart-id="' + dailyEscapeHtml(row.chartId) + '" aria-pressed="' + (checked ? "true" : "false") + '"' + (goals.length === 0 ? " disabled" : "") + ' aria-label="' + dailyEscapeHtml(row.title) + 'を今日の10曲に選択">' + selectionLabel + "</button></td>"
     + '<td class="mono daily-level">' + dailyEscapeHtml(levelText) + "</td>"
     + dailyRenderTitle(row)
-    + dailyRenderAdjustedPredCell(row)
-    + dailyRenderOriginalPredCell(row)
-    + '<td>' + dailyRenderStatus(status) + "</td>"
+    + '<td class="daily-target-current-cell">' + dailyRenderStatus(status) + "</td>"
+    + '<td class="daily-target-goal-cell">' + dailyRenderGoalSelect(row, status, selectedGoal) + "</td>"
+    + dailyRenderAdjustedPredCell(row, predMode)
+    + dailyRenderOriginalPredCell(row, predMode)
+    + '<td class="mono daily-target-bpm">' + dailyFormatBpmCell(row) + "</td>"
     + '<td class="feature-cell">' + dailyRenderFeatureChips(row) + "</td>"
     + "</tr>";
 }
@@ -689,8 +756,8 @@ function dailyRenderLockedRow(entry, row) {
     + '<td class="daily-target-start-goal">' + dailyRenderStatus(entry.initialStatus)
     + '<span class="daily-target-goal-arrow" aria-hidden="true">→</span><span class="daily-goal" data-status="' + dailyEscapeHtml(entry.targetStatus) + '">' + dailyEscapeHtml(dailyGetStatusLabel(entry.targetStatus)) + "</span></td>"
     + '<td><span class="daily-target-progress--' + (achieved ? "achieved" : "pending") + '">' + (achieved ? "達成" : "未達成") + "</span></td>"
-    + dailyRenderAdjustedPredCell(row)
-    + dailyRenderOriginalPredCell(row)
+    + dailyRenderAdjustedPredCell(row, dailyGetPredModeForGoal(entry.targetStatus))
+    + dailyRenderOriginalPredCell(row, dailyGetPredModeForGoal(entry.targetStatus))
     + '<td class="feature-cell">' + dailyRenderFeatureChips(row) + "</td>"
     + "</tr>";
 }
@@ -848,9 +915,15 @@ function dailyFitFeatureDeltas(observations, model) {
   return deltas;
 }
 
-function dailyGetAdjustedPred(row) {
-  return dailyState.adjustedPredById.get(String(row.chartId)) ?? row.pred;
+function dailyGetAdjustedPred(row, mode = "normal") {
+  const raw = dailyGetPredValue(row, mode);
+  if (mode !== "normal") {
+    const vector = dailyGetFeatureVector(row);
+    return raw + vector.reduce((total, strength, index) => total + dailyState.deltas[index] * strength, 0);
+  }
+  return dailyState.adjustedPredById.get(String(row.chartId)) ?? raw;
 }
+
 
 function dailyFormatPredDifference(value) {
   const numeric = dailyGetNumber(value);
@@ -895,8 +968,9 @@ function dailySetAdjustedPredBounds() {
 }
 
 function dailyGetFilteredRows() {
+  const settings = dailyReadRecommendationSettings();
+  dailyState.recommendationSettings = settings;
   return dailyState.rows.filter((row) => {
-    if (dailyGetGoalOptions(dailyGetStatus(row.chartId)).length === 0) return false;
     if (dailyState.query && !row.search.includes(dailyState.query)) return false;
     const status = dailyGetStatus(row.chartId);
     if (dailyGetStatusRank(status) >= dailyGetStatusRank("hard")) return false;
@@ -1000,6 +1074,10 @@ function dailyRenderLocked() {
   dailyElements.lockedBody.innerHTML = renderedRows.map(({ entry, row }) => row
     ? dailyRenderLockedRow(entry, row)
     : dailyRenderMissingLockedRow(entry)).join("");
+  if (completed && dailyState.completionNoticeShownDate !== dailyState.today.date) {
+    dailyState.completionNoticeShownDate = dailyState.today.date;
+    dailyOpenCompletionNotice();
+  }
 }
 
 function dailyRender() {
@@ -1292,6 +1370,21 @@ async function dailyHandleLockedStatusChange(event) {
       window.cpiAnalytics.track("status_change", { source: "daily_target", status });
     }
     dailyRender();
+    window.cpiStatusToast?.show({
+      onUndo: async () => {
+        await dailyWriteStatus(chartId, previousStatus);
+        if (previousStatus === "unregistered") {
+          dailyState.records.delete(chartId);
+        } else {
+          dailyState.records.set(chartId, {
+            chartId,
+            status: previousStatus,
+            updatedAt: new Date().toISOString(),
+          });
+        }
+        dailyRender();
+      },
+    });
   } catch (error) {
     select.value = previousStatus;
     select.dataset.status = previousStatus;
@@ -1313,7 +1406,8 @@ function dailyHandleCandidateChange(event) {
       dailyShowError("今日の10曲は最大10曲まで選択できます。");
       return;
     }
-    const goal = dailyGetDefaultGoal(dailyGetStatus(chartId));
+    const rowStatus = dailyGetStatus(chartId);
+    const goal = dailyGetCandidateGoal(row, rowStatus);
     if (!goal) return;
     dailyState.selected.set(chartId, goal);
   } else {
@@ -1339,10 +1433,12 @@ function dailyHandleGoalChange(event) {
   const select = event.target.closest?.("[data-daily-goal-chart-id]");
   if (!select) return;
   const chartId = select.dataset.dailyGoalChartId;
-  const valid = dailyGetGoalOptions(dailyGetStatus(chartId)).some((goal) => goal.value === select.value);
-  if (valid && dailyState.selected.has(chartId)) {
-    dailyState.selected.set(chartId, select.value);
+  const valid = dailyGetManualGoalOptions(dailyGetStatus(chartId)).some((goal) => goal.value === select.value);
+  if (valid) {
+    dailyState.manualGoalById.set(chartId, select.value);
+    if (dailyState.selected.has(chartId)) dailyState.selected.set(chartId, select.value);
     select.dataset.status = select.value;
+    dailyRenderCandidateTable();
   }
 }
 
@@ -1363,6 +1459,7 @@ async function dailyAbandonToday() {
   try {
     await dailyDeleteToday();
     dailyState.today = null;
+    dailyState.completionNoticeShownDate = "";
     dailyState.selected.clear();
     dailyShowError("");
     dailyRender();
@@ -1371,6 +1468,39 @@ async function dailyAbandonToday() {
   }
 }
 
+function dailyOpenConfirmNotice() {
+  if (!dailyElements.confirmNotice) return;
+  dailyElements.confirmNotice.hidden = false;
+  document.body.classList.add("daily-target-modal-open");
+  dailyElements.confirmNoticeClose?.focus();
+}
+
+function dailyCloseConfirmNotice() {
+  if (!dailyElements.confirmNotice) return;
+  dailyElements.confirmNotice.hidden = true;
+  document.body.classList.remove("daily-target-modal-open");
+}
+
+function dailyHandleConfirmNoticeBackdropClick(event) {
+  if (event.target === dailyElements.confirmNotice) dailyCloseConfirmNotice();
+}
+
+function dailyOpenCompletionNotice() {
+  if (!dailyElements.completionNotice) return;
+  dailyElements.completionNotice.hidden = false;
+  document.body.classList.add("daily-target-modal-open");
+  dailyElements.completionNoticeClose?.focus();
+}
+
+function dailyCloseCompletionNotice() {
+  if (!dailyElements.completionNotice) return;
+  dailyElements.completionNotice.hidden = true;
+  document.body.classList.remove("daily-target-modal-open");
+}
+
+function dailyHandleCompletionNoticeBackdropClick(event) {
+  if (event.target === dailyElements.completionNotice) dailyCloseCompletionNotice();
+}
 async function dailyConfirmSelection() {
   if (!dailyState.ready) return;
   if (dailyState.selected.size === 0) {
@@ -1382,7 +1512,7 @@ async function dailyConfirmSelection() {
     const row = dailyState.rowsById.get(chartId);
     if (!row) continue;
     const initialStatus = dailyGetStatus(chartId);
-    if (!dailyGetGoalOptions(initialStatus).some((goal) => goal.value === targetStatus)) {
+    if (!dailyGetManualGoalOptions(initialStatus).some((goal) => goal.value === targetStatus)) {
       dailyShowError("選択中の譜面のStatusが変わったため、目標を設定し直してください。");
       return;
     }
@@ -1401,6 +1531,7 @@ async function dailyConfirmSelection() {
     dailyShowError("");
     if (typeof window.cpiAnalytics?.track === "function") window.cpiAnalytics.track("daily_target_confirm", { chart_count: charts.length });
     dailyRender();
+    dailyOpenConfirmNotice();
   } catch (error) {
     dailyShowError(error instanceof Error ? error.message : "今日の10曲を保存できませんでした。");
     dailyElements.confirmButton.disabled = false;
@@ -1547,9 +1678,10 @@ function dailyBuildShareText() {
   const progressText = validCount > 0
     ? achieved + "/" + validCount + "達成" + (missingCount > 0 ? "（譜面データなし " + missingCount + "件）" : "")
     : missingCount > 0 ? "譜面データなし " + missingCount + "件" : "0/0達成";
+  const progressLine = progressText === "0/0達成" ? "" : progressText;
   const buildText = () => [
-    "🎯今日の10曲",
-    progressText,
+    "今日の10曲に挑戦！",
+    ...(progressLine ? [progressLine] : []),
     "",
     ...lines.map((line) => line.prefix + line.title + line.suffix),
     "",
@@ -1563,8 +1695,8 @@ function dailyBuildShareText() {
     return fullText;
   }
   const fixedText = [
-    "🎯今日の10曲",
-    progressText,
+    "今日の10曲に挑戦！",
+    ...(progressLine ? [progressLine] : []),
     "",
     ...lines.map((line) => line.prefix + line.suffix),
     "",
@@ -1618,6 +1750,12 @@ function dailyBindEvents() {
   dailyElements.autoFillButton.addEventListener("click", dailyAutoFillSelection);
   dailyElements.manualAutoFillButton.addEventListener("click", dailyAutoFillFromManualMemos);
   dailyElements.confirmButton.addEventListener("click", dailyConfirmSelection);
+  dailyElements.confirmNoticeClose.addEventListener("click", dailyCloseConfirmNotice);
+  dailyElements.confirmNoticeShare.addEventListener("click", dailyShare);
+  dailyElements.confirmNotice.addEventListener("click", dailyHandleConfirmNoticeBackdropClick);
+  dailyElements.completionNoticeClose.addEventListener("click", dailyCloseCompletionNotice);
+  dailyElements.completionNoticeShare.addEventListener("click", dailyShare);
+  dailyElements.completionNotice.addEventListener("click", dailyHandleCompletionNoticeBackdropClick);
   dailyElements.resetButton.addEventListener("click", dailyResetSelection);
   dailyElements.loadMore.addEventListener("click", () => {
     dailyState.visibleLimit += dailyPageSize;
@@ -1650,6 +1788,12 @@ function dailyInitializeElements() {
   dailyElements.autoFillButton = document.getElementById("dailyTargetAutoFillButton");
   dailyElements.manualAutoFillButton = document.getElementById("dailyTargetManualAutoFillButton");
   dailyElements.confirmButton = document.getElementById("dailyTargetConfirmButton");
+  dailyElements.confirmNotice = document.getElementById("dailyTargetConfirmNotice");
+  dailyElements.confirmNoticeClose = document.getElementById("dailyTargetConfirmNoticeClose");
+  dailyElements.confirmNoticeShare = document.getElementById("dailyTargetConfirmNoticeShare");
+  dailyElements.completionNotice = document.getElementById("dailyTargetCompletionNotice");
+  dailyElements.completionNoticeClose = document.getElementById("dailyTargetCompletionNoticeClose");
+  dailyElements.completionNoticeShare = document.getElementById("dailyTargetCompletionNoticeShare");
   dailyElements.resetButton = document.getElementById("dailyTargetResetButton");
   dailyElements.search = document.getElementById("dailyTargetSearch");
   dailyElements.statusMenu = document.getElementById("dailyTargetStatusFilterMenu");
@@ -1679,6 +1823,7 @@ function dailyInitializeElements() {
 
 async function dailyInitialize() {
   dailyInitializeElements();
+  dailyState.recommendationSettings = dailyReadRecommendationSettings();
   dailySetLoading(true);
   dailyBindEvents();
   try {

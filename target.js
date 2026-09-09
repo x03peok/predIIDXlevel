@@ -21,12 +21,32 @@ const targetFeatureNames = [
 ];
 const targetNotClearStatuses = new Set(["failed", "assisted", "easy"]);
 const targetClearStatuses = new Set(["clear", "hard"]);
+const targetPredModes = {
+  easy: { key: "easy_pred_skill", label: "イージーPred" },
+  normal: { key: "calibrated_pred_skill", label: "ノマゲPred" },
+  hard: { key: "hard_pred_skill", label: "ハードPred" },
+};
+
+function targetGetPredValue(row, mode = "normal") {
+  return row[targetPredModes[mode]?.key ?? targetPredModes.normal.key] ?? row.calibrated_pred_skill;
+}
+
+function targetGetPredModeForGoal(goal) {
+  if (goal === "easy") return "easy";
+  if (goal === "hard") return "hard";
+  return "normal";
+}
 const targetStatuses = [
   { value: "unregistered", label: "未登録" },
   { value: "unowned", label: "未所持・未解禁" },
   { value: "no-play", label: "NO PLAY" },
   { value: "failed", label: "FAILED" },
   { value: "assisted", label: "ASSISTED" },
+  { value: "easy", label: "EASY" },
+  { value: "clear", label: "CLEAR" },
+  { value: "hard", label: "HARD以上" },
+];
+const targetGoalStatuses = [
   { value: "easy", label: "EASY" },
   { value: "clear", label: "CLEAR" },
   { value: "hard", label: "HARD以上" },
@@ -45,6 +65,7 @@ const targetDefaultRecommendationSettings = {
   count: 10,
   levels: [...targetRecommendationLevelValues],
   statuses: ["unregistered", "no-play", "failed", "assisted", "easy"],
+  targetGoals: targetGoalStatuses.map(({ value }) => value),
 };
 const targetDifficultyOrder = ["N", "H", "A", "L"];
 const targetDifficultyLabels = {
@@ -96,6 +117,7 @@ const targetState = {
   model: null,
   deltas: new Array(targetFeatureNames.length).fill(0),
   adjustedPredById: new Map(),
+  goalById: new Map(),
   expectedProbabilityById: new Map(),
   targetWasAvailable: false,
 };
@@ -231,7 +253,9 @@ function targetNormalizeRows(parsedRows) {
       const title = targetNormalizeTitle(source.title);
       const difficulty = targetNormalizeDifficulty(source.difficulty);
       const originalLevel = targetGetNumericValue(source.original_level);
+      const easyPred = targetGetNumericValue(source.easy_pred_skill);
       const calibratedPred = targetGetNumericValue(source.calibrated_pred_skill);
+      const hardPred = targetGetNumericValue(source.hard_pred_skill);
       const bpmMin = targetGetNumericValue(source.bpm_min);
       const bpmMax = targetGetNumericValue(source.bpm_max);
       const features = targetDecodeHtmlEntities(targetStripHtmlTags(source.features ?? "")).trim();
@@ -243,7 +267,9 @@ function targetNormalizeRows(parsedRows) {
         title,
         difficulty,
         original_level: originalLevel,
+        easy_pred_skill: easyPred,
         calibrated_pred_skill: calibratedPred,
+        hard_pred_skill: hardPred,
         bpm_min: bpmMin,
         bpm_max: bpmMax,
         features,
@@ -600,6 +626,10 @@ function targetMatchesFilters(row) {
   if (!targetState.statusFilter.has(targetGetStatus(row))) {
     return false;
   }
+  const targetGoal = targetGetGoal(row);
+  if (!targetGoal || !targetState.recommendationSettings.targetGoals.includes(targetGoal)) {
+    return false;
+  }
   if (!targetState.levelFilter.has(row.original_level)) {
     return false;
   }
@@ -731,37 +761,36 @@ function targetClampUnit(value) {
 
 function targetGetNumericColor(value, minimum, maximum) {
   const numeric = targetGetNumericValue(value);
-  if (numeric === null || !Number.isFinite(minimum) || !Number.isFinite(maximum)) {
+  if (!Number.isFinite(numeric)) {
     return "";
   }
-  const position = maximum > minimum
-    ? targetClampUnit((numeric - minimum) / (maximum - minimum))
-    : 0.5;
-  const yellowPosition = maximum > minimum
-    ? targetClampUnit(Math.max(0.1, Math.min(0.45, (9 - minimum) / (maximum - minimum))))
-    : 0.25;
+
   const stops = [
-    { position: 0, hue: 221, saturation: 83, lightness: 53 },
-    { position: yellowPosition, hue: 48, saturation: 92, lightness: 40 },
-    { position: 0.5, hue: 0, saturation: 80, lightness: 50 },
-    { position: 1, hue: 262, saturation: 72, lightness: 55 },
+    { value: 8, color: [37, 99, 235] },
+    { value: 9, color: [249, 115, 22] },
+    { value: 10, color: [22, 163, 74] },
+    { value: 11, color: [220, 38, 38] },
+    { value: 12, color: [147, 51, 234] },
+    { value: 13, color: [109, 40, 217] },
+    { value: 14, color: [76, 29, 149] },
   ];
-  let lower = stops[0];
-  let upper = stops[stops.length - 1];
+  const clamped = Math.min(stops[stops.length - 1].value, Math.max(stops[0].value, numeric));
+  let start = stops[0];
+  let end = stops[stops.length - 1];
   for (let index = 1; index < stops.length; index += 1) {
-    if (position <= stops[index].position) {
-      upper = stops[index];
-      lower = stops[index - 1];
+    if (clamped <= stops[index].value) {
+      start = stops[index - 1];
+      end = stops[index];
       break;
     }
   }
-  const span = upper.position - lower.position;
-  const ratio = span === 0 ? 0 : (position - lower.position) / span;
-  const hueDelta = ((upper.hue - lower.hue + 540) % 360) - 180;
-  const hue = (lower.hue + hueDelta * ratio + 360) % 360;
-  const saturation = lower.saturation + (upper.saturation - lower.saturation) * ratio;
-  const lightness = lower.lightness + (upper.lightness - lower.lightness) * ratio;
-  return targetHslToRgbString(hue, saturation, lightness);
+  const ratio = end.value > start.value
+    ? (clamped - start.value) / (end.value - start.value)
+    : 0;
+  const channels = start.color.map((channel, index) => Math.round(
+    channel + (end.color[index] - channel) * ratio,
+  ));
+  return "rgb(" + channels.join(", ") + ")";
 }
 
 function targetGetNumericColorStyle(value) {
@@ -778,27 +807,37 @@ function targetRenderMemoCheckbox(row) {
     + ' aria-label="' + title + "を" + action + '" title="' + action + '">';
 }
 
-function targetRenderTableRow(row) {
-  const rawPred = targetFormatPredValue(row.calibrated_pred_skill);
-  const adjustedPredValue = targetGetAdjustedPred(row);
-  const adjustedPred = targetFormatPredValue(adjustedPredValue);
-  const adjustedPredDifference = targetFormatPredDifference(adjustedPredValue - row.calibrated_pred_skill);
+function targetRenderPredStack(row, adjusted = false, mode = null) {
+  const entries = mode && targetPredModes[mode]
+    ? [[mode, targetPredModes[mode]]]
+    : Object.entries(targetPredModes);
+  const values = entries.map(([predMode, definition]) => {
+    const raw = targetGetPredValue(row, predMode);
+    const value = adjusted ? targetGetAdjustedPred(row, predMode) : raw;
+    const difference = adjusted ? targetFormatPredDifference(value - raw) : "";
+    const differenceText = adjusted ? " (" + difference + ")" : "";
+    const label = mode ? "" : '<span>' + definition.label + '</span>';
+    return '<span class="target-pred-stack__item target-pred-stack__item--' + predMode + '">' + label + '<strong class="numeric-value numeric-value--pred"' + targetGetNumericColorStyle(value) + '>' + targetEscapeHtml(targetFormatPredValue(value)) + '</strong>' + (differenceText ? '<small>' + targetEscapeHtml(differenceText) + '</small>' : "") + '</span>';
+  }).join("");
+  return '<div class="target-pred-stack">' + values + '</div>';
+}
+
+function targetRenderTableRow(row, tableType = "default") {
   const levelText = "☆" + targetFormatPredValue(row.original_level).replace(".0", "");
   const difficulty = targetNormalizeDifficulty(row.difficulty);
-  return "<tr>"
-    + '<td class="memo-cell">' + targetRenderMemoCheckbox(row) + "</td>"
-    + '<td class="mono numeric-value numeric-value--level">' + targetEscapeHtml(levelText) + "</td>"
-    + '<td class="chart-title-cell"><a class="chart-link ' + targetGetDifficultyClass(difficulty) + '" href="' + targetEscapeHtml(targetGetChartHref(row)) + '"><span class="chart-title-cell__name">' + targetEscapeHtml(row.title) + '</span> <span class="chart-title-cell__difficulty">[' + targetEscapeHtml(difficulty) + "]</span></a></td>"
-    + '<td class="mono numeric-value numeric-value--pred target-adjusted-pred"' + targetGetNumericColorStyle(adjustedPredValue) + '><span class="target-adjusted-pred__value">'
-    + targetEscapeHtml(adjustedPred)
-    + '</span> <span class="target-adjusted-pred__difference">('
-    + targetEscapeHtml(adjustedPredDifference)
-    + ")</span></td>"
-    + '<td class="mono numeric-value numeric-value--pred"' + targetGetNumericColorStyle(row.calibrated_pred_skill) + ">" + targetEscapeHtml(rawPred) + "</td>"
-    + '<td class="target-status-cell">' + targetRenderStatusSelect(row) + "</td>"
-    + "<td>" + targetFormatBpmCell(row) + "</td>"
-    + '<td class="feature-cell">' + targetRenderFeatureChips(row) + "</td>"
-    + "</tr>";
+  const predMode = targetGetPredModeForGoal(targetGetGoal(row));
+  const cells = [
+    '<td class="memo-cell">' + targetRenderMemoCheckbox(row) + "</td>",
+    '<td class="mono numeric-value numeric-value--level">' + targetEscapeHtml(levelText) + "</td>",
+    '<td class="chart-title-cell"><a class="chart-link ' + targetGetDifficultyClass(difficulty) + '" href="' + targetEscapeHtml(targetGetChartHref(row)) + '"><span class="chart-title-cell__name">' + targetEscapeHtml(row.title) + '</span> <span class="chart-title-cell__difficulty">[' + targetEscapeHtml(difficulty) + "]</span></a></td>",
+    '<td class="target-status-cell">' + targetRenderStatusSelect(row) + "</td>",
+    '<td class="target-goal-cell">' + targetRenderGoalSelect(row, true) + "</td>",
+    '<td class="mono target-adjusted-pred">' + targetRenderPredStack(row, true, predMode) + "</td>",
+    '<td class="mono target-raw-pred">' + targetRenderPredStack(row, false, predMode) + "</td>",
+    "<td>" + targetFormatBpmCell(row) + "</td>",
+    '<td class="feature-cell">' + targetRenderFeatureChips(row) + "</td>",
+  ];
+  return "<tr>" + cells.join("") + "</tr>";
 }
 
 function targetUpdateSortIndicators() {
@@ -822,6 +861,47 @@ function targetUpdateTableOverflow() {
     });
 }
 
+
+function targetGetStatusRank(status) {
+  return targetStatuses.findIndex(({ value }) => value === status);
+}
+
+function targetGetGoalOptions(status) {
+  const currentRank = targetGetStatusRank(status);
+  const targetGoals = targetState.recommendationSettings.targetGoals;
+  return targetGoalStatuses.filter(({ value }) => (
+    targetGetStatusRank(value) > currentRank && targetGoals.includes(value)
+  ));
+}
+
+function targetGetGoal(row) {
+  const status = targetGetStatus(row);
+  const options = targetGetGoalOptions(status);
+  const stored = targetState.goalById.get(String(row.chart_id));
+  if (stored && options.some(({ value }) => value === stored)) {
+    return stored;
+  }
+  return options[0]?.value ?? null;
+}
+
+function targetRenderGoalSelect(row, disabled = false) {
+  const status = targetGetStatus(row);
+  const options = targetGetGoalOptions(status);
+  if (options.length === 0) {
+    return '<span class="target-goal-empty">ー</span>';
+  }
+  const selected = targetGetGoal(row);
+  return '<select class="target-status-select target-goal-select" data-status="' + targetEscapeHtml(selected ?? "")
+    + '" data-target-goal-chart-id="' + targetEscapeHtml(row.chart_id)
+    + '" aria-label="' + targetEscapeHtml(row.title) + 'の目標ランプ"' + (disabled ? " disabled" : "" ) + '>'
+    + options.map(({ value, label }) => '<option value="' + value + '"' + (value === selected ? ' selected' : '') + '>' + label + '</option>').join("")
+    + '</select>';
+}
+
+function targetGetDefaultGoalForStatus(status) {
+  return targetGetGoalOptions(status)[0]?.value ?? null;
+}
+
 function targetGetAutoCandidateRows() {
   const settings = targetState.recommendationSettings;
   return targetState.rows.filter((row) => {
@@ -829,7 +909,11 @@ function targetGetAutoCandidateRows() {
       || !settings.levels.includes(row.original_level)) {
       return false;
     }
-    const probability = targetGetExpectedClearProbability(row);
+    const defaultGoal = targetGetDefaultGoalForStatus(targetGetStatus(row));
+    if (!defaultGoal || !settings.targetGoals.includes(defaultGoal)) {
+      return false;
+    }
+    const probability = targetGetExpectedClearProbability(row, targetGetPredModeForGoal(defaultGoal));
     if (probability === null) {
       return false;
     }
@@ -855,7 +939,7 @@ function targetRenderAutoRecommendations() {
     .sort(targetCompareRows);
   targetElements.autoRowCount.textContent = recommendedRows.length.toLocaleString()
     + "件表示 / " + targetState.autoRecommendationCandidateCount.toLocaleString() + "件中";
-  targetElements.autoTableBody.innerHTML = recommendedRows.map(targetRenderTableRow).join("");
+  targetElements.autoTableBody.innerHTML = recommendedRows.map((row) => targetRenderTableRow(row, "recommendation")).join("");
   targetElements.autoTableShell.hidden = recommendedRows.length === 0;
   targetElements.autoEmpty.hidden = recommendedRows.length > 0;
 }
@@ -863,9 +947,13 @@ function targetRenderAutoRecommendations() {
 function targetRenderManualMemos() {
   const memoRows = targetState.rows
     .filter((row) => targetState.manualMemoIds.has(String(row.chart_id)))
+    .filter((row) => {
+      const targetGoal = targetGetGoal(row);
+      return targetGoal && targetState.recommendationSettings.targetGoals.includes(targetGoal);
+    })
     .sort(targetCompareRows);
   targetElements.manualRowCount.textContent = memoRows.length.toLocaleString() + "件";
-  targetElements.manualTableBody.innerHTML = memoRows.map(targetRenderTableRow).join("");
+  targetElements.manualTableBody.innerHTML = memoRows.map((row) => targetRenderTableRow(row)).join("");
   targetElements.manualTableShell.hidden = memoRows.length === 0;
   targetElements.manualEmpty.hidden = memoRows.length > 0;
 }
@@ -875,7 +963,7 @@ function targetRenderMainTable() {
   const visibleRows = filteredRows.slice(0, targetState.visibleLimit);
   targetElements.rowCount.textContent = visibleRows.length.toLocaleString()
     + "件表示 / " + filteredRows.length.toLocaleString() + "件中";
-  targetElements.tableBody.innerHTML = visibleRows.map(targetRenderTableRow).join("");
+  targetElements.tableBody.innerHTML = visibleRows.map((row) => targetRenderTableRow(row)).join("");
   targetElements.loadMore.hidden = visibleRows.length >= filteredRows.length;
   targetUpdateSortIndicators();
 }
@@ -949,6 +1037,7 @@ function targetGetDefaultRecommendationSettings() {
     count: targetDefaultRecommendationSettings.count,
     levels: [...targetDefaultRecommendationSettings.levels],
     statuses: [...targetDefaultRecommendationSettings.statuses],
+    targetGoals: [...targetDefaultRecommendationSettings.targetGoals],
   };
 }
 
@@ -998,7 +1087,10 @@ function targetReadRecommendationSettings() {
     const statuses = Array.isArray(parsed.statuses)
       ? [...new Set(parsed.statuses.filter((value) => targetStatusValues.has(value)))]
       : [...fallback.statuses];
-    return { probabilityMin, probabilityMax, count, levels, statuses };
+    const targetGoals = Array.isArray(parsed.targetGoals)
+      ? [...new Set(parsed.targetGoals.filter((value) => targetGoalStatuses.some((goal) => goal.value === value)))]
+      : [...fallback.targetGoals];
+    return { probabilityMin, probabilityMax, count, levels, statuses, targetGoals };
   } catch (error) {
     // Fall back to the default when local storage is unavailable or invalid.
   }
@@ -1220,18 +1312,30 @@ function targetFitFeatureDeltas(observations, model) {
   return deltas;
 }
 
-function targetGetAdjustedPred(row) {
+function targetGetAdjustedPred(row, mode = "normal") {
+  const raw = targetGetPredValue(row, mode);
+  if (mode !== "normal") {
+    const vector = targetGetFeatureVector(row);
+    return raw + vector.reduce((total, strength, index) => total + targetState.deltas[index] * strength, 0);
+  }
   const stored = targetState.adjustedPredById.get(String(row.chart_id));
-  return stored ?? row.calibrated_pred_skill;
+  return stored ?? raw;
 }
 
-function targetGetExpectedClearProbability(row) {
+
+function targetGetExpectedClearProbability(row, mode = "normal") {
   if (!targetState.model) {
     return null;
+  }
+  if (mode !== "normal") {
+    const adjustedPred = targetGetAdjustedPred(row, mode);
+    const normalizedPred = (adjustedPred - targetState.model.center) / targetState.model.scale;
+    return targetSigmoid(targetState.model.intercept + targetState.model.slope * normalizedPred);
   }
   const stored = targetState.expectedProbabilityById.get(String(row.chart_id));
   return stored ?? null;
 }
+
 
 function targetRecalculateModel() {
   const observations = targetGetPredObservations();
@@ -1431,7 +1535,7 @@ function targetWriteStatus(chartId, status) {
 
 async function targetHandleStatusChange(event) {
   const select = event.target.closest?.(".target-status-select");
-  if (!select || !targetStatusValues.has(select.value)) {
+  if (!select || select.classList.contains("target-goal-select") || !targetStatusValues.has(select.value)) {
     return;
   }
 
@@ -1441,12 +1545,14 @@ async function targetHandleStatusChange(event) {
     return;
   }
   const previousStatus = targetGetStatus(row);
+  const previousGoal = targetState.goalById.get(chartId);
   const status = select.value;
   select.disabled = true;
   try {
     await targetWriteStatus(chartId, status);
     if (status === "unregistered") {
       targetState.records.delete(chartId);
+      targetState.goalById.delete(chartId);
     } else {
       targetState.records.set(chartId, {
         chartId,
@@ -1459,6 +1565,30 @@ async function targetHandleStatusChange(event) {
     targetState.visibleLimit = targetPageSize;
     targetRender();
     targetShowError("");
+    window.cpiStatusToast?.show({
+      onUndo: async () => {
+        await targetWriteStatus(chartId, previousStatus);
+        if (previousStatus === "unregistered") {
+          targetState.records.delete(chartId);
+        } else {
+          targetState.records.set(chartId, {
+            chartId,
+            status: previousStatus,
+            updatedAt: new Date().toISOString(),
+          });
+        }
+        if (previousGoal === undefined) {
+          targetState.goalById.delete(chartId);
+        } else {
+          targetState.goalById.set(chartId, previousGoal);
+        }
+        targetRecalculateModel();
+        targetUpdateAvailability();
+        targetState.visibleLimit = targetPageSize;
+        targetRender();
+        targetShowError("");
+      },
+    });
   } catch (error) {
     select.value = previousStatus;
     targetUpdateStatusSelect(select);
@@ -1466,6 +1596,26 @@ async function targetHandleStatusChange(event) {
   } finally {
     select.disabled = false;
   }
+}
+
+
+function targetHandleGoalChange(event) {
+  const select = event.target.closest?.(".target-goal-select");
+  if (!select) {
+    return;
+  }
+  const chartId = String(select.dataset.targetGoalChartId ?? "").trim();
+  const row = targetState.rowsByChartId.get(chartId);
+  if (!row) {
+    return;
+  }
+  const allowed = targetGetGoalOptions(targetGetStatus(row)).some(({ value }) => value === select.value);
+  if (!allowed) {
+    targetRender();
+    return;
+  }
+  targetState.goalById.set(chartId, select.value);
+  targetRender();
 }
 
 async function targetHandleManualMemoChange(event) {
@@ -1602,6 +1752,10 @@ function targetBindEvents() {
     button.addEventListener("click", () => targetSetSort(button.dataset.sortKey));
   });
   targetElements.autoTableBody.addEventListener("change", targetHandleStatusChange);
+  targetElements.autoTableBody.addEventListener("change", targetHandleGoalChange);
+  targetElements.tableBody.addEventListener("change", targetHandleGoalChange);
+  targetElements.manualTableBody.addEventListener("change", targetHandleGoalChange);
+
   targetElements.autoTableBody.addEventListener("change", targetHandleManualMemoChange);
   targetElements.tableBody.addEventListener("change", targetHandleStatusChange);
   targetElements.tableBody.addEventListener("change", targetHandleManualMemoChange);
@@ -1699,3 +1853,6 @@ async function targetInitialize() {
 }
 
 document.addEventListener("DOMContentLoaded", targetInitialize);
+
+
+

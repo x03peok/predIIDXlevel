@@ -3,7 +3,9 @@ const columns = [
   { key: "title" },
   { key: "difficulty" },
   { key: "original_level", className: "mono", numeric: true },
+  { key: "easy_pred_skill", className: "mono", numeric: true },
   { key: "calibrated_pred_skill", className: "mono", numeric: true },
+  { key: "hard_pred_skill", className: "mono", numeric: true },
   { key: "bpm", sourceKeys: ["bpm_min", "bpm_max"] },
   { key: "features" },
 ];
@@ -298,41 +300,36 @@ function formatPredValue(value) {
 
 function getNumericScaleColor(value, scaleMin, scaleMax) {
   const numeric = Number(value);
-  const min = Number(scaleMin);
-  const max = Number(scaleMax);
-  if (!Number.isFinite(numeric) || !Number.isFinite(min) || !Number.isFinite(max)) {
+  if (!Number.isFinite(numeric)) {
     return "";
   }
 
-  const position = max > min
-    ? Math.min(1, Math.max(0, (numeric - min) / (max - min)))
-    : 0.5;
-  const yellowPosition = max > min
-    ? Math.min(0.45, Math.max(0.1, (9 - min) / (max - min)))
-    : 0.25
   const stops = [
-    { position: 0, hue: 221, saturation: 83, lightness: 53 },
-    { position: yellowPosition, hue: 48, saturation: 92, lightness: 40 },
-    { position: 0.5, hue: 0, saturation: 80, lightness: 50 },
-    { position: 1, hue: 262, saturation: 72, lightness: 55 },
+    { value: 8, color: [37, 99, 235] },
+    { value: 9, color: [249, 115, 22] },
+    { value: 10, color: [22, 163, 74] },
+    { value: 11, color: [220, 38, 38] },
+    { value: 12, color: [147, 51, 234] },
+    { value: 13, color: [109, 40, 217] },
+    { value: 14, color: [76, 29, 149] },
   ];
+  const clamped = Math.min(stops[stops.length - 1].value, Math.max(stops[0].value, numeric));
   let start = stops[0];
   let end = stops[stops.length - 1];
   for (let index = 1; index < stops.length; index += 1) {
-    if (position <= stops[index].position) {
+    if (clamped <= stops[index].value) {
       start = stops[index - 1];
       end = stops[index];
       break;
     }
   }
-  const localPosition = end.position > start.position
-    ? (position - start.position) / (end.position - start.position)
+  const ratio = end.value > start.value
+    ? (clamped - start.value) / (end.value - start.value)
     : 0;
-  const hueDelta = ((end.hue - start.hue + 540) % 360) - 180;
-  const hue = (start.hue + hueDelta * localPosition + 360) % 360;
-  const saturation = start.saturation + (end.saturation - start.saturation) * localPosition;
-  const lightness = start.lightness + (end.lightness - start.lightness) * localPosition;
-  return hslToRgbString(hue, saturation, lightness);
+  const channels = start.color.map((channel, index) => Math.round(
+    channel + (end.color[index] - channel) * ratio,
+  ));
+  return "rgb(" + channels.join(", ") + ")";
 }
 
 function hslToRgbString(hue, saturation, lightness) {
@@ -964,7 +961,9 @@ function renderTable(rows) {
       "<tr>",
       `<td class="mono numeric-value numeric-value--level"${levelColorStyle}>${escapeHtml(originalText)}</td>`,
       `<td class="chart-title-cell"><a class="chart-link ${difficultyClass}" href="${getChartPageHref(row.chart_id)}"><span class="chart-title-cell__name">${escapeHtml(titleText)}</span>${difficultyText ? ` <span class="chart-title-cell__difficulty">[${escapeHtml(difficultyText)}]</span>` : ""}</a></td>`,
-      `<td class="mono numeric-value numeric-value--pred"${predictedColorStyle}>${escapeHtml(predictedText)}</td>`,
+      `<td class="mono numeric-value numeric-value--pred pred-cell pred-cell--easy"${getNumericColorStyle(row.easy_pred_skill, state.predDataMin - 0.5, state.predDataMax + 1.0)}>${escapeHtml(formatPredValue(row.easy_pred_skill) ?? row.easy_pred_skill ?? "")}</td>`,
+      `<td class="mono numeric-value numeric-value--pred pred-cell pred-cell--nomage"${predictedColorStyle}>${escapeHtml(predictedText)}</td>`,
+      `<td class="mono numeric-value numeric-value--pred pred-cell pred-cell--hard"${getNumericColorStyle(row.hard_pred_skill, state.predDataMin - 0.5, state.predDataMax + 1.0)}>${escapeHtml(formatPredValue(row.hard_pred_skill) ?? row.hard_pred_skill ?? "")}</td>`,
       `<td class="mono">${bpmHtml}</td>`,
       `<td>${renderFeatureChips(row)}</td>`,
       "</tr>",

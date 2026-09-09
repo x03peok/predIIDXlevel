@@ -17,12 +17,13 @@
   <meta name="twitter:description" content="Predと譜面傾向から、次に狙う譜面を探すページです。">
 
   <script src="analytics.js?v=20260905-1" defer></script>
-  <link rel="stylesheet" href="styles.css?v=20260904-1">
+  <link rel="stylesheet" href="styles.css?v=20260908-7">
   <link rel="stylesheet" href="menu.css?v=20260904-2">
-  <link rel="stylesheet" href="target.css?v=20260906-2">
+  <link rel="stylesheet" href="target.css?v=20260906-12">
   <script src="menu.js?v=20260906-1" defer></script>
-  <script src="data.js?v=20260904-1" defer></script>
-  <script src="target.js?v=20260906-3" defer></script>
+  <script src="data.js?v=20260909-3" defer></script>
+  <script src="status-toast.js?v=20260908-1" defer></script>
+  <script src="target.js?v=20260909-1" defer></script>
   <script src="target-tabs.js?v=20260904-1" defer></script>
   <link rel="icon" type="image/jpeg" href="site-icon.jpg">
   <link rel="apple-touch-icon" href="site-icon.jpg">
@@ -84,9 +85,10 @@
                     <col class="col-memo">
                     <col class="col-orig">
                     <col class="col-title">
+                    <col class="target-col-status">
+                    <col class="target-col-goal">
                     <col class="target-col-adjusted-pred">
                     <col class="col-pred">
-                    <col class="target-col-status">
                     <col class="col-bpm">
                     <col class="col-features">
                   </colgroup>
@@ -95,9 +97,10 @@
                       <th class="memo-heading" aria-label="Memo"></th>
                       <th><button type="button" data-sort-key="original_level" aria-label="Levelでソート"><span></span><span class="sort-mark"></span></button></th>
                       <th><button type="button" data-sort-key="title"><span>Title</span><span class="sort-mark"></span></button></th>
-                      <th><button type="button" data-sort-key="adjusted_pred"><span>補正Pred</span><span class="sort-mark"></span></button></th>
-                      <th><button type="button" data-sort-key="calibrated_pred_skill"><span>Pred</span><span class="sort-mark"></span></button></th>
-                      <th><button type="button" data-sort-key="status"><span>Status</span><span class="sort-mark"></span></button></th>
+                      <th><button type="button" data-sort-key="status"><span>現在</span><span class="sort-mark"></span></button></th>
+                      <th><span>目標</span></th>
+                      <th><button type="button" data-sort-key="adjusted_pred"><span class="chart-detail__label-group" data-tooltip="Targetに対応するPredです" tabindex="0" aria-label="Targetに対応するPredの説明"><span>補正Pred</span><span class="chart-detail__info-mark" aria-hidden="true">ⓘ</span></span><span class="sort-mark"></span></button></th>
+                      <th><button type="button" data-sort-key="calibrated_pred_skill"><span class="chart-detail__label-group" data-tooltip="Targetに対応するPredです" tabindex="0" aria-label="Targetに対応するPredの説明"><span>Pred</span><span class="chart-detail__info-mark" aria-hidden="true">ⓘ</span></span><span class="sort-mark"></span></button></th>
                       <th><button type="button" data-sort-key="bpm"><span>BPM</span><span class="sort-mark"></span></button></th>
                       <th><button type="button" data-sort-key="features"><span>Feature</span><span class="sort-mark"></span></button></th>
                     </tr>
@@ -119,9 +122,10 @@
                     <col class="col-memo">
                     <col class="col-orig">
                     <col class="col-title">
+                    <col class="target-col-status">
+                    <col class="target-col-goal">
                     <col class="target-col-adjusted-pred">
                     <col class="col-pred">
-                    <col class="target-col-status">
                     <col class="col-bpm">
                     <col class="col-features">
                   </colgroup>
@@ -130,9 +134,10 @@
                       <th class="memo-heading" aria-label="Memo"></th>
                       <th><button type="button" data-sort-key="original_level" aria-label="Levelでソート"><span></span><span class="sort-mark"></span></button></th>
                       <th><button type="button" data-sort-key="title"><span>Title</span><span class="sort-mark"></span></button></th>
-                      <th><button type="button" data-sort-key="adjusted_pred"><span>補正Pred</span><span class="sort-mark"></span></button></th>
-                      <th><button type="button" data-sort-key="calibrated_pred_skill"><span>Pred</span><span class="sort-mark"></span></button></th>
-                      <th><button type="button" data-sort-key="status"><span>Status</span><span class="sort-mark"></span></button></th>
+                      <th><button type="button" data-sort-key="status"><span>現在</span><span class="sort-mark"></span></button></th>
+                      <th><span>目標</span></th>
+                      <th><button type="button" data-sort-key="adjusted_pred"><span class="chart-detail__label-group" data-tooltip="Targetに対応するPredです" tabindex="0" aria-label="Targetに対応するPredの説明"><span>補正Pred</span><span class="chart-detail__info-mark" aria-hidden="true">ⓘ</span></span><span class="sort-mark"></span></button></th>
+                      <th><button type="button" data-sort-key="calibrated_pred_skill"><span class="chart-detail__label-group" data-tooltip="Targetに対応するPredです" tabindex="0" aria-label="Targetに対応するPredの説明"><span>Pred</span><span class="chart-detail__info-mark" aria-hidden="true">ⓘ</span></span><span class="sort-mark"></span></button></th>
                       <th><button type="button" data-sort-key="bpm"><span>BPM</span><span class="sort-mark"></span></button></th>
                       <th><button type="button" data-sort-key="features"><span>Feature</span><span class="sort-mark"></span></button></th>
                     </tr>
@@ -224,9 +229,10 @@
               <col class="col-memo">
               <col class="col-orig">
               <col class="col-title">
-              <col class="target-col-adjusted-pred">
-              <col class="col-pred">
-              <col class="target-col-status">
+                    <col class="target-col-status">
+                    <col class="target-col-goal">
+                    <col class="target-col-adjusted-pred">
+                    <col class="col-pred">
               <col class="col-bpm">
               <col class="col-features">
             </colgroup>
@@ -235,9 +241,10 @@
                 <th class="memo-heading" aria-label="Memo"></th>
                 <th><button type="button" data-sort-key="original_level" aria-label="Levelでソート"><span></span><span class="sort-mark"></span></button></th>
                 <th><button type="button" data-sort-key="title"><span>Title</span><span class="sort-mark"></span></button></th>
-                <th><button type="button" data-sort-key="adjusted_pred"><span>補正Pred</span><span class="sort-mark"></span></button></th>
-                <th><button type="button" data-sort-key="calibrated_pred_skill"><span>Pred</span><span class="sort-mark"></span></button></th>
-                <th><button type="button" data-sort-key="status"><span>Status</span><span class="sort-mark"></span></button></th>
+                      <th><button type="button" data-sort-key="status"><span>現在</span><span class="sort-mark"></span></button></th>
+                      <th><span>目標</span></th>
+                      <th><button type="button" data-sort-key="adjusted_pred"><span class="chart-detail__label-group" data-tooltip="Targetに対応するPredです" tabindex="0" aria-label="Targetに対応するPredの説明"><span>補正Pred</span><span class="chart-detail__info-mark" aria-hidden="true">ⓘ</span></span><span class="sort-mark"></span></button></th>
+                      <th><button type="button" data-sort-key="calibrated_pred_skill"><span class="chart-detail__label-group" data-tooltip="Targetに対応するPredです" tabindex="0" aria-label="Targetに対応するPredの説明"><span>Pred</span><span class="chart-detail__info-mark" aria-hidden="true">ⓘ</span></span><span class="sort-mark"></span></button></th>
                 <th><button type="button" data-sort-key="bpm"><span>BPM</span><span class="sort-mark"></span></button></th>
                 <th><button type="button" data-sort-key="features"><span>Feature</span><span class="sort-mark"></span></button></th>
               </tr>
@@ -256,3 +263,8 @@
   <button id="targetScrollTopButton" class="scroll-top-button" type="button" aria-label="ページ上部へ戻る" hidden>↑</button>
 </body>
 </html>
+
+
+
+
+

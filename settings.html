@@ -27,11 +27,12 @@
   <meta name="twitter:description" content="クリアランプ記録のデータを管理するページです。">
   <!-- Google Analytics -->
   <script defer src="analytics.js?v=20260905-1"></script>
-  <link rel="stylesheet" href="styles.css?v=20260904-1">
-  <link rel="stylesheet" href="settings.css?v=20260904-1">
+  <link rel="stylesheet" href="styles.css?v=20260908-7">
+  <link rel="stylesheet" href="settings.css?v=20260908-2">
   <link rel="stylesheet" href="menu.css?v=20260904-2">
   <script defer src="menu.js?v=20260906-1"></script>
-  <script defer src="settings.js?v=20260906-1"></script>
+  <script defer src="status-toast.js?v=20260908-1"></script>
+  <script defer src="settings.js?v=20260908-5"></script>
 </head>
 <body data-page="settings">
   <main class="app">
@@ -75,8 +76,9 @@
           <button id="settingsResetButton" class="settings-button settings-button--danger" type="button">クリアランプ記録をリセット</button>
         </div>
         <input id="settingsImportInput" type="file" accept="application/json,.json" hidden>
+        <p id="settingsMessage" class="settings-message" role="status" aria-live="polite"></p>
 
-                <section class="settings-recommendation" aria-labelledby="settingsRecommendationTitle">
+        <section class="settings-recommendation" aria-labelledby="settingsRecommendationTitle">
           <h3 id="settingsRecommendationTitle">自動リコメンド設定</h3>
           <p>「マイターゲット」の自動リコメンド、「今日の10曲」の自動選択の条件を設定できます。この条件に当てはまる譜面からランダムに選択されます。</p>
           <div class="settings-recommendation-filters">
@@ -121,11 +123,26 @@
             <button id="settingsRecommendationSaveButton" class="settings-button settings-button--primary" type="button">保存</button>
             <button id="settingsRecommendationResetButton" class="settings-button settings-button--secondary" type="button">デフォルトに戻す</button>
           </div>
+          <section class="settings-target-settings" aria-labelledby="settingsTargetHeading">
+            <h3 id="settingsTargetHeading">ターゲット設定</h3>
+            <p>マイターゲットと「今日の10曲」に含める目標ランプを選択できます。</p>
+            <div class="settings-target-goals">
+              <span>ターゲットに含むランプ</span>
+              <div id="settingsTargetGoalOptions" class="settings-status-options"></div>
+            </div>
+            <div class="settings-recommendation-actions settings-target-actions">
+              <button id="settingsTargetSaveButton" class="settings-button settings-button--primary" type="button">保存</button>
+              <button id="settingsTargetResetButton" class="settings-button settings-button--secondary" type="button">デフォルトに戻す</button>
+            </div>
+          </section>
         </section>
 
-        <p id="settingsMessage" class="settings-message" role="status" aria-live="polite"></p>
       </div>
     </section>
   </main>
 </body>
 </html>
+
+
+
+

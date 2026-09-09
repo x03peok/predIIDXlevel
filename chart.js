@@ -120,7 +120,9 @@ function getChartRows(csvText) {
     "title",
     "difficulty",
     "original_level",
+    "easy_pred_skill",
     "calibrated_pred_skill",
+    "hard_pred_skill",
     "bpm_min",
     "bpm_max",
     "features",
@@ -137,21 +139,33 @@ function getChartRows(csvText) {
     title: normalizeChartTitle((cells[headerIndex.get("title")] ?? "").trim()),
     difficulty: (cells[headerIndex.get("difficulty")] ?? "").trim(),
     original_level: (cells[headerIndex.get("original_level")] ?? "").trim(),
+    easy_pred_skill: (cells[headerIndex.get("easy_pred_skill")] ?? "").trim(),
     calibrated_pred_skill: (cells[headerIndex.get("calibrated_pred_skill")] ?? "").trim(),
+    hard_pred_skill: (cells[headerIndex.get("hard_pred_skill")] ?? "").trim(),
     bpm_min: (cells[headerIndex.get("bpm_min")] ?? "").trim(),
     bpm_max: (cells[headerIndex.get("bpm_max")] ?? "").trim(),
     features: (cells[headerIndex.get("features")] ?? "").trim(),
+    url: headerIndex.has("url") ? (cells[headerIndex.get("url")] ?? "").trim() : "",
   }));
 }
 
+const chartPredModes = {
+  easy: { key: "easy_pred_skill", label: "イージーPred" },
+  normal: { key: "calibrated_pred_skill", label: "ノマゲPred" },
+  hard: { key: "hard_pred_skill", label: "ハードPred" },
+};
+
+function getChartPredValue(row, mode = "normal") {
+  return row?.[chartPredModes[mode]?.key ?? chartPredModes.normal.key] ?? "";
+}
 function formatChartPred(value) {
   const numeric = toFiniteChartNumber(value);
-  return Number.isFinite(numeric) ? (Math.round(numeric * 10) / 10).toFixed(1) : value;
+  return Number.isFinite(numeric) ? (Math.round(numeric * 100) / 100).toFixed(2) : value;
 }
 
-function getChartNumericScale(rows) {
+function getChartNumericScale(rows, mode = "normal") {
   const values = [...rows]
-    .map((row) => toFiniteChartNumber(row.calibrated_pred_skill))
+    .map((row) => toFiniteChartNumber(getChartPredValue(row, mode)))
     .filter((value) => value !== null);
   return values.length
     ? { min: Math.min(...values), max: Math.max(...values) }
@@ -160,39 +174,36 @@ function getChartNumericScale(rows) {
 
 function getChartNumericScaleColor(value, scale) {
   const numeric = toFiniteChartNumber(value);
-  if (numeric === null || !scale) {
+  if (!Number.isFinite(numeric)) {
     return "";
   }
 
-  const position = scale.max > scale.min
-    ? Math.min(1, Math.max(0, (numeric - scale.min) / (scale.max - scale.min)))
-    : 0.5;
-  const yellowPosition = scale.max > scale.min
-    ? Math.min(0.45, Math.max(0.1, (9 - scale.min) / (scale.max - scale.min)))
-    : 0.25
   const stops = [
-    { position: 0, hue: 221, saturation: 83, lightness: 53 },
-    { position: yellowPosition, hue: 48, saturation: 92, lightness: 40 },
-    { position: 0.5, hue: 0, saturation: 80, lightness: 50 },
-    { position: 1, hue: 262, saturation: 72, lightness: 55 },
+    { value: 8, color: [37, 99, 235] },
+    { value: 9, color: [249, 115, 22] },
+    { value: 10, color: [22, 163, 74] },
+    { value: 11, color: [220, 38, 38] },
+    { value: 12, color: [147, 51, 234] },
+    { value: 13, color: [109, 40, 217] },
+    { value: 14, color: [76, 29, 149] },
   ];
+  const clamped = Math.min(stops[stops.length - 1].value, Math.max(stops[0].value, numeric));
   let start = stops[0];
   let end = stops[stops.length - 1];
   for (let index = 1; index < stops.length; index += 1) {
-    if (position <= stops[index].position) {
+    if (clamped <= stops[index].value) {
       start = stops[index - 1];
       end = stops[index];
       break;
     }
   }
-  const localPosition = end.position > start.position
-    ? (position - start.position) / (end.position - start.position)
+  const ratio = end.value > start.value
+    ? (clamped - start.value) / (end.value - start.value)
     : 0;
-  const hueDelta = ((end.hue - start.hue + 540) % 360) - 180;
-  const hue = (start.hue + hueDelta * localPosition + 360) % 360;
-  const saturation = start.saturation + (end.saturation - start.saturation) * localPosition;
-  const lightness = start.lightness + (end.lightness - start.lightness) * localPosition;
-  return hslToRgbString(hue, saturation, lightness);
+  const channels = start.color.map((channel, index) => Math.round(
+    channel + (end.color[index] - channel) * ratio,
+  ));
+  return "rgb(" + channels.join(", ") + ")";
 }
 
 function hslToRgbString(hue, saturation, lightness) {
@@ -232,15 +243,15 @@ function toFiniteChartNumber(value) {
   return Number.isFinite(numeric) ? numeric : null;
 }
 
-function getChartPredPosition(row, rows) {
-  const targetPred = toFiniteChartNumber(row.calibrated_pred_skill);
+function getChartPredPosition(row, rows, mode = "normal") {
+  const targetPred = toFiniteChartNumber(getChartPredValue(row, mode));
   if (targetPred === null) {
     return null;
   }
 
   const levelPreds = rows
     .filter((item) => item.original_level === row.original_level)
-    .map((item) => toFiniteChartNumber(item.calibrated_pred_skill))
+    .map((item) => toFiniteChartNumber(getChartPredValue(item, mode)))
     .filter((value) => value !== null);
 
   if (!levelPreds.length) {
@@ -287,11 +298,11 @@ function formatChartPredPercentile(predPosition, row) {
 }
 
 function formatChartAxisValue(value) {
-  return Number.isFinite(value) ? value.toFixed(1) : "";
+  return Number.isFinite(value) ? value.toFixed(2) : "";
 }
 
-function renderChartHistogramAxis(predPosition, numericScale) {
-  const axis = document.getElementById("chartPredHistogramAxis");
+function renderChartHistogramAxis(predPosition, numericScale, axisId) {
+  const axis = document.getElementById(axisId);
   const range = predPosition.max - predPosition.min;
   if (!axis || !Number.isFinite(range) || range <= 0) {
     if (axis) {
@@ -318,26 +329,53 @@ function renderChartHistogramAxis(predPosition, numericScale) {
   axis.innerHTML = labels.join("");
 }
 
-function renderChartPredPosition(predPosition, row, numericScale) {
+function renderChartPredPosition(predPositions, row, numericScales) {
   const container = document.getElementById("chartPredPosition");
-  if (!predPosition) {
-    container.hidden = true;
+  if (!container) {
     return;
   }
 
-  const histogram = document.getElementById("chartPredHistogram");
-  const bars = predPosition.histogram.map((item) => {
-    const height = item.count === 0 ? 0 : Math.max(4, (item.count / predPosition.maxCount) * 100);
-    const currentClass = item.value === predPosition.targetBin ? " chart-pred-histogram__bar--current" : "";
-    return '<span class="chart-pred-histogram__bar' + currentClass + '" style="height:' + height.toFixed(2) + '%" title="Pred ' + item.value.toFixed(1) + ': ' + item.count + '譜面"></span>';
-  }).join("");
+  let hasVisiblePosition = false;
+  Object.keys(chartPredModes).forEach((mode) => {
+    const position = predPositions[mode];
+    const positionRow = container.querySelector('[data-chart-pred-position-mode="' + mode + '"]');
+    const valueElement = document.getElementById("chartPredPositionValue" + (mode === "normal" ? "Normal" : mode === "easy" ? "Easy" : "Hard"));
+    const percentileElement = document.getElementById("chartPredPositionPercentile" + (mode === "normal" ? "Normal" : mode === "easy" ? "Easy" : "Hard"));
+    if (!positionRow) {
+      return;
+    }
+    if (!position) {
+      positionRow.hidden = true;
+      if (valueElement) valueElement.textContent = "";
+      if (percentileElement) percentileElement.textContent = "";
+      return;
+    }
 
-  histogram.innerHTML = bars;
-  histogram.setAttribute("aria-label", "同じ☆" + row.original_level + "内のPred分布。現在のPredは" + formatChartPred(predPosition.targetPred) + "です。");
-  renderChartHistogramAxis(predPosition, numericScale);
+    hasVisiblePosition = true;
+    positionRow.hidden = false;
+    if (valueElement) {
+      valueElement.textContent = formatChartPred(position.targetPred);
+      setChartNumericColor(valueElement, position.targetPred, numericScales[mode]);
+    }
+    if (percentileElement) percentileElement.textContent = formatChartPredPercentile(position, row);
 
+    const histogram = document.getElementById("chartPredHistogram" + (mode === "normal" ? "Normal" : mode === "easy" ? "Easy" : "Hard"));
+    const axisId = "chartPredHistogramAxis" + (mode === "normal" ? "Normal" : mode === "easy" ? "Easy" : "Hard");
+    if (!histogram) {
+      return;
+    }
+    const bars = position.histogram.map((item) => {
+      const height = item.count === 0 ? 0 : Math.max(4, (item.count / position.maxCount) * 100);
+      const currentClass = item.value === position.targetBin ? " chart-pred-histogram__bar--current" : "";
+      return '<span class="chart-pred-histogram__bar' + currentClass + '" style="height:' + height.toFixed(2) + '%" title="Pred ' + item.value.toFixed(2) + ': ' + item.count + '譜面"></span>';
+    }).join("");
 
-  container.hidden = false;
+    histogram.innerHTML = bars;
+    histogram.setAttribute("aria-label", "同じ☆" + row.original_level + "内の" + chartPredModes[mode].label + "分布。現在の" + chartPredModes[mode].label + "は" + formatChartPred(position.targetPred) + "です。");
+    renderChartHistogramAxis(position, numericScales[mode], axisId);
+  });
+
+  container.hidden = !hasVisiblePosition;
 }
 
 function formatChartBpm(minValue, maxValue) {
@@ -566,21 +604,25 @@ function getSimilarChartRows(targetRow, rowsById) {
     .slice(0, 10);
 }
 
-function renderSimilarChartRows(targetRow, rows) {
+function renderSimilarChartRows(targetRow, rows, mode = "normal") {
   const section = document.getElementById("similarChartsSection");
   const body = document.getElementById("similarChartsBody");
   const similarRows = getSimilarChartRows(targetRow, rows);
-  const numericScale = getChartNumericScale(rows.values());
+  const numericScale = getChartNumericScale(rows.values(), mode);
+
+  const header = document.getElementById("similarChartsPredHeader");
+  if (header) header.textContent = chartPredModes[mode]?.label ?? chartPredModes.normal.label;
 
   body.innerHTML = similarRows.map((row) => {
     const difficulty = String(row.difficulty ?? "").trim().toUpperCase();
     const difficultyClass = chartDifficultyClasses[difficulty] ?? "";
     const difficultyText = chartDifficultyLabels[difficulty] ?? difficulty;
     const originalText = "☆" + (row.original_level ?? "");
-    const predictedText = formatChartPred(row.calibrated_pred_skill) ?? row.calibrated_pred_skill ?? "";
+    const predictedValue = getChartPredValue(row, mode);
+    const predictedText = formatChartPred(predictedValue) ?? predictedValue ?? "";
     const titleText = row.title ?? "";
     const levelColorStyle = getChartNumericColorStyle(row.original_level, numericScale);
-    const predictedColorStyle = getChartNumericColorStyle(row.calibrated_pred_skill, numericScale);
+    const predictedColorStyle = getChartNumericColorStyle(predictedValue, numericScale);
 
     return [
       "<tr>",
@@ -593,7 +635,7 @@ function renderSimilarChartRows(targetRow, rows) {
     ].join("");
   }).join("");
 
-  section.hidden = similarRows.length === 0;
+  section.hidden = true;
   updateSimilarTableOverflowState();
 }
 
@@ -645,17 +687,15 @@ function renderChart() {
 
     const numericScale = getChartNumericScale(rows);
     const chartLevelElement = document.getElementById("chartLevel");
-    const chartPredElement = document.getElementById("chartPred");
     chartLevelElement.textContent = "☆" + row.original_level;
-    chartPredElement.textContent = formatChartPred(row.calibrated_pred_skill);
     setChartNumericColor(chartLevelElement, row.original_level, numericScale);
-    setChartNumericColor(chartPredElement, row.calibrated_pred_skill, numericScale);
-    const predPosition = getChartPredPosition(row, rows);
-    document.getElementById("chartPredPercentile").textContent = formatChartPredPercentile(predPosition, row);
-    renderChartPredPosition(predPosition, row, numericScale);
+    const predPositions = Object.fromEntries(Object.keys(chartPredModes).map((mode) => [mode, getChartPredPosition(row, rows, mode)]));
+    const numericScales = Object.fromEntries(Object.keys(chartPredModes).map((mode) => [mode, getChartNumericScale(rows, mode)]));
+    const predPosition = predPositions.normal;
+    renderChartPredPosition(predPositions, row, numericScales);
     document.getElementById("chartFeatures").innerHTML = renderChartFeatureChips(row, true);
     document.getElementById("chartBpm").textContent = formatChartBpm(row.bpm_min, row.bpm_max);
-    const textageOnePlayerUrl = window.__TEXTAGE_URLS__?.[normalizeChartId(row.chart_id)] ?? "";
+    const textageOnePlayerUrl = row.url || window.__TEXTAGE_URLS__?.[normalizeChartId(row.chart_id)] || "";
     setTextageLink(document.getElementById("textage1pLink"), textageOnePlayerUrl);
     setTextageLink(document.getElementById("textage2pLink"), getTextageTwoPlayerUrl(textageOnePlayerUrl));
     const shareButton = document.getElementById("chartShareButton");
@@ -673,7 +713,7 @@ function renderChart() {
       const shareText = [
         "☆" + (row.original_level ?? "") + " " + row.title + (shareDifficultyLabel ? " [" + shareDifficultyLabel + "]" : ""),
         "",
-        "Pred: " + sharePred + " " + sharePercentile,
+        "ノマゲPred: " + sharePred + " " + sharePercentile,
         "",
         "Feature: " + shareFeatures,
         "",
@@ -686,6 +726,17 @@ function renderChart() {
     document.getElementById("chartDetail").hidden = false;
     void chartLoadManualMemoState(chartId);
     renderSimilarChartRows(row, rowsById);
+    document.querySelectorAll("[data-similar-pred-mode]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const mode = button.dataset.similarPredMode || "normal";
+        document.querySelectorAll("[data-similar-pred-mode]").forEach((tab) => {
+          const active = tab === button;
+          tab.classList.toggle("is-active", active);
+          tab.setAttribute("aria-selected", String(active));
+        });
+        renderSimilarChartRows(row, rowsById, mode);
+      });
+    });
     if (typeof window.addEventListener === "function") {
       window.addEventListener("resize", updateSimilarTableOverflowState, { passive: true });
     }

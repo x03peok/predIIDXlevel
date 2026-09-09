@@ -71,6 +71,17 @@ function decodeHtmlEntities(value) {
     lt: "<",
     nbsp: " ",
     quot: "\"",
+    AElig: "Æ",
+    Oslash: "Ø",
+    Uuml: "Ü",
+    aelig: "æ",
+    atilde: "ã",
+    auml: "ä",
+    eacute: "é",
+    ecirc: "ê",
+    hearts: "♥",
+    iexcl: "¡",
+    ouml: "ö",
   };
 
   return String(value ?? "").replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (match, token) => {
@@ -103,7 +114,7 @@ function escapeHtml(value) {
 
 function formatPred(value) {
   const numeric = Number(value);
-  return Number.isFinite(numeric) ? (Math.round(numeric * 10) / 10).toFixed(1) : String(value ?? "");
+  return Number.isFinite(numeric) ? (Math.round(numeric * 100) / 100).toFixed(2) : String(value ?? "");
 }
 
 function formatBpm(row) {
@@ -136,7 +147,9 @@ function loadRows() {
     "title",
     "difficulty",
     "original_level",
+    "easy_pred_skill",
     "calibrated_pred_skill",
+    "hard_pred_skill",
     "features",
     "bpm_min",
     "bpm_max",
@@ -167,7 +180,7 @@ function createPage(template, row) {
   const feature = String(row.features ?? "").trim() || "\u7279\u5fb4\u306a\u3057";
   const displayTitle = `${level} ${title}${difficulty ? ` [${difficulty}]` : ""}`;
   const pageTitle = `${displayTitle}｜${siteTitle}`;
-  const description = `${displayTitle}。Pred ${pred} / BPM ${bpm} / Feature ${feature}`;
+  const description = `${displayTitle}。ノマゲPred ${pred} / BPM ${bpm} / Feature ${feature}`;
   const canonicalUrl = `${publicBaseUrl}chart-pages/${encodeURIComponent(chartId)}.html`;
   const metadata = [
     `  <link rel="canonical" href="${escapeHtml(canonicalUrl)}">`,

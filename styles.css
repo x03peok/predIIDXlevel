@@ -1045,6 +1045,49 @@ body .title-lock {
   text-decoration: none;
 }
 
+.chart-detail__pred-values {
+  display: grid;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.chart-detail__pred-values > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.chart-detail__pred-values .chart-detail__value {
+  margin-left: auto;
+}
+
+.chart-detail__pred-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.chart-detail__pred-tab {
+  padding: 7px 10px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chart-detail__pred-tab.is-active {
+  border-bottom-color: var(--accent);
+  color: var(--accent);
+}
+
 .chart-detail__title {
   margin: 0 0 20px;
   color: var(--ink);
@@ -1170,18 +1213,54 @@ body .title-lock {
 }
 
 .chart-pred-position__title {
-  margin-bottom: 7px;
+  margin-bottom: 8px;
   color: var(--muted);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.08em;
 }
 
+.chart-pred-position__rows {
+  display: grid;
+  gap: 12px;
+}
+
+.chart-pred-position__row {
+  min-width: 0;
+}
+
+.chart-pred-position__mode-label{
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-height: 1.2em;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.chart-pred-position__mode-value{
+  color: var(--numeric-color, var(--muted));
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Consolas, monospace);
+  font-size: 0.90rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-pred-position__mode-note{
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
 .chart-pred-histogram {
   display: flex;
   align-items: flex-end;
   gap: 2px;
-  height: 76px;
+  height: 62px;
   padding: 0 2px;
   border-bottom: 1px solid var(--line);
 }
@@ -1691,4 +1770,168 @@ body[data-page="mypage"] .chart-table tbody td.chart-title-cell .chart-title-cel
   color: #fff;
   font-weight: 700;
   text-decoration: none;
+}
+
+.pred-table thead th[rowspan="2"] {
+  vertical-align: middle;
+}
+
+.pred-table thead th.pred-group-heading {
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.pred-table thead tr:first-child th.pred-group-heading {
+  border-bottom: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.pred-table thead tr:nth-child(2) th {
+  border-top: 0;
+}
+
+.pred-table thead tr:nth-child(2) th button {
+  justify-content: center;
+  padding: 6px 8px;
+  font-size: 0.74rem;
+}
+
+.pred-table {
+  min-width: 680px;
+}
+.pred-table col.col-pred {
+  width: 8%;
+}
+
+
+
+
+.status-toast {
+  position: fixed;
+  z-index: 1100;
+  left: 50%;
+  bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: calc(100% - 24px);
+  padding: 10px 12px 10px 16px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.94);
+  color: #fff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.22);
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, 12px);
+  transition: opacity 160ms ease, transform 160ms ease, visibility 160ms ease;
+}
+
+.status-toast.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+
+.status-toast__message {
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.status-toast__undo {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.status-toast__undo:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+@media (max-width: 600px) {
+  .status-toast {
+    left: 12px;
+    right: 12px;
+    max-width: none;
+    transform: translateY(12px);
+  }
+
+  .status-toast.is-visible {
+    transform: translateY(0);
+  }
+}
+
+/* Status変更通知の視認性を高める上書き */
+.status-toast--visibility-refresh {
+  min-width: min(360px, calc(100% - 24px));
+  padding: 11px 12px 11px 14px;
+  gap: 11px;
+  border: 1px solid #93c5fd;
+  border-left: 4px solid #3b82f6;
+  border-radius: 14px;
+  background: #eaf4ff;
+  box-shadow: 0 10px 26px rgba(30, 64, 175, 0.16), 0 0 0 3px rgba(96, 165, 250, 0.08);
+}
+
+.status-toast--visibility-refresh::before {
+  content: "✓";
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background: #bfdbfe;
+  color: #1d4ed8;
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.status-toast--visibility-refresh .status-toast__message {
+  flex: 1 1 auto;
+  color: #1e3a8a;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.status-toast--visibility-refresh .status-toast__undo {
+  min-height: 34px;
+  padding: 6px 11px;
+  border: 1px solid #2563eb;
+  border-radius: 9px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
+  transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.status-toast--visibility-refresh .status-toast__undo:hover {
+  background: #1d4ed8;
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.status-toast--visibility-refresh .status-toast__undo:focus-visible {
+  outline: 2px solid #1d4ed8;
+  outline-offset: 2px;
+}
+
+@media (max-width: 600px) {
+  .status-toast--visibility-refresh {
+    min-width: 0;
+    padding: 11px 11px 11px 13px;
+  }
 }

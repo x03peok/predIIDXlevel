@@ -144,11 +144,11 @@
 }
 
 .target-table col.target-col-adjusted-pred {
-  width: 11%;
+  width: 9%;
 }
 
 .target-table col.target-col-status {
-  width: 10%;
+  width: 12%;
 }
 
 .target-table col.col-bpm {
@@ -156,7 +156,7 @@
 }
 
 .target-table col.col-features {
-  width: 32%;
+  width: 34%;
 }
 
 .target-table .target-adjusted-pred {
@@ -172,8 +172,7 @@
   white-space: nowrap;
 }
 
-.target-table--recommendation thead th,
-.target-table--manual thead th {
+.target-table thead th {
   padding: 9px 12px;
   color: var(--muted);
   font-size: 0.8rem;
@@ -182,13 +181,11 @@
   white-space: nowrap;
 }
 
-.target-table--recommendation thead th:first-child,
-.target-table--manual thead th:first-child {
+.target-table thead th:first-child {
   text-align: center;
 }
 
-.target-table--recommendation thead th:nth-child(2),
-.target-table--manual thead th:nth-child(2) {
+.target-table thead th:nth-child(2) {
   text-align: center;
 }
 
@@ -443,4 +440,79 @@
 .target-daily-link:focus-visible {
   background: rgba(191, 219, 254, 0.9);
   color: #1e40af;
+}
+.target-pred-stack {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+}
+
+.target-pred-stack__item {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+  font-size: 0.64rem;
+  line-height: 1.1;
+}
+
+.target-pred-stack__item > span {
+  color: var(--muted);
+}
+
+.target-pred-stack__item strong {
+  font-size: 0.78rem;
+}
+
+.target-pred-stack__item small {
+  color: #475569;
+  font-size: 0.62rem;
+}
+
+
+
+.target-goal-select {
+  min-width: 0;
+  padding-left: 7px;
+  padding-right: 24px;
+}
+
+.target-goal-empty {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.target-table col.target-col-goal {
+  width: 10%;
+}
+
+
+.target-table tbody td.target-goal-cell {
+  text-align: center;
+}
+.target-table col.col-features {
+  width: 26%;
+}
+
+.target-table thead th:nth-child(5) {
+  text-align: center;
+}
+
+.target-table thead .chart-detail__label-group {
+  align-items: center;
+  gap: 3px;
+}
+
+.target-table thead .chart-detail__info-mark {
+  top: 0;
+  margin-left: 2px;
+}
+
+.target-table .target-goal-select:disabled {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: none;
+  padding-right: 7px;
+  cursor: default;
 }

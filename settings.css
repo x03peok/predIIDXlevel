@@ -122,6 +122,38 @@
   line-height: 1.6;
 }
 
+.settings-target-settings {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.settings-target-settings h3 {
+  margin: 0;
+  color: var(--accent);
+  font-size: clamp(1.1rem, 2.2vw, 1.45rem);
+  line-height: 1.2;
+}
+
+.settings-target-settings > p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.settings-target-goals {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.settings-target-goals .settings-status-options {
+  margin-top: 8px;
+}
+
 .settings-status-options {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -143,6 +175,15 @@
   flex: 0 0 auto;
   width: 1rem;
   height: 1rem;
+  margin: 0;
+  padding: 0;
+  appearance: auto;
+  -webkit-appearance: checkbox;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  background: var(--panel-strong);
+  box-shadow: none;
+  cursor: pointer;
   accent-color: var(--accent);
 }
 

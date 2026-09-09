@@ -39,6 +39,13 @@ const settingsRecommendationLevelOptions = settingsRecommendationLevelValues.map
 }));
 const settingsRecommendationCountValues = [5, 10, 20];
 const settingsDefaultRecommendationStatuses = ["unregistered", "no-play", "failed", "assisted", "easy"];
+const settingsTargetGoalOptions = [
+  { value: "easy", label: "EASY" },
+  { value: "clear", label: "CLEAR" },
+  { value: "hard", label: "HARD以上" },
+];
+const settingsTargetGoalValues = new Set(settingsTargetGoalOptions.map(({ value }) => value));
+const settingsDefaultTargetGoals = settingsTargetGoalOptions.map(({ value }) => value);
 
 const settingsElements = {};
 let settingsDatabase = null;
@@ -196,6 +203,11 @@ function settingsSetBusy(busy) {
   settingsElements.resetButton.disabled = busy;
   settingsElements.recommendationSaveButton.disabled = busy;
   settingsElements.recommendationResetButton.disabled = busy;
+  settingsElements.targetSaveButton.disabled = busy;
+  settingsElements.targetResetButton.disabled = busy;
+  settingsElements.targetGoalOptions.querySelectorAll("input").forEach((input) => {
+    input.disabled = busy;
+  });
 }
 
 function settingsGetDefaultRecommendationSettings() {
@@ -205,6 +217,7 @@ function settingsGetDefaultRecommendationSettings() {
     count: 10,
     levels: [...settingsRecommendationLevelValues],
     statuses: [...settingsDefaultRecommendationStatuses],
+    targetGoals: [...settingsDefaultTargetGoals],
   };
 }
 
@@ -255,7 +268,10 @@ function settingsReadRecommendationSettings() {
     const statuses = Array.isArray(parsed.statuses)
       ? [...new Set(parsed.statuses.filter((value) => settingsRecommendationStatusValues.has(value)))]
       : [...fallback.statuses];
-    return { probabilityMin, probabilityMax, count, levels, statuses };
+    const targetGoals = Array.isArray(parsed.targetGoals)
+      ? [...new Set(parsed.targetGoals.filter((value) => settingsTargetGoalValues.has(value)))]
+      : [...fallback.targetGoals];
+    return { probabilityMin, probabilityMax, count, levels, statuses, targetGoals };
   } catch (error) {
     // Fall back to the default when local storage is unavailable or invalid.
   }
@@ -263,12 +279,14 @@ function settingsReadRecommendationSettings() {
 }
 
 function settingsSaveRecommendationSettings() {
+  const savedSettings = settingsReadRecommendationSettings();
   const payload = {
     probabilityMin: settingsRecommendationSettings.probabilityMin,
     probabilityMax: settingsRecommendationSettings.probabilityMax,
     count: settingsRecommendationSettings.count,
     levels: [...settingsRecommendationSettings.levels],
     statuses: [...settingsRecommendationSettings.statuses],
+    targetGoals: [...savedSettings.targetGoals],
   };
   try {
     window.localStorage?.setItem(settingsRecommendationSettingsKey, JSON.stringify(payload));
@@ -277,6 +295,29 @@ function settingsSaveRecommendationSettings() {
     return;
   }
   settingsSetMessage("自動リコメンド設定を保存しました。");
+}
+
+function settingsSaveTargetSettings() {
+  if (settingsRecommendationSettings.targetGoals.length === 0
+    && !window.confirm("マイターゲットに曲が表示されなくなります。よろしいですか？")) {
+    return;
+  }
+  const savedSettings = settingsReadRecommendationSettings();
+  const payload = {
+    probabilityMin: savedSettings.probabilityMin,
+    probabilityMax: savedSettings.probabilityMax,
+    count: savedSettings.count,
+    levels: [...savedSettings.levels],
+    statuses: [...savedSettings.statuses],
+    targetGoals: [...settingsRecommendationSettings.targetGoals],
+  };
+  try {
+    window.localStorage?.setItem(settingsRecommendationSettingsKey, JSON.stringify(payload));
+  } catch (error) {
+    settingsSetMessage("ターゲット設定を保存できませんでした。", true);
+    return;
+  }
+  settingsSetMessage("ターゲット設定を保存しました。");
 }
 
 function settingsAreAllRecommendationValuesSelected(selectedValues, options) {
@@ -364,6 +405,31 @@ function settingsRenderRecommendationFilter({ container, summary, options, setti
   });
 }
 
+function settingsRenderTargetGoalOptions() {
+  const selectedValues = new Set(settingsRecommendationSettings.targetGoals);
+  const fragment = document.createDocumentFragment();
+  for (const option of settingsTargetGoalOptions) {
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.value = option.value;
+    input.checked = selectedValues.has(option.value);
+    const text = document.createElement("span");
+    text.textContent = option.label;
+    label.append(input, text);
+    fragment.append(label);
+  }
+  settingsElements.targetGoalOptions.replaceChildren(fragment);
+  settingsElements.targetGoalOptions.querySelectorAll("input").forEach((input) => {
+    input.addEventListener("change", () => {
+      settingsRecommendationSettings.targetGoals = Array.from(
+        settingsElements.targetGoalOptions.querySelectorAll("input:checked"),
+        (checkedInput) => checkedInput.value,
+      );
+    });
+  });
+}
+
 function settingsUpdateRecommendationInputs() {
   settingsElements.recommendationProbabilityMin.value = String(settingsRecommendationSettings.probabilityMin);
   settingsElements.recommendationProbabilityMax.value = String(settingsRecommendationSettings.probabilityMax);
@@ -385,6 +451,7 @@ function settingsRenderRecommendationOptions() {
     options: settingsRecommendationStatuses,
     settingKey: "statuses",
   });
+  settingsRenderTargetGoalOptions();
 }
 
 function settingsReadRecommendationProbability(input, fallback) {
@@ -448,7 +515,11 @@ function settingsCommitRecommendationSettings() {
 }
 
 function settingsResetRecommendationSettings() {
-  settingsRecommendationSettings = settingsGetDefaultRecommendationSettings();
+  const targetGoals = [...settingsRecommendationSettings.targetGoals];
+  settingsRecommendationSettings = {
+    ...settingsGetDefaultRecommendationSettings(),
+    targetGoals,
+  };
   settingsUpdateRecommendationInputs();
   settingsRenderRecommendationFilter({
     container: settingsElements.recommendationLevelOptions,
@@ -463,6 +534,12 @@ function settingsResetRecommendationSettings() {
     settingKey: "statuses",
   });
 }
+
+function settingsResetTargetSettings() {
+  settingsRecommendationSettings.targetGoals = [...settingsDefaultTargetGoals];
+  settingsRenderTargetGoalOptions();
+}
+
 function settingsValidateBackup(payload) {
   if (!payload || typeof payload !== "object"
     || payload.format !== settingsBackupFormat
@@ -588,12 +665,26 @@ async function settingsHandleImport(event) {
 
   settingsSetBusy(true);
   try {
+    const previousRecords = settingsGetValidRecords(await settingsReadAll());
+    const previousManualMemos = settingsGetValidManualMemos(await settingsReadAllManualMemos());
     await settingsWriteAll(
       backup.records,
       backup.version >= 2 ? backup.manualMemos : undefined,
     );
     settingsUpdateCount(backup.records);
     settingsSetMessage("データをインポートしました。");
+    window.cpiStatusToast?.show({
+      onUndo: async () => {
+        settingsSetBusy(true);
+        try {
+          await settingsWriteAll(previousRecords, previousManualMemos);
+          settingsUpdateCount(previousRecords);
+          settingsSetMessage("インポートを元に戻しました。");
+        } finally {
+          settingsSetBusy(false);
+        }
+      },
+    });
     window.cpiAnalytics?.track("data_import", {
       record_count: backup.records.length,
       manual_memo_count: backup.manualMemos.length,
@@ -641,6 +732,8 @@ function settingsBindEvents() {
   settingsElements.recommendationCount.addEventListener("change", settingsCommitRecommendationCount);
   settingsElements.recommendationSaveButton.addEventListener("click", settingsCommitRecommendationSettings);
   settingsElements.recommendationResetButton.addEventListener("click", settingsResetRecommendationSettings);
+  settingsElements.targetSaveButton.addEventListener("click", settingsSaveTargetSettings);
+  settingsElements.targetResetButton.addEventListener("click", settingsResetTargetSettings);
 }
 
 async function settingsInitialize() {
@@ -657,8 +750,11 @@ async function settingsInitialize() {
   settingsElements.recommendationLevelSummary = document.getElementById("settingsRecommendationLevelSummary");
   settingsElements.recommendationStatusOptions = document.getElementById("settingsRecommendationStatusOptions");
   settingsElements.recommendationStatusSummary = document.getElementById("settingsRecommendationStatusSummary");
+  settingsElements.targetGoalOptions = document.getElementById("settingsTargetGoalOptions");
   settingsElements.recommendationSaveButton = document.getElementById("settingsRecommendationSaveButton");
   settingsElements.recommendationResetButton = document.getElementById("settingsRecommendationResetButton");
+  settingsElements.targetSaveButton = document.getElementById("settingsTargetSaveButton");
+  settingsElements.targetResetButton = document.getElementById("settingsTargetResetButton");
   settingsRenderRecommendationOptions();
   settingsBindEvents();
 

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>☆11 パラドキシカル・タイムリープトライアル (Short Ver.) [A]｜CPI:Next</title>
-  <meta name="description" content="☆11 パラドキシカル・タイムリープトライアル (Short Ver.) [A]。Pred 11.3 / BPM 188 / Feature 特徴なし">
+  <meta name="description" content="☆11 パラドキシカル・タイムリープトライアル (Short Ver.) [A]。ノマゲPred 11.41 / BPM 188 / Feature 特徴なし">
   <link rel="icon" type="image/jpeg" href="../site-icon.jpg">
   <link rel="apple-touch-icon" href="../site-icon.jpg">
   <meta property="og:image" content="https://cpi-next.com/site-icon.jpg?v=20260904-2">
@@ -20,21 +20,21 @@
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="CPI:Next">
   <meta property="og:title" content="☆11 パラドキシカル・タイムリープトライアル (Short Ver.) [A]｜CPI:Next">
-  <meta property="og:description" content="☆11 パラドキシカル・タイムリープトライアル (Short Ver.) [A]。Pred 11.3 / BPM 188 / Feature 特徴なし">
+  <meta property="og:description" content="☆11 パラドキシカル・タイムリープトライアル (Short Ver.) [A]。ノマゲPred 11.41 / BPM 188 / Feature 特徴なし">
   <meta property="og:url" content="https://cpi-next.com/chart-pages/5714.html">
   <meta property="og:locale" content="ja_JP">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="☆11 パラドキシカル・タイムリープトライアル (Short Ver.) [A]｜CPI:Next">
-  <meta name="twitter:description" content="☆11 パラドキシカル・タイムリープトライアル (Short Ver.) [A]。Pred 11.3 / BPM 188 / Feature 特徴なし">
+  <meta name="twitter:description" content="☆11 パラドキシカル・タイムリープトライアル (Short Ver.) [A]。ノマゲPred 11.41 / BPM 188 / Feature 特徴なし">
   <!-- Google Analytics -->
-  <script defer src="../analytics.js?v=20260904-1"></script>
-  <link rel="stylesheet" href="../styles.css?v=20260904-1">
+  <script defer src="../analytics.js?v=20260905-1"></script>
+  <link rel="stylesheet" href="../styles.css?v=20260909-3">
   <link rel="stylesheet" href="../menu.css?v=20260904-2">
   <script defer src="../menu.js?v=20260906-1"></script>
-  <script defer src="../data.js?v=20260904-1"></script>
+  <script defer src="../data.js?v=20260909-3"></script>
 
-  <script defer src="../chart-similar-data.js?v=20260904-1"></script>
-  <script defer src="../chart.js?v=20260906-1"></script>
+  <script defer src="../chart-similar-data.js?v=20260909-3"></script>
+  <script defer src="../chart.js?v=20260909-6"></script>
 </head>
 <body data-page="chart" data-static-chart-page="true" data-chart-id="5714">
   <main class="app">
@@ -81,13 +81,24 @@
           <h2 id="chartTitle" class="chart-detail__title"></h2>
           <div class="chart-detail__stats">
             <div class="chart-detail__pred-block">
-              <div class="chart-detail__line">
-                <div class="chart-detail__metric"><span class="chart-detail__label-group" data-tooltip="推定ノマゲ難易度です。譜面から独自手法で計算しています。" tabindex="0" role="button" aria-label="Predの説明"><span class="chart-detail__label">Pred</span><span class="chart-detail__info-mark" aria-hidden="true">ⓘ</span></span><span id="chartPred" class="chart-detail__value numeric-value numeric-value--pred"></span><span id="chartPredPercentile" class="chart-detail__note"></span></div>
-              </div>
               <div id="chartPredPosition" class="chart-pred-position" hidden>
-                <div class="chart-pred-position__title">同じLevel内のPred分布</div>
-                <div id="chartPredHistogram" class="chart-pred-histogram" role="img"></div>
-                <div id="chartPredHistogramAxis" class="chart-pred-position__axis chart-pred-position__axis--histogram" aria-hidden="true"></div>
+                <div class="chart-pred-position__rows">
+                  <div class="chart-pred-position__row" data-chart-pred-position-mode="easy">
+                    <div class="chart-pred-position__mode-label"><span>イージーPred</span><span id="chartPredPositionValueEasy" class="chart-pred-position__mode-value"></span><span id="chartPredPositionPercentileEasy" class="chart-pred-position__mode-note"></span></div>
+                    <div id="chartPredHistogramEasy" class="chart-pred-histogram" role="img"></div>
+                    <div id="chartPredHistogramAxisEasy" class="chart-pred-position__axis chart-pred-position__axis--histogram" aria-hidden="true"></div>
+                  </div>
+                  <div class="chart-pred-position__row" data-chart-pred-position-mode="normal">
+                    <div class="chart-pred-position__mode-label"><span>ノマゲPred</span><span id="chartPredPositionValueNormal" class="chart-pred-position__mode-value"></span><span id="chartPredPositionPercentileNormal" class="chart-pred-position__mode-note"></span></div>
+                    <div id="chartPredHistogramNormal" class="chart-pred-histogram" role="img"></div>
+                    <div id="chartPredHistogramAxisNormal" class="chart-pred-position__axis chart-pred-position__axis--histogram" aria-hidden="true"></div>
+                  </div>
+                  <div class="chart-pred-position__row" data-chart-pred-position-mode="hard">
+                    <div class="chart-pred-position__mode-label"><span>ハードPred</span><span id="chartPredPositionValueHard" class="chart-pred-position__mode-value"></span><span id="chartPredPositionPercentileHard" class="chart-pred-position__mode-note"></span></div>
+                    <div id="chartPredHistogramHard" class="chart-pred-histogram" role="img"></div>
+                    <div id="chartPredHistogramAxisHard" class="chart-pred-position__axis chart-pred-position__axis--histogram" aria-hidden="true"></div>
+                  </div>
+                </div>
 
               </div>
             </div>
@@ -100,6 +111,7 @@
           </div>
           <section id="similarChartsSection" class="chart-detail__similar" aria-labelledby="similarChartsTitle" hidden>
             <h3 id="similarChartsTitle" class="chart-detail__section-title">難易度・傾向の近い譜面</h3>
+            <div class="chart-detail__pred-tabs" role="tablist" aria-label="類似譜面のPred種類"><button type="button" class="chart-detail__pred-tab is-active" data-similar-pred-mode="normal" role="tab" aria-selected="true">ノマゲPred</button><button type="button" class="chart-detail__pred-tab" data-similar-pred-mode="easy" role="tab" aria-selected="false">イージーPred</button><button type="button" class="chart-detail__pred-tab" data-similar-pred-mode="hard" role="tab" aria-selected="false">ハードPred</button></div>
             <div id="similarChartsShell" class="table-shell">
               <table>
                 <colgroup>
@@ -113,7 +125,7 @@
                   <tr>
                     <th>Level</th>
                     <th>Title</th>
-                    <th>Pred</th>
+                    <th id="similarChartsPredHeader">ノマゲPred</th>
                     <th>BPM</th>
                     <th>Feature</th>
                   </tr>
@@ -137,3 +149,7 @@
   </main>
 </body>
 </html>
+
+
+
+

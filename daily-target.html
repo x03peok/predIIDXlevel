@@ -26,12 +26,13 @@
   <meta name="twitter:image" content="https://cpi-next.com/site-icon.jpg?v=20260904-2">
   <meta name="twitter:image:alt" content="CPI:Next">
   <script src="analytics.js?v=20260905-1" defer></script>
-  <link rel="stylesheet" href="styles.css?v=20260904-1">
+  <link rel="stylesheet" href="styles.css?v=20260908-7">
   <link rel="stylesheet" href="menu.css?v=20260904-2">
-  <link rel="stylesheet" href="daily-target.css?v=20260906-42">
+  <link rel="stylesheet" href="daily-target.css?v=20260909-54">
   <script src="menu.js?v=20260906-1" defer></script>
-  <script src="data.js?v=20260904-1" defer></script>
-  <script src="daily-target.js?v=20260906-49" defer></script>
+  <script src="data.js?v=20260909-3" defer></script>
+  <script src="status-toast.js?v=20260908-1" defer></script>
+  <script src="daily-target.js?v=20260909-5" defer></script>
 </head>
 <body data-page="daily-target">
   <main class="app">
@@ -74,7 +75,7 @@
           </div>
 
           <h2 class="daily-target-candidates-heading">候補を一覧から探す</h2>
-          <p class="daily-target-candidates-description">補正Pred: あなたの得意傾向に合わせて補正したPredです。元のPredよりも低い値なら、相対的に得意な譜面の可能性が高いです。</p>
+          <p class="daily-target-candidates-description">目標補正Pred: あなたの得意傾向に合わせて補正したPredです。元のPredよりも低い値なら、相対的に得意な譜面の可能性が高いです。</p>
           <div class="toolbar target-toolbar daily-target-toolbar">
             <label class="search">
               <span>Title</span>
@@ -128,11 +129,11 @@
                   <input id="dailyTargetPredMaxInput" type="number" inputmode="decimal" min="0" max="999" step="0.1" value="999.0">
                 </label>
                 <label class="filter pred-filter">
-                  <span>補正Pred_Min</span>
+                  <span>目標補正Pred_Min</span>
                   <input id="dailyTargetAdjustedPredMinInput" type="number" inputmode="decimal" min="0" max="999" step="0.1" value="0.0">
                 </label>
                 <label class="filter pred-filter">
-                  <span>補正Pred_Max</span>
+                  <span>目標補正Pred_Max</span>
                   <input id="dailyTargetAdjustedPredMaxInput" type="number" inputmode="decimal" min="0" max="999" step="0.1" value="999.0">
                 </label>
               </div>
@@ -141,28 +142,33 @@
 
           <p id="dailyTargetCandidateCount" class="row-count daily-target-count"></p>
           <div class="table-shell daily-target-table-shell">
-            <table class="chart-table daily-target-table">
-                                                        <colgroup>
-                <col class="daily-col-select">
-                <col class="daily-col-level">
-                <col class="daily-col-title">
-                <col class="daily-col-adjusted-pred">
-                <col class="daily-col-pred">
-                <col class="daily-col-status">
-                <col class="daily-col-feature">
-              </colgroup>
-                                                        <thead>
-                <tr>
-                  <th aria-label="&#x9078;&#x629e;"></th>
-                  <th>Level</th>
-                  <th>Title</th>
-                  <th>&#x88DC;&#x6B63;Pred</th>
-                  <th>Pred</th>
-                  <th>Status</th>
-                  <th>Feature</th>
-                </tr>
-              </thead><tbody id="dailyTargetCandidateBody"></tbody>
-            </table>
+            <table class="chart-table daily-target-table daily-target-candidate-table">
+  <colgroup>
+    <col class="daily-col-select">
+    <col class="daily-col-level">
+    <col class="daily-col-title">
+    <col class="daily-col-status">
+    <col class="daily-col-goal">
+    <col class="daily-col-adjusted-pred">
+    <col class="daily-col-pred">
+    <col class="daily-col-bpm">
+    <col class="daily-col-feature">
+  </colgroup>
+  <thead>
+    <tr>
+      <th aria-label="選択"></th>
+      <th>Level</th>
+      <th>Title</th>
+      <th>現在</th>
+      <th>目標</th>
+      <th><span class="chart-detail__label-group" data-tooltip="選択中の目標に対応するPredです" tabindex="0" aria-label="選択中の目標に対応する補正Predの説明"><span>補正Pred</span><span class="chart-detail__info-mark" aria-hidden="true">ⓘ</span></span></th>
+      <th><span class="chart-detail__label-group" data-tooltip="選択中の目標に対応するPredです" tabindex="0" aria-label="選択中の目標に対応するPredの説明"><span>Pred</span><span class="chart-detail__info-mark" aria-hidden="true">ⓘ</span></span></th>
+      <th>BPM</th>
+      <th>Feature</th>
+    </tr>
+  </thead>
+  <tbody id="dailyTargetCandidateBody"></tbody>
+</table>
           </div>
           <div class="pagination">
             <button id="dailyTargetLoadMore" class="load-more" type="button" hidden>さらに表示</button>
@@ -199,7 +205,7 @@
                   <th>Title</th>
                   <th>&#x958B;&#x59CB;Status &#x2192; &#x76EE;&#x6A19;</th>
                   <th>&#x9054;&#x6210;</th>
-                  <th>&#x88DC;&#x6B63;Pred</th>
+                  <th>&#x76EE;&#x6A19;&#x88DC;&#x6B63;Pred</th>
                   <th>Pred</th>
                   <th>Feature</th>
                 </tr>
@@ -213,6 +219,24 @@
       </div>
     </section>
   </main>
+  <div id="dailyTargetConfirmNotice" class="daily-target-confirm-notice" role="presentation" hidden>
+    <div class="daily-target-confirm-notice__panel" role="dialog" aria-modal="true" aria-labelledby="dailyTargetConfirmNoticeTitle">
+      <button id="dailyTargetConfirmNoticeClose" class="daily-target-confirm-notice__close" type="button" aria-label="閉じる">×</button>
+      <h2 id="dailyTargetConfirmNoticeTitle">今日の10曲を確定しました</h2>
+      <button id="dailyTargetConfirmNoticeShare" class="daily-target-share-button" type="button">Xで共有</button>
+    </div>
+  </div>
+  <div id="dailyTargetCompletionNotice" class="daily-target-confirm-notice daily-target-completion-notice" role="presentation" hidden>
+    <div class="daily-target-confirm-notice__panel" role="dialog" aria-modal="true" aria-labelledby="dailyTargetCompletionNoticeTitle">
+      <button id="dailyTargetCompletionNoticeClose" class="daily-target-confirm-notice__close" type="button" aria-label="閉じる">×</button>
+      <h2 id="dailyTargetCompletionNoticeTitle">今日の目標を全て達成しました！</h2>
+      <button id="dailyTargetCompletionNoticeShare" class="daily-target-share-button" type="button">Xで共有</button>
+    </div>
+  </div>
   <button id="dailyTargetScrollTop" class="scroll-top-button" type="button" aria-label="ページ上部へ戻る" hidden>↑</button>
 </body>
 </html>
+
+
+
+

@@ -143,38 +143,36 @@
 
   function getNumericScaleColor(value) {
     const numeric = Number(value);
-    if (!Number.isFinite(numeric) || !Number.isFinite(predDataMin) || !Number.isFinite(predDataMax)) {
+    if (!Number.isFinite(numeric)) {
       return "";
     }
-    const position = predDataMax > predDataMin
-      ? Math.min(1, Math.max(0, (numeric - predDataMin) / (predDataMax - predDataMin)))
-      : 0.5;
-    const yellowPosition = predDataMax > predDataMin
-      ? Math.min(0.45, Math.max(0.1, (9 - predDataMin) / (predDataMax - predDataMin)))
-      : 0.25;
+  
     const stops = [
-      { position: 0, hue: 221, saturation: 83, lightness: 53 },
-      { position: yellowPosition, hue: 48, saturation: 92, lightness: 40 },
-      { position: 0.5, hue: 0, saturation: 80, lightness: 50 },
-      { position: 1, hue: 262, saturation: 72, lightness: 55 },
+      { value: 8, color: [37, 99, 235] },
+    { value: 9, color: [249, 115, 22] },
+    { value: 10, color: [22, 163, 74] },
+    { value: 11, color: [220, 38, 38] },
+    { value: 12, color: [147, 51, 234] },
+    { value: 13, color: [109, 40, 217] },
+    { value: 14, color: [76, 29, 149] },
     ];
+    const clamped = Math.min(stops[stops.length - 1].value, Math.max(stops[0].value, numeric));
     let start = stops[0];
     let end = stops[stops.length - 1];
     for (let index = 1; index < stops.length; index += 1) {
-      if (position <= stops[index].position) {
+      if (clamped <= stops[index].value) {
         start = stops[index - 1];
         end = stops[index];
         break;
       }
     }
-    const localPosition = end.position > start.position
-      ? (position - start.position) / (end.position - start.position)
+    const ratio = end.value > start.value
+      ? (clamped - start.value) / (end.value - start.value)
       : 0;
-    const hueDelta = ((end.hue - start.hue + 540) % 360) - 180;
-    const hue = (start.hue + hueDelta * localPosition + 360) % 360;
-    const saturation = start.saturation + (end.saturation - start.saturation) * localPosition;
-    const lightness = start.lightness + (end.lightness - start.lightness) * localPosition;
-    return hslToRgbString(hue, saturation, lightness);
+    const channels = start.color.map((channel, index) => Math.round(
+      channel + (end.color[index] - channel) * ratio,
+    ));
+    return "rgb(" + channels.join(", ") + ")";
   }
 
   function hslToRgbString(hue, saturation, lightness) {
@@ -259,7 +257,7 @@
       const formattedPredText = rawPredText ? formatPred(row.pred) : "";
       const predText = formattedPredText || "－";
       const predStyle = formattedPredText ? numericStyle(row.pred) : "";
-      const predHtml = "<span class=\"danilabo-stage-card__pred\">Pred <span class=\"mono numeric-value numeric-value--pred\""
+      const predHtml = "<span class=\"danilabo-stage-card__pred\">ノマゲPred <span class=\"mono numeric-value numeric-value--pred\""
         + predStyle + ">" + escapeHtml(predText) + "</span></span>";
 
       return [
@@ -288,7 +286,7 @@
       : null;
     const averagePredHtml = averagePred === null
       ? ""
-      : " <span class=\"danilabo-rank__average\"><span class=\"danilabo-rank__average-label\">課題曲平均Pred</span> <span class=\"numeric-value numeric-value--pred\"" + numericStyle(averagePred) + ">" + averagePred.toFixed(2) + "</span></span>";
+      : " <span class=\"danilabo-rank__average\"><span class=\"danilabo-rank__average-label\">課題曲平均ノマゲPred</span> <span class=\"numeric-value numeric-value--pred\"" + numericStyle(averagePred) + ">" + averagePred.toFixed(2) + "</span></span>";
 
     return [
       "<section class=\"danilabo-rank\" aria-labelledby=\"danilabo-rank-" + rankIndex + "\">",

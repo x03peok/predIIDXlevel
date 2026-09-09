@@ -27,12 +27,12 @@
   <meta name="twitter:description" content="beatmania IIDX SP☆8〜12の譜面難易度をPredで細かく推定。適正診断、マイターゲット、段位認定分析から次の選曲をサポートします。">
   <!-- Google Analytics -->
   <script defer src="analytics.js?v=20260905-1"></script>
-  <link rel="stylesheet" href="styles.css?v=20260904-1">
+  <link rel="stylesheet" href="styles.css?v=20260908-4">
   <link rel="stylesheet" href="home.css?v=20260904-18">
   <link rel="stylesheet" href="menu.css?v=20260904-2">
   <script defer src="menu.js?v=20260906-1"></script>
-  <script defer src="data.js?v=20260904-1"></script>
-  <script defer src="app.js?v=20260904-1"></script>
+  <script defer src="data.js?v=20260909-3"></script>
+  <script defer src="app.js?v=20260909-2"></script>
 </head>
 <body data-page="home">
   <main class="app">
@@ -174,21 +174,28 @@
         <p class="table-hint">曲名をタップすると詳細ページに移動します<br>表は左右にスクロールできます（モバイル表示時）</p>
         <div id="rowCount" class="row-count" aria-live="polite"></div>
         <div id="tableShell" class="table-shell">
-          <table class="chart-table">
+          <table class="chart-table pred-table">
             <colgroup>
               <col class="col-orig">
               <col class="col-title">
               <col class="col-pred">
+              <col class="col-pred">
+              <col class="col-pred">
               <col class="col-bpm">
               <col class="col-features">
             </colgroup>
-            <thead>
+                        <thead>
               <tr>
-                <th><button type="button" data-sort-key="original_level"><span>Level</span><span class="sort-mark"></span></button></th>
-                <th><button type="button" data-sort-key="title"><span>Title</span><span class="sort-mark"></span></button></th>
-                <th><button type="button" data-sort-key="calibrated_pred_skill"><span>Pred</span><span class="sort-mark"></span></button></th>
-                <th><button type="button" data-sort-key="bpm"><span>BPM</span><span class="sort-mark"></span></button></th>
-                <th><button type="button" data-sort-key="features"><span>Feature</span><span class="sort-mark"></span></button></th>
+                <th rowspan="2"><button type="button" data-sort-key="original_level"><span>Level</span><span class="sort-mark"></span></button></th>
+                <th rowspan="2"><button type="button" data-sort-key="title"><span>Title</span><span class="sort-mark"></span></button></th>
+                <th colspan="3" class="pred-group-heading">Pred</th>
+                <th rowspan="2"><button type="button" data-sort-key="bpm"><span>BPM</span><span class="sort-mark"></span></button></th>
+                <th rowspan="2"><button type="button" data-sort-key="features"><span>Feature</span><span class="sort-mark"></span></button></th>
+              </tr>
+              <tr>
+                <th><button type="button" data-sort-key="easy_pred_skill"><span>イージー</span><span class="sort-mark"></span></button></th>
+                <th><button type="button" data-sort-key="calibrated_pred_skill"><span>ノマゲ</span><span class="sort-mark"></span></button></th>
+                <th><button type="button" data-sort-key="hard_pred_skill"><span>ハード</span><span class="sort-mark"></span></button></th>
               </tr>
             </thead>
             <tbody id="tableBody"></tbody>
@@ -203,3 +210,8 @@
   <button id="scrollTopButton" class="scroll-top-button" type="button" aria-label="ページ上部へ戻る" hidden>↑</button>
 </body>
 </html>
+
+
+
+
+
