@@ -26,6 +26,20 @@ const targetPredModes = {
   normal: { key: "calibrated_pred_skill", label: "ノマゲPred" },
   hard: { key: "hard_pred_skill", label: "ハードPred" },
 };
+const targetPredModeOutcomes = {
+  easy: {
+    clear: new Set(["easy", "clear", "hard"]),
+    notClear: new Set(["failed", "assisted"]),
+  },
+  normal: {
+    clear: new Set(["clear", "hard"]),
+    notClear: new Set(["failed", "assisted", "easy"]),
+  },
+  hard: {
+    clear: new Set(["hard"]),
+    notClear: new Set(["failed", "assisted", "easy", "clear"]),
+  },
+};
 
 function targetGetPredValue(row, mode = "normal") {
   return row[targetPredModes[mode]?.key ?? targetPredModes.normal.key] ?? row.calibrated_pred_skill;
@@ -115,6 +129,7 @@ const targetState = {
   renderTimer: null,
   db: null,
   model: null,
+  modelsByMode: { easy: null, normal: null, hard: null },
   deltas: new Array(targetFeatureNames.length).fill(0),
   adjustedPredById: new Map(),
   goalById: new Map(),
@@ -454,7 +469,7 @@ function targetFillFeatureFilterOptions(container) {
   targetState.featureFilter = new Map(values.map((feature) => [feature, { include: true, exclude: true }]));
   container.innerHTML = [
     '<label class="multi-filter__option multi-filter__option--all"><input type="checkbox" data-feature-all checked><span>all</span></label>',
-    ...values.map((feature, index) => '<div class="multi-filter__option feature-filter__option"><span class="feature-filter__name">' + targetEscapeHtml(feature) + '</span><label class="feature-filter__mode"><input type="checkbox" data-feature-index="' + index + '" data-feature-mode="include" checked><span>を含む</span></label><label class="feature-filter__mode"><input type="checkbox" data-feature-index="' + index + '" data-feature-mode="exclude" checked><span>を含まない</span></label></div>'),
+    ...values.map((feature, index) => '<div class="multi-filter__option feature-filter__option"><span class="feature-filter__name">' + targetEscapeHtml(feature) + '</span><label class="feature-filter__mode"><input type="checkbox" data-feature-index="' + index + '" data-feature-mode="include" checked><span>含む</span></label><label class="feature-filter__mode"><input type="checkbox" data-feature-index="' + index + '" data-feature-mode="exclude" checked><span>含まない</span></label></div>'),
   ].join("");
 
   const updateFeatureMode = (input) => {
@@ -903,6 +918,9 @@ function targetGetDefaultGoalForStatus(status) {
 }
 
 function targetGetAutoCandidateRows() {
+  if (!targetState.model) {
+    return [];
+  }
   const settings = targetState.recommendationSettings;
   return targetState.rows.filter((row) => {
     if (!settings.statuses.includes(targetGetStatus(row))
@@ -1105,31 +1123,52 @@ function targetShuffleRows(rows) {
   return shuffled;
 }
 
-function targetGetPredObservations() {
+function targetGetPredObservations(mode = "normal") {
   const observations = [];
+  const modes = mode === "overall"
+    ? Object.keys(targetPredModes)
+    : [targetPredModes[mode] ? mode : "normal"];
   targetState.records.forEach((record, chartId) => {
     const row = targetState.rowsByChartId.get(String(chartId));
     if (!row) {
       return;
     }
     const status = String(record?.status ?? "").toLowerCase();
-    const outcome = targetClearStatuses.has(status)
-      ? 1
-      : targetNotClearStatuses.has(status)
-        ? 0
-        : null;
-    if (outcome === null) {
-      return;
-    }
-    observations.push({ row, pred: row.calibrated_pred_skill, outcome });
+    modes.forEach((predMode) => {
+      const definition = targetPredModes[predMode];
+      const outcomes = targetPredModeOutcomes[predMode];
+      const pred = targetGetNumericValue(row[definition.key]);
+      const outcome = outcomes.clear.has(status)
+        ? 1
+        : outcomes.notClear.has(status)
+          ? 0
+          : null;
+      if (pred !== null && outcome !== null) {
+        observations.push({ row, pred, outcome, mode: predMode });
+      }
+    });
   });
   return observations;
 }
-
-function targetFitBaseModel(observations) {
+function targetGetModelBounds(mode, observations) {
+  const keys = mode === "overall"
+    ? Object.values(targetPredModes).map((definition) => definition.key)
+    : [targetPredModes[mode]?.key ?? targetPredModes.normal.key];
+  const values = targetState.rows
+    .flatMap((row) => keys.map((key) => targetGetNumericValue(row[key])))
+    .filter((value) => value !== null);
+  const observedValues = observations.map((observation) => observation.pred).filter(Number.isFinite);
+  const fallbackValues = values.length > 0 ? values : observedValues;
+  return {
+    min: fallbackValues.length > 0 ? Math.min(...fallbackValues) : 0,
+    max: fallbackValues.length > 0 ? Math.max(...fallbackValues) : 0,
+  };
+}
+function targetFitBaseModel(observations, mode = "normal") {
+  const observedChartCount = new Set(observations.map((observation) => String(observation.row?.chart_id ?? "").trim())).size;
   const clearObservations = observations.filter((observation) => observation.outcome === 1);
   const notClearObservations = observations.filter((observation) => observation.outcome === 0);
-  if (observations.length < 5 || clearObservations.length === 0 || notClearObservations.length === 0) {
+  if (observedChartCount < 5 || clearObservations.length === 0 || notClearObservations.length === 0) {
     return null;
   }
 
@@ -1185,15 +1224,23 @@ function targetFitBaseModel(observations) {
   const fittedSlope = slope;
   slope = Math.min(-0.05, slope);
   const threshold = center + (-intercept / slope) * scale;
-  const range = targetState.predDataMax - targetState.predDataMin;
+  const bounds = targetGetModelBounds(mode, observations);
+  const range = bounds.max - bounds.min;
+  const predAt60 = center + (Math.log(0.6 / 0.4) - intercept) / slope * scale;
+  const predAt40 = center + (Math.log(0.4 / 0.6) - intercept) / slope * scale;
+  const rangeValues = [predAt60, predAt40];
+  const hasValidRange = rangeValues.every(Number.isFinite);
+  const rangeWidth = hasValidRange ? Math.abs(predAt40 - predAt60) : Infinity;
   if (
     !Number.isFinite(intercept)
     || !Number.isFinite(slope)
     || fittedSlope >= 0
     || !Number.isFinite(threshold)
     || range <= 0
-    || threshold <= targetState.predDataMin
-    || threshold >= targetState.predDataMax
+    || !hasValidRange
+    || rangeWidth >= range
+    || threshold <= bounds.min
+    || threshold >= bounds.max
   ) {
     return null;
   }
@@ -1324,23 +1371,22 @@ function targetGetAdjustedPred(row, mode = "normal") {
 
 
 function targetGetExpectedClearProbability(row, mode = "normal") {
-  if (!targetState.model) {
+  const modeModel = targetState.modelsByMode[mode] ?? null;
+  const model = modeModel ?? targetState.model;
+  if (!model) {
     return null;
   }
-  if (mode !== "normal") {
-    const adjustedPred = targetGetAdjustedPred(row, mode);
-    const normalizedPred = (adjustedPred - targetState.model.center) / targetState.model.scale;
-    return targetSigmoid(targetState.model.intercept + targetState.model.slope * normalizedPred);
-  }
-  const stored = targetState.expectedProbabilityById.get(String(row.chart_id));
-  return stored ?? null;
+  const adjustedPred = targetGetAdjustedPred(row, mode);
+  const normalizedPred = (adjustedPred - model.center) / model.scale;
+  return targetSigmoid(model.intercept + model.slope * normalizedPred);
 }
-
-
 function targetRecalculateModel() {
-  const observations = targetGetPredObservations();
-  targetState.model = targetFitBaseModel(observations);
-  targetState.deltas = targetFitFeatureDeltas(observations, targetState.model);
+  const overallObservations = targetGetPredObservations("overall");
+  targetState.model = targetFitBaseModel(overallObservations, "overall");
+  targetState.modelsByMode = Object.fromEntries(
+    Object.keys(targetPredModes).map((mode) => [mode, targetFitBaseModel(targetGetPredObservations(mode), mode)]),
+  );
+  targetState.deltas = targetFitFeatureDeltas(overallObservations, targetState.model);
   targetState.adjustedPredById = new Map();
   targetState.expectedProbabilityById = new Map();
   targetState.rows.forEach((row) => {
@@ -1357,22 +1403,21 @@ function targetRecalculateModel() {
   });
   targetSetAdjustedPredBounds();
 }
-
 function targetGetAvailability() {
-  const observations = targetGetPredObservations();
+  const observations = targetGetPredObservations("overall");
+  const chartCount = new Set(observations.map((observation) => String(observation.row?.chart_id ?? "").trim())).size;
   const clearCount = observations.filter((observation) => observation.outcome === 1).length;
-  const notClearCount = observations.length - clearCount;
+  const notClearCount = observations.filter((observation) => observation.outcome === 0).length;
   return {
-    available: observations.length >= 10 && clearCount >= 3 && notClearCount >= 3,
-    observationCount: observations.length,
+    available: chartCount >= 10 && clearCount >= 3 && notClearCount >= 3,
+    observationCount: chartCount,
     clearCount,
     notClearCount,
     clearShortage: Math.max(0, 3 - clearCount),
     notClearShortage: Math.max(0, 3 - notClearCount),
-    totalShortage: Math.max(0, 10 - observations.length),
+    totalShortage: Math.max(0, 10 - chartCount),
   };
 }
-
 function targetGetMissingSavedIds() {
   const missingIds = new Set();
   [...targetState.records.keys(), ...targetState.manualMemoIds].forEach((chartId) => {

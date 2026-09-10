@@ -426,6 +426,27 @@ col.col-bpm {
 col.col-features {
   width: 42%;
 }
+/* The main difficulty table has three Pred columns; keep its columns within 100%. */
+.pred-table col.col-orig {
+  width: 7%;
+}
+
+.pred-table col.col-title {
+  width: 31%;
+}
+
+.pred-table col.col-pred {
+  width: 9%;
+}
+
+.pred-table col.col-bpm {
+  width: 11%;
+}
+
+.pred-table col.col-features {
+  width: 24%;
+}
+
 
 thead th {
   position: sticky;
@@ -1933,5 +1954,27 @@ body[data-page="mypage"] .chart-table tbody td.chart-title-cell .chart-title-cel
   .status-toast--visibility-refresh {
     min-width: 0;
     padding: 11px 11px 11px 13px;
+  }
+}
+
+/* Keep the main filter grid within the viewport. */
+@media (min-width: 721px) and (max-width: 1119px) {
+  body[data-page="main"] .toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body[data-page="main"] .toolbar > .search {
+    grid-column: 1 / -1;
+  }
+
+  body[data-page="main"] .toolbar > .advanced-filter {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (min-width: 1120px) {
+  body[data-page="main"] .toolbar {
+    grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(104px, 1fr));
   }
 }

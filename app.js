@@ -729,7 +729,7 @@ function fillFeatureOptions() {
     name.textContent = option.label;
     row.appendChild(name);
 
-    for (const [mode, labelText] of [["include", "を含む"], ["exclude", "を含まない"]]) {
+    for (const [mode, labelText] of [["include", "含む"], ["exclude", "含まない"]]) {
       const label = document.createElement("label");
       label.className = "feature-filter__mode";
 

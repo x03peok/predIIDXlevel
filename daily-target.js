@@ -324,7 +324,7 @@ function dailyFillFeatureFilterOptions(container) {
   dailyState.featureFilter = new Map(values.map((feature) => [feature, { include: true, exclude: true }]));
   container.innerHTML = [
     '<label class="multi-filter__option multi-filter__option--all"><input type="checkbox" data-feature-all checked><span>all</span></label>',
-    ...values.map((feature, index) => '<div class="multi-filter__option feature-filter__option"><span class="feature-filter__name">' + dailyEscapeHtml(feature) + '</span><label class="feature-filter__mode"><input type="checkbox" data-feature-index="' + index + '" data-feature-mode="include" checked><span>を含む</span></label><label class="feature-filter__mode"><input type="checkbox" data-feature-index="' + index + '" data-feature-mode="exclude" checked><span>を含まない</span></label></div>'),
+    ...values.map((feature, index) => '<div class="multi-filter__option feature-filter__option"><span class="feature-filter__name">' + dailyEscapeHtml(feature) + '</span><label class="feature-filter__mode"><input type="checkbox" data-feature-index="' + index + '" data-feature-mode="include" checked><span>含む</span></label><label class="feature-filter__mode"><input type="checkbox" data-feature-index="' + index + '" data-feature-mode="exclude" checked><span>含まない</span></label></div>'),
   ].join("");
   const updateFeatureMode = (input) => {
     const feature = values[Number(input.dataset.featureIndex)];

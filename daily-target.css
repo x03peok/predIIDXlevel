@@ -675,7 +675,7 @@ body[data-page="daily-target"] .daily-target-table tbody td.chart-title-cell .ch
   width: 270px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1119px) {
   .daily-target-toolbar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

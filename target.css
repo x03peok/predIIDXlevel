@@ -136,7 +136,7 @@
 }
 
 .target-table col.col-title {
-  width: 25%;
+  width: 23%;
 }
 
 .target-table col.col-pred {
@@ -314,7 +314,11 @@
 
 @media (min-width: 721px) and (max-width: 1119px) {
   .target-toolbar {
-    grid-template-columns: minmax(180px, 1fr) repeat(5, minmax(82px, 112px));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .target-toolbar > .search {
+    grid-column: 1 / -1;
   }
 }
 
