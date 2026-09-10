@@ -133,7 +133,23 @@ function recordGetImportChartIds(title, version, difficulty) {
   const source = isCollision ? recordImportIndex.versioned : recordImportIndex.plain;
   const values = source?.[key];
   if (Array.isArray(values)) return values;
-  return values ? [values] : [];
+  if (values) return [values];
+  if (!isCollision) return [];
+
+  // A title can be marked as colliding only because another difficulty uses it.
+  // Fall back to the unique title+difficulty match, but keep same-difficulty
+  // collisions (for example Shooting Star [A]) unresolved.
+  const fallbackIds = new Set();
+  for (const [versionedKey, chartIds] of Object.entries(recordImportIndex.versioned ?? {})) {
+    const [candidateTitle, , candidateDifficulty] = versionedKey.split(separator);
+    if (candidateTitle !== titleKey || candidateDifficulty !== difficultyKey) {
+      continue;
+    }
+    for (const chartId of Array.isArray(chartIds) ? chartIds : [chartIds]) {
+      fallbackIds.add(chartId);
+    }
+  }
+  return fallbackIds.size === 1 ? [...fallbackIds] : [];
 }
 function recordMapImportClearType(clearType) {
   const value = String(clearType ?? "").trim().toUpperCase();
