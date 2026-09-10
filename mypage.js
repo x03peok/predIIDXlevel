@@ -551,6 +551,13 @@ function mypageCompareValues(left, right, key) {
     const rightIndex = mypageStatuses.findIndex(({ value }) => value === mypageGetStatus(right));
     return leftIndex - rightIndex;
   }
+  if (key === "current_pred") {
+    const leftMode = mypageGetCurrentPredMode(mypageGetStatus(left));
+    const rightMode = mypageGetCurrentPredMode(mypageGetStatus(right));
+    const leftValue = leftMode ? left[mypagePredModes[leftMode].key] : null;
+    const rightValue = rightMode ? right[mypagePredModes[rightMode].key] : null;
+    return mypageCompareNumericValues(leftValue, rightValue);
+  }
   if (key === "bpm") {
     const bpmKey = mypageState.sortDir === "desc" ? "bpm_max" : "bpm_min";
     return mypageCompareNumericValues(left[bpmKey], right[bpmKey]);
@@ -1155,11 +1162,12 @@ function mypageGetPublicUrl() {
 function mypageBuildShareText(result, scores, lampResults = {}) {
   const tendencies = mypageGetFeatureShareTendencies(scores);
   const lines = [
-    "推定適正Pred: " + (result.range || "ー"),
+    "推定適正Pred",
+    "   総合: " + (result.range || "ー"),
   ];
 
   for (const [mode, definition] of Object.entries(mypagePredModes)) {
-    lines.push(definition.label + ": " + (lampResults[mode]?.range || "ー"));
+    lines.push("   " + definition.label + ": " + (lampResults[mode]?.range || "ー"));
   }
 
   if (tendencies.strong.length) {
@@ -1169,7 +1177,7 @@ function mypageBuildShareText(result, scores, lampResults = {}) {
     lines.push("不得意傾向: " + tendencies.weak.join("、"));
   }
 
-  lines.push("", mypageGetPublicUrl(), "", "#CPINext");
+  lines.push("", mypageGetPublicUrl().replace("https://", "").replace("http://", ""), "", "#CPINext");
   return lines.join("\n");
 }
 function mypageUpdateShare(shareText) {
