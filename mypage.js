@@ -898,62 +898,55 @@ function mypageGetPredBounds(mode = "normal") {
   };
 }
 
-function mypageFitPredRegression(mode = "normal") {
-  const observations = mypageGetPredObservations(mode);
-  const counts = {
-    total: observations.length,
-    clear: observations.filter(({ outcome }) => outcome === 1).length,
-    notClear: observations.filter(({ outcome }) => outcome === 0).length,
-  };
-  const observedChartCount = new Set(observations.map(({ row }) => String(row.chart_id ?? ""))).size;
-  if (observedChartCount < 5) {
-    return mypageBuildPredInsufficientResult(
-      observations,
-      counts,
-      "プレイした譜面を5件以上登録すると推定されます",
-    );
-  }
+function mypageGetPredModeNameFromKey(modeKey) {
+  const entry = Object.entries(mypagePredModes)
+    .find(([, definition]) => definition.key === modeKey);
+  return entry?.[0] ?? "normal";
+}
 
-  const bounds = mypageGetPredBounds(mode);
-  if (counts.clear === 0) {
-    return {
-      range: mypageFormatPredValue(bounds.min) + "未満",
-      rangeLower: bounds.min,
-      rangeQualifier: "未満",
-      message: "クリア曲数不足により推定できませんでした",
-      model: null,
-    usedLogistic: false,
-      observations,
-      counts,
-    };
-  }
-  if (counts.notClear === 0) {
-    return {
-      range: mypageFormatPredValue(bounds.max) + "以上",
-      rangeLower: bounds.max,
-      rangeQualifier: "以上",
-      message: "未クリア曲数不足により推定できませんでした",
-      model: null,
-    usedLogistic: false,
-      observations,
-      counts,
-    };
-  }
+function mypageApplyCalculationClearRules(observations, modelsByMode = new Map()) {
+  const highestClearPredByMode = new Map();
+  observations.forEach((observation) => {
+    if (observation.outcome !== 1) {
+      return;
+    }
+    const modeKey = observation.mode ?? mypagePredModes.normal.key;
+    const highest = highestClearPredByMode.get(modeKey);
+    if (!Number.isFinite(highest) || observation.pred > highest) {
+      highestClearPredByMode.set(modeKey, observation.pred);
+    }
+  });
 
+  return observations.map((observation) => {
+    const modeKey = observation.mode ?? mypagePredModes.normal.key;
+    const highestClearPred = highestClearPredByMode.get(modeKey);
+    let outcome = observation.outcome;
+    if (outcome === 0
+      && Number.isFinite(highestClearPred)
+      && observation.pred < highestClearPred - 2) {
+      outcome = 1;
+    }
+    const model = modelsByMode.get(modeKey);
+    if (outcome === 0 && model) {
+      const normalizedPred = (observation.pred - model.center) / model.scale;
+      const probability = mypageSigmoid(model.intercept + model.slope * normalizedPred);
+      if (probability >= 0.95) {
+        outcome = 1;
+      }
+    }
+    if (outcome === observation.outcome) {
+      return observation;
+    }
+    return { ...observation, outcome, calculationOnlyClear: true };
+  });
+}
+
+function mypageFitLogisticModel(observations, bounds) {
   const center = observations.reduce((sum, { pred }) => sum + pred, 0) / observations.length;
   const variance = observations.reduce((sum, { pred }) => sum + (pred - center) ** 2, 0) / observations.length;
   const scale = Math.max(Math.sqrt(variance), 0.25);
-  const clearPredAverage = observations
-    .filter(({ outcome }) => outcome === 1)
-    .reduce((sum, { pred }) => sum + pred, 0) / counts.clear;
-  const notClearPredAverage = observations
-    .filter(({ outcome }) => outcome === 0)
-    .reduce((sum, { pred }) => sum + pred, 0) / counts.notClear;
-  if (clearPredAverage > notClearPredAverage) {
-    return mypageBuildPredProvisionalResult(observations, counts);
-  }
-
-  const clearRate = Math.min(0.95, Math.max(0.05, counts.clear / observations.length));
+  const clearCount = observations.filter(({ outcome }) => outcome === 1).length;
+  const clearRate = Math.min(0.95, Math.max(0.05, clearCount / observations.length));
   let intercept = Math.log(clearRate / (1 - clearRate));
   let slope = -1;
   const regularization = 0.03;
@@ -979,10 +972,13 @@ function mypageFitPredRegression(mode = "normal") {
 
     const determinant = hessianIntercept * hessianSlope - hessianCross ** 2;
     if (!Number.isFinite(determinant) || determinant <= 1e-8) {
-      break;
+      return null;
     }
     const stepIntercept = (hessianSlope * gradientIntercept - hessianCross * gradientSlope) / determinant;
     const stepSlope = (-hessianCross * gradientIntercept + hessianIntercept * gradientSlope) / determinant;
+    if (!Number.isFinite(stepIntercept) || !Number.isFinite(stepSlope)) {
+      return null;
+    }
     intercept = Math.max(-30, Math.min(30, intercept - stepIntercept));
     slope = Math.max(-30, Math.min(30, slope - stepSlope));
     if (Math.abs(stepIntercept) + Math.abs(stepSlope) < 1e-5) {
@@ -990,7 +986,6 @@ function mypageFitPredRegression(mode = "normal") {
     }
   }
 
-  // Keep the same decreasing-clear-probability constraint as the diagnosis page.
   const fittedSlope = slope;
   slope = Math.min(-0.05, slope);
   const threshold = center + (-intercept / slope) * scale;
@@ -1003,16 +998,115 @@ function mypageFitPredRegression(mode = "normal") {
     && threshold > bounds.min
     && threshold < bounds.max;
   if (
-    fittedSlope >= 0
+    !Number.isFinite(intercept)
+    || !Number.isFinite(slope)
+    || fittedSlope >= 0
     || !hasValidRange
     || rangeWidth >= bounds.max - bounds.min
     || !thresholdInBounds
   ) {
+    return null;
+  }
+  return { intercept, slope, center, scale };
+}
+
+function mypageFitPreliminaryModels(observations) {
+  const grouped = new Map();
+  observations.forEach((observation) => {
+    const modeKey = observation.mode ?? mypagePredModes.normal.key;
+    const group = grouped.get(modeKey) ?? [];
+    group.push(observation);
+    grouped.set(modeKey, group);
+  });
+  const modelsByMode = new Map();
+  grouped.forEach((group, modeKey) => {
+    const observedChartCount = new Set(group.map(({ row }) => String(row.chart_id ?? ""))).size;
+    const clearObservations = group.filter(({ outcome }) => outcome === 1);
+    const notClearObservations = group.filter(({ outcome }) => outcome === 0);
+    if (observedChartCount < 5 || clearObservations.length === 0 || notClearObservations.length === 0) {
+      return;
+    }
+    const clearAverage = clearObservations.reduce((sum, { pred }) => sum + pred, 0) / clearObservations.length;
+    const notClearAverage = notClearObservations.reduce((sum, { pred }) => sum + pred, 0) / notClearObservations.length;
+    if (clearAverage > notClearAverage) {
+      return;
+    }
+    const mode = mypageGetPredModeNameFromKey(modeKey);
+    const model = mypageFitLogisticModel(group, mypageGetPredBounds(mode));
+    if (model) {
+      modelsByMode.set(modeKey, model);
+    }
+  });
+  return modelsByMode;
+}
+
+function mypagePreparePredObservations(mode = "normal") {
+  const rawObservations = mypageGetPredObservations(mode);
+  const thresholdedObservations = mypageApplyCalculationClearRules(rawObservations);
+  const preliminaryModels = mypageFitPreliminaryModels(thresholdedObservations);
+  return mypageApplyCalculationClearRules(rawObservations, preliminaryModels);
+}
+
+function mypageFitPredRegression(mode = "normal") {
+  const observations = mypagePreparePredObservations(mode);
+  const counts = {
+    total: observations.length,
+    clear: observations.filter(({ outcome }) => outcome === 1).length,
+    notClear: observations.filter(({ outcome }) => outcome === 0).length,
+  };
+  const observedChartCount = new Set(observations.map(({ row }) => String(row.chart_id ?? ""))).size;
+  if (observedChartCount < 5) {
+    return mypageBuildPredInsufficientResult(
+      observations,
+      counts,
+      "プレイした譜面を5件以上登録すると推定されます",
+    );
+  }
+
+  const bounds = mypageGetPredBounds(mode);
+  if (counts.clear === 0) {
+    return {
+      range: mypageFormatPredValue(bounds.min) + "未満",
+      rangeLower: bounds.min,
+      rangeQualifier: "未満",
+      message: "クリア曲数不足により推定できませんでした",
+      model: null,
+      usedLogistic: false,
+      observations,
+      counts,
+    };
+  }
+  if (counts.notClear === 0) {
+    return {
+      range: mypageFormatPredValue(bounds.max) + "以上",
+      rangeLower: bounds.max,
+      rangeQualifier: "以上",
+      message: "未クリア曲数不足により推定できませんでした",
+      model: null,
+      usedLogistic: false,
+      observations,
+      counts,
+    };
+  }
+
+  const clearPredAverage = observations
+    .filter(({ outcome }) => outcome === 1)
+    .reduce((sum, { pred }) => sum + pred, 0) / counts.clear;
+  const notClearPredAverage = observations
+    .filter(({ outcome }) => outcome === 0)
+    .reduce((sum, { pred }) => sum + pred, 0) / counts.notClear;
+  if (clearPredAverage > notClearPredAverage) {
     return mypageBuildPredProvisionalResult(observations, counts);
   }
 
-  const lower = Math.min(bounds.max, Math.max(bounds.min, Math.min(...rangeValues)));
-  const upper = Math.min(bounds.max, Math.max(bounds.min, Math.max(...rangeValues)));
+  const model = mypageFitLogisticModel(observations, bounds);
+  if (!model) {
+    return mypageBuildPredProvisionalResult(observations, counts);
+  }
+  const predAt60 = model.center + (Math.log(0.6 / 0.4) - model.intercept) / model.slope * model.scale;
+  const predAt40 = model.center + (Math.log(0.4 / 0.6) - model.intercept) / model.slope * model.scale;
+  const lower = Math.min(bounds.max, Math.max(bounds.min, Math.min(predAt60, predAt40)));
+  const upper = Math.min(bounds.max, Math.max(bounds.min, Math.max(predAt60, predAt40)));
   return {
     range: mypageFormatPredRange(lower, upper),
     rangeLower: lower,
@@ -1020,13 +1114,12 @@ function mypageFitPredRegression(mode = "normal") {
     rangePrefix: "",
     rangeQualifier: "",
     message: "",
-    model: { intercept, slope, center, scale },
+    model,
     usedLogistic: true,
     observations,
     counts,
   };
 }
-
 function mypageGetFeatureScores(observations, model) {
   const priorCharts = 1;
   return mypageFeatureNames.map((feature) => {
