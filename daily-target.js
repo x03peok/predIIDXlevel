@@ -800,7 +800,7 @@ function dailyGetPredObservations(mode = "normal") {
     ? Object.keys(dailyPredModes)
     : [dailyPredModes[mode] ? mode : "normal"];
   dailyState.records.forEach((record, chartId) => {
-    const row = dailyState.rowsByChartId.get(String(chartId));
+    const row = dailyState.rowsById.get(String(chartId));
     if (!row) {
       return;
     }
