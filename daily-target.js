@@ -1751,7 +1751,7 @@ function dailyBuildShareText() {
     if (done) achieved += 1;
     const difficulty = dailyNormalizeDifficulty(row.difficulty);
     return {
-      prefix: done ? "✅" : "⬜",
+      prefix: (done ? "✅" : "⬜") + dailyGetShareClearTypeEmoji(entry.targetStatus),
       title: row.title,
       suffix: difficulty === "A" ? "" : " [" + difficulty + "]",
     };
@@ -1761,7 +1761,7 @@ function dailyBuildShareText() {
   const progressText = validCount > 0
     ? achieved + "/" + validCount + "達成" + (missingCount > 0 ? "（譜面データなし " + missingCount + "件）" : "")
     : missingCount > 0 ? "譜面データなし " + missingCount + "件" : "0/0達成";
-  const progressLine = progressText === "0/0達成" ? "" : progressText;
+  const progressLine = achieved === 0 && missingCount === 0 ? "" : progressText;
   const buildText = () => [
     "今日の10曲に挑戦！",
     ...(progressLine ? [progressLine] : []),
@@ -1790,6 +1790,13 @@ function dailyBuildShareText() {
   const availableTitleLength = Math.max(0, dailyShareWeightedLimit - dailyGetShareLengthForLimit(fixedText));
   dailyFitShareTitlesToLength(lines, availableTitleLength);
   return buildText();
+}
+
+function dailyGetShareClearTypeEmoji(status) {
+  if (status === "easy") return "\u{1F7E9}";
+  if (status === "clear") return "\u{1F7E6}";
+  if (status === "hard") return "\u{1F7E5}";
+  return "";
 }
 
 function dailyShare() {
