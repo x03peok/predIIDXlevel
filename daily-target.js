@@ -1737,7 +1737,7 @@ function dailyFitShareTitlesToLength(lines, availableLength) {
   }
 }
 
-function dailyBuildShareText() {
+function dailyBuildShareText({ includeAchievementMarkers = true } = {}) {
   const entries = Array.isArray(dailyState.today?.charts) ? dailyState.today.charts : [];
   let achieved = 0;
   let missingCount = 0;
@@ -1751,8 +1751,8 @@ function dailyBuildShareText() {
     if (done) achieved += 1;
     const difficulty = dailyNormalizeDifficulty(row.difficulty);
     return {
-      prefix: (done ? "✅" : "⬜") + dailyGetShareClearTypeEmoji(entry.targetStatus),
-      title: row.title,
+      prefix: (includeAchievementMarkers ? (done ? "✅" : "⬜") : "") + dailyGetShareClearTypeEmoji(entry.targetStatus),
+      title: dailyFormatShareTitle(row.title),
       suffix: difficulty === "A" ? "" : " [" + difficulty + "]",
     };
   }).filter(Boolean);
@@ -1799,9 +1799,15 @@ function dailyGetShareClearTypeEmoji(status) {
   return "";
 }
 
-function dailyShare() {
+function dailyFormatShareTitle(title) {
+  return String(title ?? "")
+    .replaceAll("BLACK.by", "BLACK. by")
+    .replaceAll("D.C.fish", "D.C. fish");
+}
+
+function dailyShare(options = {}) {
   if (!dailyState.ready) return;
-  const url = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(dailyBuildShareText());
+  const url = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(dailyBuildShareText(options));
   window.open(url, "_blank", "noopener,noreferrer");
   if (typeof window.cpiAnalytics?.track === "function") window.cpiAnalytics.track("share_click", { share_type: "x", share_context: "daily_target" });
 }
@@ -1841,7 +1847,7 @@ function dailyBindEvents() {
   dailyElements.manualAutoFillButton.addEventListener("click", dailyAutoFillFromManualMemos);
   dailyElements.confirmButton.addEventListener("click", dailyConfirmSelection);
   dailyElements.confirmNoticeClose.addEventListener("click", dailyCloseConfirmNotice);
-  dailyElements.confirmNoticeShare.addEventListener("click", dailyShare);
+  dailyElements.confirmNoticeShare.addEventListener("click", () => dailyShare({ includeAchievementMarkers: false }));
   dailyElements.confirmNotice.addEventListener("click", dailyHandleConfirmNoticeBackdropClick);
   dailyElements.completionNoticeClose.addEventListener("click", dailyCloseCompletionNotice);
   dailyElements.completionNoticeShare.addEventListener("click", dailyShare);
