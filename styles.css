@@ -63,6 +63,20 @@ body::before {
   margin-bottom: 18px;
 }
 
+
+.site-release-notice {
+  width: min(100%, 960px);
+  margin: -2px auto 18px;
+  padding: 10px 14px;
+  border: 1px solid #b9d3e5;
+  border-radius: 10px;
+  background: #eef7fc;
+  color: #36566d;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
 .masthead h1 {
   margin: 0;
   font-size: clamp(1.7rem, 3vw, 2.9rem);
