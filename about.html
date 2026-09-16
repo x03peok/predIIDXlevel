@@ -27,7 +27,7 @@
   <meta name="twitter:description" content="CPI:NextのAboutページです。">
   <!-- Google Analytics -->
   <script defer src="analytics.js?v=20260905-1"></script>
-  <link rel="stylesheet" href="styles.css?v=20260916-2">
+  <link rel="stylesheet" href="styles.css?v=20260916-4">
   <link rel="stylesheet" href="menu.css?v=20260904-2">
   <script defer src="menu.js?v=20260906-1"></script>
 </head>
@@ -52,7 +52,6 @@
             <button type="button" class="menu-item" data-page="main" data-href="index.html">Pred難易度表</button>
             <button type="button" class="menu-item" data-page="about" data-href="about.html">About</button>
             <button type="button" class="menu-item" data-page="diagnosis" data-href="diagnosis.html">適正診断</button>
-            <button type="button" class="menu-item" data-page="history" data-href="history.html">サイト更新履歴</button>
           </div>
         </div>
         <h1>About</h1>
@@ -63,19 +62,65 @@
     <section class="view view--about">
       <div class="panel about-panel">
         <div class="about-copy">
-          <p>このサイトはbeatmania IIDX公式とは無関係のファンサイトです。</p>
-          <p>このサイトを利用したことによって生じるあらゆる損害について、当サイトの運営は責任を負いかねます。自己責任でご利用ください。</p>
-          <p>このサイトの非公式難易度は、譜面情報に基づいた独自の機械学習手法によって予測されています。</p>
-          <p>☆8-☆11については公式難易度を教師データに、☆12については公式難易度および一部CPI(<a href="https://cpi.makecir.com/" target="_blank" rel="noopener noreferrer">https://cpi.makecir.com/</a>)のCLEAR適正CPIを教師データにしています。</p>
-          <p>特に☆12について、上位4割程度が☆13、上位1割程度が☆14となるように学習しています。つまり、Pred. 14.0の譜面は☆12上位1割程度のノマゲ難易度であると予測しています。</p>
-          <div class="about-chart">
-            <img src="level_vs_predicted_clear_skill_mobile_boxplot_v2.png" alt="Pred. vs Orig. chart">
-          </div>
-          <p>公式難易度に対する予測の正解率は2026/6/22バージョンで約79.0%です。☆±1範囲では約99.8%です。</p>
-          <p>予測の仕組み上、一部の個人差要素（皿、CN、ソフランなど）や、ランダムオプションの有無で難易度が大きく変わる譜面などについては、予測精度が比較的低下する可能性があります。</p>
-          <p>学習のために一部TexTage(<a href="https://textage.cc" target="_blank" rel="noopener noreferrer">https://textage.cc</a>)様の情報を参考にさせていただいています。</p>
-          <p>個人クリアランプの登録や公式CSVの読み込みに対応しています。登録データはこのブラウザ内に保存され、サーバーへは送信されません。ブラウザのデータ消去や端末変更に備え、設定ページからバックアップを取得・復元できます。</p>
-          <p>お問い合わせは<a href="https://x.com/cpi_next" target="_blank" rel="noopener noreferrer">https://x.com/cpi_next</a> または cpi.next.iidx[at]gmail.comまでお願いします。</p>
+          <h2>CPI:Nextについて</h2>
+          <p><strong>CPI:Next</strong> は、beatmania IIDX SPの難易度を譜面データから分析し、「次にどの譜面を遊ぶか」を考えるための非公式ファンサイトです。</p>
+          <p>主にSP☆8〜☆12を対象として、譜面ごとの難易度指標 <strong>Pred</strong>、譜面の特徴 <strong>Feature</strong>、クリアランプに基づく個人向けの難易度補正やリコメンドなどを提供しています。</p>
+          <p>公式レベルだけでは区別しにくい同じ☆内での難易度差や、EASY・NORMAL・HARDで変わる難しさ、プレイヤーごとの得意・不得意を、選曲の参考になる形で可視化することを目的としています。</p>
+
+          <h3>Predについて</h3>
+          <p><strong>Pred</strong> は、譜面情報とゲージシミュレーションなどから推定した、CPI:Next独自の難易度指標です。</p>
+          <p>各譜面について、イージー・ノマゲ・ハード難易度を表示しています。</p>
+          <p>公式レベルより細かい値を計算していますが、絶対的な難易度を保証するものではありません。プレースタイル、オプション、得意・不得意などによって体感難易度は変化します。次に挑戦する譜面を探すための一つの基準としてご利用ください。</p>
+
+          <h3>Featureについて</h3>
+          <p>一部の譜面には、配置の特徴を表す <strong>Feature</strong> を表示しています。</p>
+          <p>現在は、<strong>BPM変化 / チャージノート / ラスト難 / 皿複合 / 単鍵ラッシュ / 同時押し / 物量 / 連皿 / 連打</strong>を扱っています。これらは、同程度のPredの譜面と比較して、その特徴を強く持つ譜面に表示しています。</p>
+          <p><code>+</code> や <code>++</code> が付いているFeatureは、上記の傾向がより強いことを示します。例えば「連皿++」は、すべての譜面の中で絶対的に連皿が最難関という意味ではなく、同程度の難易度帯の譜面と比べて連皿傾向が特に強いことを表します。</p>
+
+          <h3>自分向けのPredとリコメンド</h3>
+          <p>クリアランプを登録すると、CPI:Nextはそのデータからプレイヤーの適正クリア難易度、得意譜面傾向を推定します。</p>
+          <p><strong>マイページ</strong>では現在の適正Predを確認できます。</p>
+          <p><strong>マイターゲット</strong>では、譜面のFeatureと過去のクリア状況をもとに、得意・不得意を反映した <strong>補正Pred</strong> とクリア見込みを推定します。</p>
+          <p>リコメンドは、デフォルトではクリア確率が40%～60%となる、簡単すぎず難しすぎない挑戦曲を表示します。これは目的に応じて設定から変更することが可能です。</p>
+
+          <h3>今日の10曲</h3>
+          <p><strong>今日の10曲</strong>では、その日に狙う譜面を最大10曲まで選び、EASY・CLEAR・HARDなどの目標を決めて挑戦できます。</p>
+          <p>マイターゲットのリコメンドや手動メモから選曲することもでき、プレイ後にクリアランプを更新すると達成状況が反映されます。</p>
+          <p>「何をやるか迷う」「やる曲を決めておきたい」というときの、プレイリストとして使うことを想定しています。</p>
+
+          <h3>段位認定ラボ</h3>
+          <p><strong>段位認定ラボ</strong>では、段位認定の課題曲をPredやゲージシミュレーションから分析しています。</p>
+          <p>単純な課題曲の平均難易度だけではなく、段位ゲージを考慮して、<strong>各STAGEまで到達するためにどの程度の地力が必要と推定されるか</strong>といった分析も行っています。</p>
+          <p>これらはシミュレーションによる推定値であり、実際の合格率や合格を保証するものではありません。段位の構成を考えるための参考値としてご覧ください。</p>
+
+          <h3>予測の限界について</h3>
+          <p>CPI:Nextの難易度推定は、すべてのプレイヤーの体感を完全に再現するものではありません。</p>
+          <p>特に、</p>
+          <ul>
+            <li>スクラッチやCN、ソフランなど個人差の大きい譜面</li>
+            <li>RANDOMなどのオプションによって難易度が大きく変化する譜面</li>
+            <li>特殊な配置を持ち、似た譜面が少ないケース</li>
+          </ul>
+          <p>では、Predと実際の体感に大きな差が生じる場合があります。</p>
+          <p>また、新曲・新譜面など必要な譜面情報が十分に確認できていないものについては、Predを掲載していない場合があります。</p>
+
+          <h3>譜面情報について</h3>
+          <p>難易度推定のための譜面情報の一部について、<strong>TexTage</strong>（<a href="https://textage.cc/" target="_blank" rel="noopener noreferrer">https://textage.cc/</a>）様の情報を参考にさせていただいています。</p>
+          <p>また、☆12の難易度推定・検証の一部では、既存の <strong>CPI</strong>（<a href="https://cpi.makecir.com/" target="_blank" rel="noopener noreferrer">https://cpi.makecir.com/</a>）の情報も参考にしています。</p>
+
+          <h3>データの保存について</h3>
+          <p>クリアランプ、手動メモ、今日の10曲などのユーザーデータは、原則として<strong>利用しているブラウザ内に保存されます</strong>。</p>
+          <p>アカウント登録やログインは必要ありません。また、登録したクリアランプをCPI:Nextのサーバーへ保存する仕組みはありません。</p>
+          <p>ブラウザのデータ削除、端末変更、ブラウザ変更などによってデータが失われる可能性があります。必要に応じて設定ページからバックアップを取得してください。</p>
+
+          <h3>免責事項</h3>
+          <p>CPI:Nextは <strong>beatmania IIDXおよびその公式運営とは無関係の非公式ファンサイト</strong>です。</p>
+          <p>掲載しているPred、Feature、リコメンド、段位分析などは独自の推定・分析によるもので、公式の難易度評価ではありません。</p>
+          <p>本サイトの情報を利用したことによって生じた損害について、運営者は責任を負いかねます。あらかじめご了承ください。</p>
+
+          <h3>お問い合わせ</h3>
+          <p>不具合、データの誤り、フィードバックなどは、以下からご連絡ください。</p>
+          <p>X：<a href="https://x.com/cpi_next" target="_blank" rel="noopener noreferrer"><strong>@cpi_next</strong></a><br>E-mail：<strong>cpi.next.iidx[at]gmail.com</strong></p>
         </div>
       </div>
     </section>

@@ -12,6 +12,10 @@
   }
 
   const classOrder = ["四段", "五段", "六段", "七段", "八段", "九段", "十段", "中伝", "皆伝"];
+  const classOrderByVersion = {
+    INFINITAS: classOrder,
+    ZINRAI: ["四段", "五段", "六段", "七段", "八段", "九段", "十段", "中伝", "皆伝"],
+  };
   let selectedVersion = versionTabs.find((tab) => tab.getAttribute("aria-selected") === "true")?.dataset.version
     ?? versionTabs[0]?.dataset.version
     ?? "";
@@ -113,9 +117,9 @@
     return {
       ...row,
       chart_id: chartId,
-      title: siteRow?.title || row.title,
+      title: row.version === "ZINRAI" ? row.title : (siteRow?.title || row.title),
       difficulty: siteRow?.difficulty || row.difficulty,
-      pred: siteRow?.calibrated_pred_skill || "",
+      pred: row.version === "ZINRAI" ? row.pred : (siteRow?.calibrated_pred_skill || ""),
       bpm_min: siteRow?.bpm_min || "",
       bpm_max: siteRow?.bpm_max || "",
       features: siteRow?.features || "",
@@ -146,7 +150,7 @@
     if (!Number.isFinite(numeric)) {
       return "";
     }
-  
+
     const stops = [
       { value: 8, color: [37, 99, 235] },
     { value: 9, color: [249, 115, 22] },
@@ -241,7 +245,7 @@
   }
 
   function renderRankTable(rank, rankRows, rankIndex) {
-    const cardsHtml = rankRows.map((row) => {
+    const cardsHtml = rankRows.length > 0 ? rankRows.map((row) => {
       const difficulty = String(row.difficulty ?? "").trim().toUpperCase();
       const difficultyClass = difficultyClasses[difficulty] ?? "";
       const difficultyLabel = difficultyLabels[difficulty] ?? difficulty;
@@ -257,7 +261,10 @@
       const formattedPredText = rawPredText ? formatPred(row.pred) : "";
       const predText = formattedPredText || "－";
       const predStyle = formattedPredText ? numericStyle(row.pred) : "";
-      const predHtml = "<span class=\"danilabo-stage-card__pred\">ノマゲPred <span class=\"mono numeric-value numeric-value--pred\""
+      const predLabel = row.version === "ZINRAI"
+        ? "<span class=\"danilabo-stage-card__pred chart-detail__label-group\" data-tooltip=\"このStageを突破する推定難易度です。\" tabindex=\"0\" role=\"button\" aria-label=\"適正Predの説明\">適正Pred"
+        : "<span class=\"danilabo-stage-card__pred\">ノマゲPred";
+      const predHtml = predLabel + " <span class=\"mono numeric-value numeric-value--pred\""
         + predStyle + ">" + escapeHtml(predText) + "</span></span>";
 
       return [
@@ -274,20 +281,27 @@
         "</div>",
         "</article>",
       ].join("");
-    }).join("");
+    }).join("")
+      : "<div class=\"danilabo-coming-soon\">Coming Soon</div>";
 
     const predValues = rankRows
       .map((row) => String(row.pred ?? "").trim())
       .filter(Boolean)
       .map(Number)
       .filter((value) => Number.isFinite(value));
-    const averagePred = predValues.length > 0
-      ? predValues.reduce((sum, value) => sum + value, 0) / predValues.length
-      : null;
+    const isZinrai = rankRows[0]?.version === "ZINRAI";
+    const finalPred = rankRows.find((row) => String(row.stage ?? "").trim().toUpperCase() === "FINAL")?.pred;
+    const averagePred = isZinrai
+      ? (Number.isFinite(Number(finalPred)) ? Number(finalPred) : null)
+      : (predValues.length > 0
+        ? predValues.reduce((sum, value) => sum + value, 0) / predValues.length
+        : null);
+    const averageLabel = isZinrai
+      ? "<span class=\"danilabo-rank__average-label chart-detail__label-group\" data-tooltip=\"段位ゲージでシミュレートした推定完走難易度です。\" tabindex=\"0\" role=\"button\" aria-label=\"合格適正Predの説明\">合格適正Pred<span class=\"chart-detail__info-mark\" aria-hidden=\"true\">ⓘ</span></span>"
+      : "<span class=\"danilabo-rank__average-label\">課題曲平均ノマゲPred</span>";
     const averagePredHtml = averagePred === null
       ? ""
-      : " <span class=\"danilabo-rank__average\"><span class=\"danilabo-rank__average-label\">課題曲平均ノマゲPred</span> <span class=\"numeric-value numeric-value--pred\"" + numericStyle(averagePred) + ">" + averagePred.toFixed(2) + "</span></span>";
-
+      : " <span class=\"danilabo-rank__average\">" + averageLabel + " <span class=\"numeric-value numeric-value--pred\"" + numericStyle(averagePred) + ">" + averagePred.toFixed(isZinrai ? 1 : 2) + "</span></span>";
     return [
       "<section class=\"danilabo-rank\" aria-labelledby=\"danilabo-rank-" + rankIndex + "\">",
       "<h2 id=\"danilabo-rank-" + rankIndex + "\" class=\"danilabo-rank__title\" data-rank=\"" + escapeHtml(rank) + "\"><span class=\"danilabo-rank__name\">" + escapeHtml(rank) + "</span>" + averagePredHtml + "</h2>",
@@ -304,9 +318,12 @@
 
   function render() {
     const visibleRows = rows.filter((row) => row.version === selectedVersion);
-    const sections = classOrder.map((rank, rankIndex) => {
+    const classOrderForVersion = classOrderByVersion[selectedVersion] ?? classOrder;
+    const sections = classOrderForVersion.map((rank, rankIndex) => {
       const rankRows = visibleRows.filter((row) => row.class === rank);
-      return rankRows.length > 0 ? renderRankTable(rank, rankRows, rankIndex) : "";
+      return rankRows.length > 0 || selectedVersion === "ZINRAI"
+        ? renderRankTable(rank, rankRows, rankIndex)
+        : "";
     }).join("");
 
     tables.innerHTML = sections;

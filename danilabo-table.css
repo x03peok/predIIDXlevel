@@ -258,6 +258,18 @@
   gap: 10px;
 }
 
+.danilabo-coming-soon {
+  padding: 18px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
 .danilabo-stage-card {
   overflow: hidden;
   border: 1px solid var(--line);
