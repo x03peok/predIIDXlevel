@@ -1334,7 +1334,7 @@ function mypageGetFeatureShareTendencies(scores) {
     .filter(({ score }) => score <= 45)
     .sort((left, right) => left.score - right.score || left.name.localeCompare(right.name, "ja"))
     .map(({ name }) => name);
-  return { strong, weak };
+  return { strong: strong.slice(0, 3), weak: weak.slice(0, 3) };
 }
 function mypageGetPublicUrl() {
   return "https://cpi-next.com/mypage.html";
