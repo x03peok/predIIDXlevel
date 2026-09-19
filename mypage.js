@@ -18,6 +18,9 @@ const mypageFeatureNames = [
   "連皿",
   "連打",
 ];
+const mypageFeatureDeltaLambda = 10;
+const mypageFeatureDeltaIterations = 50;
+const mypageFeatureDeltaTolerance = 0.00001;
 const mypageFeatureDescriptions = {
   "BPM変化": "激しいBPM変化と、変化周辺の難しい配置が特徴です。",
   "チャージノート": "CN/HCN/BSS/HBSS/MSSと、同時に来る難しい配置が特徴です。",
@@ -1120,43 +1123,137 @@ function mypageFitPredRegression(mode = "normal") {
     counts,
   };
 }
-function mypageGetFeatureScores(observations, model) {
-  const priorCharts = 1;
-  return mypageFeatureNames.map((feature) => {
-    let totalWeight = 0;
-    let observedTotal = 0;
-    let expectedTotal = 0;
-    let known = 0;
 
-    for (const observation of observations) {
-      const detail = mypageGetFeatureDetails(observation.row)
-        .find((item) => item.name === feature);
-      if (!detail) {
+function mypageFeatureStrength(plusCount) {
+  if (plusCount >= 2) {
+    return 2;
+  }
+  if (plusCount === 1) {
+    return 1.5;
+  }
+  return 1;
+}
+
+function mypageGetFeatureVector(row) {
+  const vector = new Array(mypageFeatureNames.length).fill(0);
+  mypageGetFeatureDetails(row).forEach((feature) => {
+    const index = mypageFeatureNames.indexOf(feature.name);
+    if (index >= 0) {
+      vector[index] += mypageFeatureStrength(feature.plusCount);
+    }
+  });
+  return vector;
+}
+
+function mypageSolveLinearSystem(matrix, values) {
+  const size = values.length;
+  const augmented = matrix.map((row, index) => [...row, values[index]]);
+  for (let column = 0; column < size; column += 1) {
+    let pivotRow = column;
+    for (let row = column + 1; row < size; row += 1) {
+      if (Math.abs(augmented[row][column]) > Math.abs(augmented[pivotRow][column])) {
+        pivotRow = row;
+      }
+    }
+    if (Math.abs(augmented[pivotRow][column]) < 0.0000000001) {
+      return null;
+    }
+    [augmented[column], augmented[pivotRow]] = [augmented[pivotRow], augmented[column]];
+    const pivot = augmented[column][column];
+    for (let index = column; index <= size; index += 1) {
+      augmented[column][index] /= pivot;
+    }
+    for (let row = 0; row < size; row += 1) {
+      if (row === column) {
         continue;
       }
+      const factor = augmented[row][column];
+      if (factor === 0) {
+        continue;
+      }
+      for (let index = column; index <= size; index += 1) {
+        augmented[row][index] -= factor * augmented[column][index];
+      }
+    }
+  }
+  return augmented.map((row) => row[size]);
+}
 
-      const normalizedPred = model
-        ? (observation.pred - model.center) / model.scale
-        : 0;
-      const baselineProbability = model
-        ? mypageSigmoid(model.intercept + model.slope * normalizedPred)
-        : 0.5;
-      const weight = 1 + Math.min(detail.plusCount, 2);
-      totalWeight += weight;
-      observedTotal += weight * observation.outcome;
-      expectedTotal += weight * baselineProbability;
-      known += 1;
+function mypageFitFeatureDeltas(observations, model) {
+  const deltas = new Array(mypageFeatureNames.length).fill(0);
+  if (!model) {
+    return deltas;
+  }
+  const samples = observations
+    .map((observation) => ({
+      pred: observation.pred,
+      outcome: observation.outcome,
+      vector: mypageGetFeatureVector(observation.row),
+    }))
+    .filter((sample) => sample.vector.some((value) => value > 0));
+  if (samples.length === 0) {
+    return deltas;
+  }
+
+  const modelDerivativePerPred = model.slope / model.scale;
+  for (let iteration = 0; iteration < mypageFeatureDeltaIterations; iteration += 1) {
+    const gradient = new Array(mypageFeatureNames.length).fill(0);
+    const hessian = Array.from(
+      { length: mypageFeatureNames.length },
+      () => new Array(mypageFeatureNames.length).fill(0),
+    );
+
+    samples.forEach((sample) => {
+      const adjustment = sample.vector.reduce((total, strength, index) => total + deltas[index] * strength, 0);
+      const normalizedPred = (sample.pred + adjustment - model.center) / model.scale;
+      const probability = mypageSigmoid(model.intercept + model.slope * normalizedPred);
+      const residual = probability - sample.outcome;
+      const curvature = Math.max(probability * (1 - probability), 0.00001);
+      sample.vector.forEach((leftStrength, leftIndex) => {
+        gradient[leftIndex] += residual * modelDerivativePerPred * leftStrength;
+        sample.vector.forEach((rightStrength, rightIndex) => {
+          hessian[leftIndex][rightIndex] += curvature
+            * modelDerivativePerPred
+            * modelDerivativePerPred
+            * leftStrength
+            * rightStrength;
+        });
+      });
+    });
+
+    for (let index = 0; index < mypageFeatureNames.length; index += 1) {
+      gradient[index] += 2 * mypageFeatureDeltaLambda * deltas[index];
+      hessian[index][index] += 2 * mypageFeatureDeltaLambda;
     }
 
-    if (totalWeight === 0) {
-      return { name: feature, score: 50, known: 0 };
+    const step = mypageSolveLinearSystem(hessian, gradient);
+    if (!step) {
+      break;
     }
+    let largestStep = 0;
+    for (let index = 0; index < deltas.length; index += 1) {
+      const next = deltas[index] - step[index];
+      if (!Number.isFinite(next)) {
+        return new Array(mypageFeatureNames.length).fill(0);
+      }
+      deltas[index] = next;
+      largestStep = Math.max(largestStep, Math.abs(step[index]));
+    }
+    if (largestStep < mypageFeatureDeltaTolerance) {
+      break;
+    }
+  }
+  return deltas;
+}
 
-    const rawEffect = observedTotal / totalWeight - expectedTotal / totalWeight;
-    const reliability = known / (known + priorCharts);
-    const effect = rawEffect * reliability;
-    const score = Math.max(0, Math.min(100, 50 + effect * 100));
-    return { name: feature, score, known };
+function mypageGetFeatureScores(observations, model) {
+  const deltas = mypageFitFeatureDeltas(observations, model);
+  return mypageFeatureNames.map((feature, index) => {
+    const known = observations.reduce((count, observation) => count
+      + (mypageGetFeatureDetails(observation.row).some((item) => item.name === feature) ? 1 : 0), 0);
+    const delta = Number.isFinite(deltas[index]) ? deltas[index] : 0;
+    const score = Math.max(0, Math.min(100, 50 - delta * 100));
+    return { name: feature, score, delta, known };
   });
 }
 function mypageRenderFeatureResult(predResult) {
@@ -1227,27 +1324,18 @@ function mypageRenderFeatureResult(predResult) {
   section.hidden = false;
 }
 
+
 function mypageGetFeatureShareTendencies(scores) {
-  const epsilon = 1e-9;
-  const positive = scores.filter(({ score }) => score > 50 + epsilon);
-  const negative = scores.filter(({ score }) => score < 50 - epsilon);
-  const strongestPositive = positive.length
-    ? Math.max(...positive.map(({ score }) => score - 50))
-    : 0;
-  const strongestNegative = negative.length
-    ? Math.max(...negative.map(({ score }) => 50 - score))
-    : 0;
-
-  return {
-    strong: positive
-      .filter(({ score }) => Math.abs((score - 50) - strongestPositive) < epsilon)
-      .map(({ name }) => name),
-    weak: negative
-      .filter(({ score }) => Math.abs((50 - score) - strongestNegative) < epsilon)
-      .map(({ name }) => name),
-  };
+  const strong = scores
+    .filter(({ score }) => score >= 55)
+    .sort((left, right) => right.score - left.score || left.name.localeCompare(right.name, "ja"))
+    .map(({ name }) => name);
+  const weak = scores
+    .filter(({ score }) => score <= 45)
+    .sort((left, right) => left.score - right.score || left.name.localeCompare(right.name, "ja"))
+    .map(({ name }) => name);
+  return { strong, weak };
 }
-
 function mypageGetPublicUrl() {
   return "https://cpi-next.com/mypage.html";
 }
