@@ -768,7 +768,7 @@ body.target-settings-modal-open {
   cursor: default;
   font: inherit;
   font-size: inherit;
-  font-weight: 800;
+  font-weight: 400;
   line-height: inherit;
   white-space: nowrap;
 }
@@ -830,6 +830,10 @@ body.target-settings-modal-open {
   text-underline-offset: 4px;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+.target-recommendation-card__name {
+  font-weight: 700;
 }
 
 .target-recommendation-card__title:hover,
