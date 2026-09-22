@@ -1214,13 +1214,13 @@ body.target-settings-modal-open {
 }
 
 .target-recommendation-card__stage > .target-recommendation-reason:first-child {
-  justify-self: end;
-  text-align: right;
+  justify-self: center;
+  text-align: center;
 }
 
 .target-recommendation-card__stage > .target-recommendation-reason:last-child {
-  justify-self: start;
-  text-align: left;
+  justify-self: center;
+  text-align: center;
 }
 
 .target-recommendation-card__stage-separator {
