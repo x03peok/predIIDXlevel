@@ -201,13 +201,6 @@ function settingsSetBusy(busy) {
   settingsElements.exportButton.disabled = busy;
   settingsElements.importButton.disabled = busy;
   settingsElements.resetButton.disabled = busy;
-  settingsElements.recommendationSaveButton.disabled = busy;
-  settingsElements.recommendationResetButton.disabled = busy;
-  settingsElements.targetSaveButton.disabled = busy;
-  settingsElements.targetResetButton.disabled = busy;
-  settingsElements.targetGoalOptions.querySelectorAll("input").forEach((input) => {
-    input.disabled = busy;
-  });
 }
 
 function settingsGetDefaultRecommendationSettings() {
@@ -723,17 +716,6 @@ function settingsBindEvents() {
   });
   settingsElements.importInput.addEventListener("change", settingsHandleImport);
   settingsElements.resetButton.addEventListener("click", settingsHandleReset);
-  settingsElements.recommendationProbabilityMin.addEventListener("change", () => {
-    settingsCommitRecommendationProbability("min");
-  });
-  settingsElements.recommendationProbabilityMax.addEventListener("change", () => {
-    settingsCommitRecommendationProbability("max");
-  });
-  settingsElements.recommendationCount.addEventListener("change", settingsCommitRecommendationCount);
-  settingsElements.recommendationSaveButton.addEventListener("click", settingsCommitRecommendationSettings);
-  settingsElements.recommendationResetButton.addEventListener("click", settingsResetRecommendationSettings);
-  settingsElements.targetSaveButton.addEventListener("click", settingsSaveTargetSettings);
-  settingsElements.targetResetButton.addEventListener("click", settingsResetTargetSettings);
 }
 
 async function settingsInitialize() {
@@ -750,12 +732,8 @@ async function settingsInitialize() {
   settingsElements.recommendationLevelSummary = document.getElementById("settingsRecommendationLevelSummary");
   settingsElements.recommendationStatusOptions = document.getElementById("settingsRecommendationStatusOptions");
   settingsElements.recommendationStatusSummary = document.getElementById("settingsRecommendationStatusSummary");
-  settingsElements.targetGoalOptions = document.getElementById("settingsTargetGoalOptions");
   settingsElements.recommendationSaveButton = document.getElementById("settingsRecommendationSaveButton");
   settingsElements.recommendationResetButton = document.getElementById("settingsRecommendationResetButton");
-  settingsElements.targetSaveButton = document.getElementById("settingsTargetSaveButton");
-  settingsElements.targetResetButton = document.getElementById("settingsTargetResetButton");
-  settingsRenderRecommendationOptions();
   settingsBindEvents();
 
   try {

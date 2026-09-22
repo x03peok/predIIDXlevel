@@ -9,15 +9,15 @@ const targetPageSize = 100;
 const targetFeatureNone = "特徴なし";
 const targetUnlockEventStorageKey = "cpi-next-target-unlocked-event-sent";
 const targetFeatureNames = [
-  "BPM変化",
-  "チャージノート",
-  "ラスト難",
-  "皿複合",
-  "単鍵ラッシュ",
   "同時押し",
+  "単鍵ラッシュ",
   "物量",
-  "連皿",
   "連打",
+  "連皿",
+  "皿複合",
+  "チャージノート",
+  "BPM変化",
+  "ラスト難",
 ];
 const targetNotClearStatuses = new Set(["failed", "assisted", "easy"]);
 const targetClearStatuses = new Set(["clear", "hard"]);
@@ -40,7 +40,6 @@ const targetPredModeOutcomes = {
     notClear: new Set(["failed", "assisted", "easy", "clear"]),
   },
 };
-
 function targetGetPredValue(row, mode = "normal") {
   return row[targetPredModes[mode]?.key ?? targetPredModes.normal.key] ?? row.calibrated_pred_skill;
 }
@@ -70,18 +69,44 @@ const targetDefaultStatusFilter = targetStatuses
   .filter(({ value }) => !["unowned", "clear", "hard"].includes(value))
   .map(({ value }) => value);
 const targetRecommendationSettingsKey = "cpi-next-target-recommendation-statuses";
+const targetEmptyTargetGoalsConfirmedKey = "cpi-next-target-recommendation-empty-target-goals-confirmed";
 const targetAutoRecommendationNoticeStorageKey = "cpi-next-target-auto-recommendation-notice-dismissed";
 const targetRecommendationLevelValues = [8, 9, 10, 11, 12];
-const targetRecommendationCountValues = [5, 10, 20];
+const targetRecommendationCountMin = 1;
+const targetRecommendationCountMax = 20;
+const targetRecommendationReasonWeights = [
+  { key: "opportunity", weight: 1 },
+  { key: "slight-opportunity", weight: 2 },
+  { key: "appropriate", weight: 4 },
+  { key: "slight-challenge", weight: 2 },
+  { key: "challenge", weight: 1 },
+];
+const targetRecommendationReasonLabels = {
+  opportunity: "狙い目",
+  "slight-opportunity": "やや狙い目",
+  appropriate: "適正",
+  "slight-challenge": "やや挑戦",
+  challenge: "挑戦",
+};
+const targetRecommendationFeatureLabels = {
+  favorable: "得意",
+  "slight-favorable": "やや得意",
+  balanced: "普通",
+  "slight-unfavorable": "やや苦手",
+  unfavorable: "苦手",
+};const targetRecommendationDifficultyValues = Object.keys(targetRecommendationReasonLabels);
+const targetRecommendationFeatureReasonValues = Object.keys(targetRecommendationFeatureLabels);
 const targetDefaultRecommendationSettings = {
-  probabilityMin: 40,
-  probabilityMax: 60,
+  difficultyReasons: ["slight-opportunity", "appropriate", "slight-challenge"],
+  featureReasons: [...targetRecommendationFeatureReasonValues],
+  features: [targetFeatureNone, ...targetFeatureNames],
+  featureFilters: targetGetDefaultRecommendationFeatureFilters(),
   count: 10,
+  // Keep these defaults for the existing candidate scope and old saved settings.
   levels: [...targetRecommendationLevelValues],
   statuses: ["unregistered", "no-play", "failed", "assisted", "easy"],
   targetGoals: targetGoalStatuses.map(({ value }) => value),
-};
-const targetDifficultyOrder = ["N", "H", "A", "L"];
+};const targetDifficultyOrder = ["N", "H", "A", "L"];
 const targetDifficultyLabels = {
   N: "[N] NORMAL",
   H: "[H] HYPER",
@@ -109,6 +134,7 @@ const targetState = {
   recommendationSettings: targetGetDefaultRecommendationSettings(),
   autoRecommendationIds: [],
   autoRecommendationCandidateCount: 0,
+  autoRecommendationMetaById: new Map(),
   autoRecommendationsInitialized: false,
   levelFilter: new Set(),
   difficultyFilter: new Set(),
@@ -138,6 +164,7 @@ const targetState = {
 };
 
 const targetElements = {};
+let targetRecommendationDraft = null;
 
 function targetReadAutoRecommendationNoticeDismissed() {
   try {
@@ -359,9 +386,9 @@ function targetGetFeatureOptions() {
     targetGetFeatureDetails(row).forEach((feature) => available.add(feature.name));
   });
   return [
-    targetFeatureNone,
     ...targetFeatureNames.filter((feature) => available.has(feature)),
     ...Array.from(available).filter((feature) => feature !== targetFeatureNone && !targetFeatureNames.includes(feature)),
+    targetFeatureNone,
   ];
 }
 
@@ -880,7 +907,7 @@ function targetUpdateSortIndicators() {
 }
 
 function targetUpdateTableOverflow() {
-  [targetElements.autoTableShell, targetElements.manualTableShell, targetElements.tableShell]
+  [targetElements.manualTableShell, targetElements.tableShell]
     .filter(Boolean)
     .forEach((shell) => {
       shell.classList.toggle("is-overflowing", shell.scrollWidth > shell.clientWidth + 1);
@@ -919,7 +946,7 @@ function targetRenderGoalSelect(row, disabled = false) {
   const selected = targetGetGoal(row);
   return '<select class="target-status-select target-goal-select" data-status="' + targetEscapeHtml(selected ?? "")
     + '" data-target-goal-chart-id="' + targetEscapeHtml(row.chart_id)
-    + '" aria-label="' + targetEscapeHtml(row.title) + 'の目標ランプ"' + (disabled ? " disabled" : "" ) + '>'
+    + '" aria-label="' + targetEscapeHtml(row.title) + "の目標ランプ" + (disabled ? " disabled" : "") + '>'
     + options.map(({ value, label }) => '<option value="' + value + '"' + (value === selected ? ' selected' : '') + '>' + label + '</option>').join("")
     + '</select>';
 }
@@ -928,48 +955,219 @@ function targetGetDefaultGoalForStatus(status) {
   return targetGetGoalOptions(status)[0]?.value ?? null;
 }
 
-function targetGetAutoCandidateRows() {
+function targetGetRecommendationProbabilityBand(probabilityPercent) {
+  if (probabilityPercent > 75) {
+    return "opportunity";
+  }
+  if (probabilityPercent >= 60) {
+    return "slight-opportunity";
+  }
+  if (probabilityPercent >= 40) {
+    return "appropriate";
+  }
+  if (probabilityPercent >= 25) {
+    return "slight-challenge";
+  }
+  return "challenge";
+}
+
+function targetGetRecommendationFeatureBand(delta) {
+  const numericDelta = targetGetNumericValue(delta);
+  if (numericDelta === null) {
+    return "balanced";
+  }
+  if (numericDelta < -0.2) {
+    return "favorable";
+  }
+  if (numericDelta < -0.1) {
+    return "slight-favorable";
+  }
+  if (numericDelta <= 0.1) {
+    return "balanced";
+  }
+  if (numericDelta <= 0.2) {
+    return "slight-unfavorable";
+  }
+  return "unfavorable";
+}
+
+function targetRecommendationFeatureMatches(row, featureFilters) {
+  const rowFeatures = new Set(targetGetRowFeatures(row));
+  if (featureFilters && typeof featureFilters === "object" && !Array.isArray(featureFilters)) {
+    return Object.entries(featureFilters).every(([feature, setting]) => {
+      if (!setting || setting.include === setting.exclude) {
+        return true;
+      }
+      const hasFeature = rowFeatures.has(feature);
+      return setting.include ? hasFeature : !hasFeature;
+    });
+  }
+
+  const selected = new Set(Array.isArray(featureFilters) ? featureFilters : []);
+  if (selected.size === 0) {
+    return false;
+  }
+  return [...rowFeatures].some((feature) => selected.has(feature));
+}
+function targetGetAutoCandidateDetails() {
   if (!targetState.model) {
     return [];
   }
   const settings = targetState.recommendationSettings;
-  return targetState.rows.filter((row) => {
-    if (!settings.statuses.includes(targetGetStatus(row))
-      || !settings.levels.includes(row.original_level)) {
-      return false;
+  const difficultyReasons = Array.isArray(settings.difficultyReasons)
+    ? settings.difficultyReasons
+    : targetDefaultRecommendationSettings.difficultyReasons;
+  const featureReasons = Array.isArray(settings.featureReasons)
+    ? settings.featureReasons
+    : targetDefaultRecommendationSettings.featureReasons;
+  return targetState.rows.map((row) => {
+    const status = targetGetStatus(row);
+    if (!settings.statuses.includes(status) || !settings.levels.includes(row.original_level)) {
+      return null;
     }
-    const defaultGoal = targetGetDefaultGoalForStatus(targetGetStatus(row));
-    if (!defaultGoal || !settings.targetGoals.includes(defaultGoal)) {
-      return false;
+    if (!targetRecommendationFeatureMatches(row, settings.featureFilters ?? settings.features)) {
+      return null;
     }
-    const probability = targetGetExpectedClearProbability(row, targetGetPredModeForGoal(defaultGoal));
-    if (probability === null) {
-      return false;
+    const goal = targetGetDefaultGoalForStatus(status);
+    if (!goal || !settings.targetGoals.includes(goal)) {
+      return null;
     }
-    const probabilityPercent = probability * 100;
-    return probabilityPercent >= settings.probabilityMin
-      && probabilityPercent <= settings.probabilityMax;
-  });
+    const predMode = targetGetPredModeForGoal(goal);
+    const rawPred = targetGetNumericValue(targetGetPredValue(row, predMode));
+    const adjustedPred = targetGetNumericValue(targetGetAdjustedPred(row, predMode));
+    const probability = targetGetExpectedClearProbability(row, predMode, adjustedPred);
+    const probabilityPercent = probability === null ? null : probability * 100;
+    if (!Number.isFinite(probabilityPercent) || rawPred === null || adjustedPred === null) {
+      return null;
+    }
+    const appropriatePred = targetGetRecommendationAppropriatePred(predMode);
+    const appropriateDifference = appropriatePred === null ? null : adjustedPred - appropriatePred;
+    const correctionDifference = adjustedPred - rawPred;
+    const probabilityReason = targetGetRecommendationProbabilityBand(probabilityPercent);
+    const featureReason = targetGetRecommendationFeatureBand(correctionDifference);
+    if (!difficultyReasons.includes(probabilityReason) || !featureReasons.includes(featureReason)) {
+      return null;
+    }
+    return {
+      row,
+      goal,
+      predMode,
+      probability,
+      probabilityPercent,
+      probabilityReason,
+      featureReason,
+      rawPred,
+      adjustedPred,
+      appropriateDifference,
+      correctionDifference,
+    };
+  }).filter(Boolean);
 }
 
+function targetRenderRecommendationReasonTag(axis, value) {
+  const isFeature = axis === "feature";
+  const labels = isFeature ? targetRecommendationFeatureLabels : targetRecommendationReasonLabels;
+  const label = labels[value] ?? (isFeature ? "普通" : "適正");
+  const prefix = isFeature ? "譜面傾向: " : "難易度: ";
+  return '<span class="target-recommendation-reason target-recommendation-reason--'
+    + targetEscapeHtml(value)
+    + '">'
+    + targetEscapeHtml(prefix + label)
+    + '</span>';
+}
+function targetRenderRecommendationCard(row, candidate) {
+  const difficulty = targetNormalizeDifficulty(row.difficulty);
+  const levelText = "☆" + targetFormatPredValue(row.original_level).replace(".0", "");
+  const goal = candidate.goal ?? targetGetGoal(row);
+  const predMode = targetGetPredModeForGoal(goal);
+  const goalDefinition = targetGoalStatuses.find(({ value }) => value === goal);
+  const goalLabel = goalDefinition?.value === "hard"
+    ? "HARD"
+    : (goalDefinition?.label ?? "ー");
+  const adjustedPred = targetGetNumericValue(candidate.adjustedPred ?? targetGetAdjustedPred(row, predMode));
+  const appropriateDifference = targetGetNumericValue(candidate.appropriateDifference);
+  const correctionDifference = targetGetNumericValue(candidate.correctionDifference);
+  const predDifferenceMarkup = Number.isFinite(appropriateDifference) && Number.isFinite(correctionDifference)
+    ? '<div class="target-recommendation-card__pred-differences">'
+      + '<span>適正' + targetEscapeHtml(targetFormatPredDifference(appropriateDifference)) + '</span>'
+      + '<span aria-hidden="true"> / </span>'
+      + '<span>補正' + targetEscapeHtml(targetFormatPredDifference(correctionDifference)) + '</span>'
+      + '</div>'
+    : "";
+  const featureMarkup = targetRenderFeatureChips(row)
+    || '<div class="feature-chips"><span class="feature-chip feature-chip--none">特徴なし</span></div>';
+  return '<article class="target-recommendation-card" data-chart-id="'
+    + targetEscapeHtml(row.chart_id) + '">'
+    + '<div class="target-recommendation-card__stage">'
+    + targetRenderRecommendationReasonTag("probability", candidate.probabilityReason)
+    + '<span class="target-recommendation-card__stage-separator" aria-hidden="true">｜</span>'
+    + targetRenderRecommendationReasonTag("feature", candidate.featureReason)
+    + '</div>'
+    + '<div class="target-recommendation-card__content">'
+    + '<a class="target-recommendation-card__title chart-link ' + targetGetDifficultyClass(difficulty) + '" href="'
+    + targetEscapeHtml(targetGetChartHref(row)) + '">'
+    + '<span class="target-recommendation-card__name">' + targetEscapeHtml(row.title) + '</span> '
+    + '<span class="target-recommendation-card__difficulty">[' + targetEscapeHtml(difficulty) + ']</span>'
+    + '</a>'
+    + '<div class="target-recommendation-card__metrics">'
+    + '<span class="mono numeric-value numeric-value--level"'
+    + targetGetNumericColorStyle(row.original_level) + '>' + targetEscapeHtml(levelText) + '</span>'
+    + '<div class="target-recommendation-card__pred-group">'
+    + '<span class="target-recommendation-card__pred-value"><span>補正Pred</span> '
+    + '<strong class="mono numeric-value numeric-value--pred"'
+    + targetGetNumericColorStyle(adjustedPred) + '>' + targetEscapeHtml(targetFormatPredValue(adjustedPred))
+    + '</strong>'
+    + '</span>'
+    + predDifferenceMarkup
+    + '</div>'
+    + '</div>'
+    + '<div class="target-recommendation-card__feature">' + featureMarkup + '</div>'
+    + '<div class="target-recommendation-card__status-flow">'
+    + '<div class="target-recommendation-card__status-block">'
+    + targetRenderStatusSelect(row)
+    + '</div>'
+    + '<span class="target-recommendation-card__status-arrow" aria-hidden="true">→</span>'
+    + '<div class="target-recommendation-card__status-block target-recommendation-card__status-block--goal"><span class="target-recommendation-card__status-label">目標</span>'
+    + '<span class="target-recommendation-status target-recommendation-status--goal target-recommendation-status--'
+    + targetEscapeHtml(goal) + '">' + targetEscapeHtml(goalLabel) + '</span>'
+    + '</div>'
+    + '</div>'
+    + '</div>'
+    + '</article>';
+}
 function targetGenerateAutoRecommendations() {
-  const candidates = targetGetAutoCandidateRows();
-  targetState.autoRecommendationIds = targetShuffleRows(candidates)
-    .slice(0, targetState.recommendationSettings.count)
-    .map((row) => String(row.chart_id));
+  const candidates = targetGetAutoCandidateDetails();
+  const count = targetNormalizeRecommendationCount(targetState.recommendationSettings.count);
+  const selected = targetShuffleRows(candidates)
+    .slice(0, count)
+    .sort((left, right) => {
+      const comparison = targetCompareNumeric(left.adjustedPred, right.adjustedPred);
+      if (comparison !== 0) {
+        return comparison;
+      }
+      return (left.row.__order ?? 0) - (right.row.__order ?? 0);
+    });
+
   targetState.autoRecommendationCandidateCount = candidates.length;
+  targetState.autoRecommendationIds = selected.map(({ row }) => String(row.chart_id));
+  targetState.autoRecommendationMetaById = new Map(
+    selected.map((candidate) => [String(candidate.row.chart_id), candidate]),
+  );
   targetState.autoRecommendationsInitialized = true;
 }
-
 function targetRenderAutoRecommendations() {
   const recommendedRows = targetState.autoRecommendationIds
-    .map((chartId) => targetState.rowsByChartId.get(chartId))
-    .filter(Boolean)
-    .sort(targetCompareRows);
+    .map((chartId) => ({
+      row: targetState.rowsByChartId.get(chartId),
+      candidate: targetState.autoRecommendationMetaById.get(chartId),
+    }))
+    .filter(({ row, candidate }) => row && candidate);
   targetElements.autoRowCount.textContent = recommendedRows.length.toLocaleString()
     + "件表示 / " + targetState.autoRecommendationCandidateCount.toLocaleString() + "件中";
-  targetElements.autoTableBody.innerHTML = recommendedRows.map((row) => targetRenderTableRow(row, "recommendation")).join("");
-  targetElements.autoTableShell.hidden = recommendedRows.length === 0;
+  targetElements.autoCards.innerHTML = recommendedRows
+    .map(({ row, candidate }) => targetRenderRecommendationCard(row, candidate))
+    .join("");
+  targetElements.autoCards.hidden = recommendedRows.length === 0;
   targetElements.autoEmpty.hidden = recommendedRows.length > 0;
 }
 
@@ -1042,11 +1240,11 @@ function targetStatusOptions(selected) {
   )).join("");
 }
 
-function targetRenderStatusSelect(row) {
+function targetRenderStatusSelect(row, disabled = false) {
   const status = targetGetStatus(row);
   return '<select class="target-status-select" data-status="' + targetEscapeHtml(status)
     + '" data-chart-id="' + targetEscapeHtml(row.chart_id)
-    + '" aria-label="' + targetEscapeHtml(row.title) + 'のクリア状況">'
+    + '" aria-label="' + targetEscapeHtml(row.title) + "の目標ランプ" + (disabled ? " disabled" : "") + '>'
     + targetStatusOptions(status) + "</select>";
 }
 
@@ -1059,10 +1257,42 @@ function targetGetStatus(row) {
   return targetStatusValues.has(status) ? status : "unregistered";
 }
 
+function targetGetRecommendationFeatureValues() {
+  return [targetFeatureNone, ...targetFeatureNames];
+}
+
+function targetGetDefaultRecommendationFeatureFilters() {
+  return Object.fromEntries(targetGetRecommendationFeatureValues().map((feature) => [
+    feature,
+    { include: true, exclude: true },
+  ]));
+}
+
+function targetNormalizeRecommendationFeatureFilters(values, fallback = targetGetDefaultRecommendationFeatureFilters()) {
+  const source = values && typeof values === "object" && !Array.isArray(values) ? values : {};
+  const keys = new Set([
+    ...targetGetRecommendationFeatureValues(),
+    ...Object.keys(fallback ?? {}),
+    ...Object.keys(source),
+  ]);
+  return Object.fromEntries([...keys].map((feature) => {
+    const setting = source[feature] ?? fallback?.[feature];
+    return [feature, {
+      include: setting?.include === true,
+      exclude: setting?.exclude === true,
+    }];
+  }));
+}
+
+function targetCloneRecommendationFeatureFilters(values) {
+  return targetNormalizeRecommendationFeatureFilters(values);
+}
 function targetGetDefaultRecommendationSettings() {
   return {
-    probabilityMin: targetDefaultRecommendationSettings.probabilityMin,
-    probabilityMax: targetDefaultRecommendationSettings.probabilityMax,
+    difficultyReasons: [...targetDefaultRecommendationSettings.difficultyReasons],
+    featureReasons: [...targetDefaultRecommendationSettings.featureReasons],
+    features: [...targetDefaultRecommendationSettings.features],
+    featureFilters: targetCloneRecommendationFeatureFilters(targetDefaultRecommendationSettings.featureFilters),
     count: targetDefaultRecommendationSettings.count,
     levels: [...targetDefaultRecommendationSettings.levels],
     statuses: [...targetDefaultRecommendationSettings.statuses],
@@ -1077,9 +1307,46 @@ function targetNormalizeRecommendationProbability(value, fallback) {
     : fallback;
 }
 
-function targetNormalizeRecommendationCount(value, fallback) {
+function targetNormalizeRecommendationSelection(values, options, fallback) {
+  if (!Array.isArray(values)) {
+    return [...fallback];
+  }
+  return [...new Set(values)].filter((value) => options.includes(value));
+}
+
+function targetNormalizeRecommendationFeatures(values, fallback) {
+  if (!Array.isArray(values)) {
+    return [...fallback];
+  }
+  return [...new Set(values.map((value) => String(value ?? "").trim()).filter(Boolean))];
+}
+
+function targetGetRecommendationReasonsFromProbabilityRange(min, max) {
+  const numericMin = Number.isFinite(min) ? min : 40;
+  const numericMax = Number.isFinite(max) ? max : 60;
+  if (numericMin === numericMax) {
+    return [targetGetRecommendationProbabilityBand(numericMin)];
+  }
+  const ranges = [
+    { key: "challenge", min: 0, max: 25 },
+    { key: "slight-challenge", min: 25, max: 40 },
+    { key: "appropriate", min: 40, max: 60 },
+    { key: "slight-opportunity", min: 60, max: 75 },
+    { key: "opportunity", min: 75, max: 100 },
+  ];
+  const selected = ranges
+    .filter(({ min: rangeMin, max: rangeMax }) => numericMax > rangeMin && numericMin < rangeMax)
+    .map(({ key }) => key);
+  return selected.length > 0 ? selected : ["appropriate"];
+}
+
+function targetNormalizeRecommendationCount(value) {
   const numeric = Number(value);
-  return targetRecommendationCountValues.includes(numeric) ? numeric : fallback;
+  return Number.isInteger(numeric)
+    && numeric >= targetRecommendationCountMin
+    && numeric <= targetRecommendationCountMax
+    ? numeric
+    : 10;
 }
 
 function targetReadRecommendationSettings() {
@@ -1096,18 +1363,25 @@ function targetReadRecommendationSettings() {
       return fallback;
     }
 
-    let probabilityMin = targetNormalizeRecommendationProbability(
-      parsed.probabilityMin,
-      fallback.probabilityMin,
-    );
-    let probabilityMax = targetNormalizeRecommendationProbability(
-      parsed.probabilityMax,
-      fallback.probabilityMax,
-    );
-    const count = targetNormalizeRecommendationCount(parsed.count, fallback.count);
-    if (probabilityMin > probabilityMax) {
-      [probabilityMin, probabilityMax] = [probabilityMax, probabilityMin];
-    }
+    const legacyMin = targetNormalizeRecommendationProbability(parsed.probabilityMin, 40);
+    const legacyMax = targetNormalizeRecommendationProbability(parsed.probabilityMax, 60);
+    const difficultyReasons = Array.isArray(parsed.difficultyReasons)
+      ? targetNormalizeRecommendationSelection(
+        parsed.difficultyReasons,
+        targetRecommendationDifficultyValues,
+        fallback.difficultyReasons,
+      )
+      : targetGetRecommendationReasonsFromProbabilityRange(legacyMin, legacyMax);
+    const featureReasons = Array.isArray(parsed.featureReasons)
+      ? targetNormalizeRecommendationSelection(
+        parsed.featureReasons,
+        targetRecommendationFeatureReasonValues,
+        fallback.featureReasons,
+      )
+      : [...fallback.featureReasons];
+    const features = targetNormalizeRecommendationFeatures(parsed.features, fallback.features);
+    const featureFilters = targetNormalizeRecommendationFeatureFilters(parsed.featureFilters, fallback.featureFilters);
+    const count = targetNormalizeRecommendationCount(parsed.count);
     const levels = Array.isArray(parsed.levels)
       ? [...new Set(parsed.levels
         .map((value) => Number(value))
@@ -1119,12 +1393,317 @@ function targetReadRecommendationSettings() {
     const targetGoals = Array.isArray(parsed.targetGoals)
       ? [...new Set(parsed.targetGoals.filter((value) => targetGoalStatuses.some((goal) => goal.value === value)))]
       : [...fallback.targetGoals];
-    return { probabilityMin, probabilityMax, count, levels, statuses, targetGoals };
+    const emptyGoalsConfirmed = window.localStorage?.getItem(targetEmptyTargetGoalsConfirmedKey) === "1";
+    const effectiveTargetGoals = targetGoals.length === 0 && !emptyGoalsConfirmed
+      ? [...fallback.targetGoals]
+      : targetGoals;
+    return {
+      difficultyReasons,
+      featureReasons,
+      features,
+      featureFilters,
+      count,
+      levels,
+      statuses,
+      targetGoals: effectiveTargetGoals,
+    };
   } catch (error) {
     // Fall back to the default when local storage is unavailable or invalid.
   }
   return fallback;
 }
+
+function targetCloneRecommendationSettings(settings) {
+  const source = settings ?? targetGetDefaultRecommendationSettings();
+  return {
+    difficultyReasons: [...(source.difficultyReasons ?? targetDefaultRecommendationSettings.difficultyReasons)],
+    featureReasons: [...(source.featureReasons ?? targetDefaultRecommendationSettings.featureReasons)],
+    features: [...(source.features ?? targetDefaultRecommendationSettings.features)],
+    featureFilters: targetCloneRecommendationFeatureFilters(source.featureFilters ?? targetDefaultRecommendationSettings.featureFilters),
+    count: targetNormalizeRecommendationCount(source.count),
+    levels: [...(source.levels ?? targetDefaultRecommendationSettings.levels)],
+    statuses: [...(source.statuses ?? targetDefaultRecommendationSettings.statuses)],
+    targetGoals: [...(source.targetGoals ?? targetDefaultRecommendationSettings.targetGoals)],
+  };
+}
+function targetSetRecommendationSettingsMessage(message, isError = false) {
+  if (!targetElements.autoSettingsMessage) {
+    return;
+  }
+  targetElements.autoSettingsMessage.textContent = message;
+  targetElements.autoSettingsMessage.dataset.state = isError ? "error" : "ok";
+}
+
+function targetAreAllRecommendationValuesSelected(selectedValues, options) {
+  return selectedValues.size === options.length
+    && options.every(({ value }) => selectedValues.has(value));
+}
+
+function targetUpdateRecommendationSummary(summary, selectedValues, options) {
+  if (!summary) {
+    return;
+  }
+  if (targetAreAllRecommendationValuesSelected(selectedValues, options)) {
+    summary.textContent = "all";
+    summary.title = "";
+    return;
+  }
+  if (selectedValues.size === 0) {
+    summary.textContent = "none";
+    summary.title = "";
+    return;
+  }
+  const labels = options
+    .filter(({ value }) => selectedValues.has(value))
+    .map(({ label }) => label);
+  summary.textContent = labels.length === 1 ? labels[0] : labels.length + " selected";
+  summary.title = labels.join(", ");
+}
+
+function targetRenderRecommendationFilter({ container, summary, options, settingKey, includeAll = true }) {
+  if (!container || !targetRecommendationDraft) {
+    return;
+  }
+  const values = options.map(({ value }) => value);
+  const selectedValues = new Set(targetRecommendationDraft[settingKey]);
+  const convertValue = (value) => typeof values[0] === "number" ? Number(value) : value;
+
+  const syncCheckboxes = () => {
+    const allInput = container.querySelector("input[data-filter-all]");
+    if (allInput) {
+      allInput.checked = targetAreAllRecommendationValuesSelected(selectedValues, options);
+    }
+    container.querySelectorAll("input[data-filter-option]").forEach((input) => {
+      input.checked = selectedValues.has(convertValue(input.value));
+    });
+    targetUpdateRecommendationSummary(summary, selectedValues, options);
+  };
+
+  const fragment = document.createDocumentFragment();
+  let allInput = null;
+  if (includeAll) {
+    const allLabel = document.createElement("label");
+    allLabel.className = "multi-filter__option multi-filter__option--all";
+    allInput = document.createElement("input");
+    allInput.type = "checkbox";
+    allInput.dataset.filterAll = "true";
+    const allText = document.createElement("span");
+    allText.textContent = "all";
+    allLabel.append(allInput, allText);
+    fragment.append(allLabel);
+  }
+
+  for (const option of options) {
+    const label = document.createElement("label");
+    label.className = "multi-filter__option";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.dataset.filterOption = "true";
+    input.value = String(option.value);
+    const text = document.createElement("span");
+    text.textContent = option.label;
+    label.append(input, text);
+    fragment.append(label);
+  }
+  container.replaceChildren(fragment);
+  syncCheckboxes();
+
+  if (allInput) {
+    allInput.addEventListener("change", () => {
+      selectedValues.clear();
+      if (allInput.checked) {
+        values.forEach((value) => selectedValues.add(value));
+      }
+      targetRecommendationDraft[settingKey] = [...selectedValues];
+      syncCheckboxes();
+    });
+  }
+  container.querySelectorAll("input[data-filter-option]").forEach((input) => {
+    input.addEventListener("change", () => {
+      selectedValues.clear();
+      container.querySelectorAll("input[data-filter-option]:checked").forEach((checkedInput) => {
+        selectedValues.add(convertValue(checkedInput.value));
+      });
+      targetRecommendationDraft[settingKey] = [...selectedValues];
+      syncCheckboxes();
+    });
+  });
+}
+function targetRenderRecommendationFeatureFilter() {
+  const container = targetElements.recommendationFeatureOptions;
+  if (!container || !targetRecommendationDraft) {
+    return;
+  }
+  const values = targetGetFeatureOptions();
+  const featureFilters = targetNormalizeRecommendationFeatureFilters(
+    targetRecommendationDraft.featureFilters,
+  );
+  values.forEach((feature) => {
+    if (!featureFilters[feature]) {
+      featureFilters[feature] = { include: true, exclude: true };
+    }
+  });
+  targetRecommendationDraft.featureFilters = featureFilters;
+
+  const fragment = document.createDocumentFragment();
+  const allLabel = document.createElement("label");
+  allLabel.className = "multi-filter__option multi-filter__option--all";
+  const allInput = document.createElement("input");
+  allInput.type = "checkbox";
+  allInput.dataset.recommendationFeatureAll = "true";
+  const allText = document.createElement("span");
+  allText.textContent = "all";
+  allLabel.append(allInput, allText);
+  fragment.append(allLabel);
+
+  for (const feature of values) {
+    const row = document.createElement("div");
+    row.className = "multi-filter__option feature-filter__option";
+    const name = document.createElement("span");
+    name.className = "feature-filter__name";
+    name.textContent = feature;
+    row.append(name);
+     for (const [mode, labelText] of [["include", "含む"], ["exclude", "含まない"]]) {
+      const label = document.createElement("label");
+      label.className = "feature-filter__mode";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.dataset.recommendationFeatureMode = mode;
+      checkbox.dataset.recommendationFeatureValue = feature;
+      checkbox.checked = featureFilters[feature][mode];
+      const text = document.createElement("span");
+      text.textContent = labelText;
+      label.append(checkbox, text);
+      row.append(label);
+
+      checkbox.addEventListener("change", () => {
+        featureFilters[feature][mode] = checkbox.checked;
+        syncCheckboxes();
+      });
+    }
+    fragment.append(row);
+  }
+
+  const syncCheckboxes = () => {
+    allInput.checked = values.every((feature) => {
+      const setting = featureFilters[feature];
+      return setting?.include === true && setting?.exclude === true;
+    });
+    container.querySelectorAll("input[data-recommendation-feature-mode]").forEach((input) => {
+      const setting = featureFilters[input.dataset.recommendationFeatureValue];
+      input.checked = setting?.[input.dataset.recommendationFeatureMode] === true;
+    });
+  };
+
+  container.replaceChildren(fragment);
+  syncCheckboxes();
+  allInput.addEventListener("change", () => {
+    values.forEach((feature) => {
+      featureFilters[feature].include = allInput.checked;
+      featureFilters[feature].exclude = allInput.checked;
+    });
+    syncCheckboxes();
+  });
+}
+function targetUpdateRecommendationInputs() {
+  if (!targetRecommendationDraft) {
+    return;
+  }
+  targetElements.recommendationCount.value = String(targetRecommendationDraft.count);
+}
+
+function targetRenderRecommendationSettings() {
+  if (!targetRecommendationDraft) {
+    targetRecommendationDraft = targetCloneRecommendationSettings(targetState.recommendationSettings);
+  }
+  targetUpdateRecommendationInputs();
+  targetRenderRecommendationFilter({
+    container: targetElements.recommendationDifficultyOptions,
+    summary: targetElements.recommendationDifficultySummary,
+    options: targetRecommendationDifficultyValues.map((value) => ({
+      value,
+      label: targetRecommendationReasonLabels[value],
+    })),
+    settingKey: "difficultyReasons",
+    includeAll: false,
+  });
+  targetRenderRecommendationFilter({
+    container: targetElements.recommendationFeatureReasonOptions,
+    summary: targetElements.recommendationFeatureReasonSummary,
+    options: targetRecommendationFeatureReasonValues.map((value) => ({
+      value,
+      label: targetRecommendationFeatureLabels[value],
+    })),
+    settingKey: "featureReasons",
+    includeAll: false,
+  });
+  targetRenderRecommendationFeatureFilter();
+  targetRenderRecommendationFilter({
+    container: targetElements.recommendationGoalOptions,
+    summary: null,
+    options: targetGoalStatuses,
+    settingKey: "targetGoals",
+    includeAll: false,
+  });
+
+}
+
+function targetCommitRecommendationCount() {
+  if (!targetRecommendationDraft) {
+    return;
+  }
+  targetRecommendationDraft.count = targetNormalizeRecommendationCount(
+    targetElements.recommendationCount.value,
+  );
+  targetUpdateRecommendationInputs();
+}
+function targetOpenRecommendationSettings() {
+  targetRecommendationDraft = targetCloneRecommendationSettings(targetState.recommendationSettings);
+  targetRenderRecommendationSettings();
+  targetElements.autoSettingsOverlay.hidden = false;
+  targetElements.autoSettingsPanel.hidden = false;
+  document.body.classList.add("target-settings-modal-open");
+  targetElements.autoSettingsButton?.setAttribute("aria-expanded", "true");
+  targetSetRecommendationSettingsMessage("");
+}
+
+function targetCloseRecommendationSettings() {
+  targetElements.autoSettingsOverlay.hidden = true;
+  targetElements.autoSettingsPanel.hidden = true;
+  document.body.classList.remove("target-settings-modal-open");
+  targetElements.autoSettingsButton?.setAttribute("aria-expanded", "false");
+  targetRecommendationDraft = null;
+}
+
+function targetSaveRecommendationSettings() {
+  const draft = targetRecommendationDraft
+    ? targetCloneRecommendationSettings(targetRecommendationDraft)
+    : targetCloneRecommendationSettings(targetState.recommendationSettings);
+  draft.count = targetNormalizeRecommendationCount(targetElements.recommendationCount.value);
+  if (draft.targetGoals.length === 0
+    && !window.confirm("マイターゲットに曲が表示されなくなります。よろしいですか？")) {
+    return;
+  }
+  try {
+    window.localStorage?.setItem(targetRecommendationSettingsKey, JSON.stringify(draft));
+    targetState.recommendationSettings = targetCloneRecommendationSettings(draft);
+    targetRecommendationDraft = targetCloneRecommendationSettings(draft);
+    targetRenderRecommendationSettings();
+    targetState.autoRecommendationsInitialized = false;
+    targetRender();
+    window.dispatchEvent(new Event("cpi:recommendation-settings-changed"));
+    targetSetRecommendationSettingsMessage("自動リコメンド設定を保存しました。");
+  } catch (error) {
+    targetSetRecommendationSettingsMessage("自動リコメンド設定を保存できませんでした。", true);
+  }
+}
+
+function targetResetRecommendationSettings() {
+  targetRecommendationDraft = targetGetDefaultRecommendationSettings();
+  targetRenderRecommendationSettings();
+  targetSetRecommendationSettingsMessage("設定をデフォルトに戻しました。");
+}
+
 function targetShuffleRows(rows) {
   const shuffled = [...rows];
   for (let index = shuffled.length - 1; index > 0; index -= 1) {
@@ -1258,6 +1837,87 @@ function targetFitBaseModel(observations, mode = "normal") {
   return { intercept, slope, center, scale };
 }
 
+
+function targetApplyCalculationClearRules(observations, modelsByMode = new Map()) {
+  const highestClearPredByMode = new Map();
+  observations.forEach((observation) => {
+    if (observation.outcome !== 1) {
+      return;
+    }
+    const modeKey = observation.mode ?? targetPredModes.normal.key;
+    const highest = highestClearPredByMode.get(modeKey);
+    if (!Number.isFinite(highest) || observation.pred > highest) {
+      highestClearPredByMode.set(modeKey, observation.pred);
+    }
+  });
+
+  return observations.map((observation) => {
+    const modeKey = observation.mode ?? targetPredModes.normal.key;
+    const highestClearPred = highestClearPredByMode.get(modeKey);
+    let outcome = observation.outcome;
+    if (outcome === 0
+      && Number.isFinite(highestClearPred)
+      && observation.pred < highestClearPred - 2) {
+      outcome = 1;
+    }
+    const model = modelsByMode.get(modeKey);
+    if (outcome === 0 && model) {
+      const normalizedPred = (observation.pred - model.center) / model.scale;
+      const probability = targetSigmoid(model.intercept + model.slope * normalizedPred);
+      if (probability >= 0.95) {
+        outcome = 1;
+      }
+    }
+    if (outcome === observation.outcome) {
+      return observation;
+    }
+    return { ...observation, outcome, calculationOnlyClear: true };
+  });
+}
+
+function targetGetPredModeNameFromKey(modeKey) {
+  const entry = Object.entries(targetPredModes)
+    .find(([, definition]) => definition.key === modeKey);
+  return entry?.[0] ?? "normal";
+}
+
+function targetFitPreliminaryModels(observations) {
+  const grouped = new Map();
+  observations.forEach((observation) => {
+    const modeKey = observation.mode ?? targetPredModes.normal.key;
+    const group = grouped.get(modeKey) ?? [];
+    group.push(observation);
+    grouped.set(modeKey, group);
+  });
+  const modelsByMode = new Map();
+  grouped.forEach((group, modeKey) => {
+    const observedChartCount = new Set(group.map(({ row }) => String(row.chart_id ?? ""))).size;
+    const clearObservations = group.filter(({ outcome }) => outcome === 1);
+    const notClearObservations = group.filter(({ outcome }) => outcome === 0);
+    if (observedChartCount < 5 || clearObservations.length === 0 || notClearObservations.length === 0) {
+      return;
+    }
+    const clearAverage = clearObservations.reduce((sum, { pred }) => sum + pred, 0) / clearObservations.length;
+    const notClearAverage = notClearObservations.reduce((sum, { pred }) => sum + pred, 0) / notClearObservations.length;
+    if (clearAverage > notClearAverage) {
+      return;
+    }
+    const mode = targetGetPredModeNameFromKey(modeKey);
+    const model = targetFitBaseModel(group, mode);
+    if (model) {
+      modelsByMode.set(modeKey, model);
+    }
+  });
+  return modelsByMode;
+}
+
+function targetPreparePredObservations(mode = "normal") {
+  const rawObservations = targetGetPredObservations(mode);
+  const thresholdedObservations = targetApplyCalculationClearRules(rawObservations);
+  const preliminaryModels = targetFitPreliminaryModels(thresholdedObservations);
+  return targetApplyCalculationClearRules(rawObservations, preliminaryModels);
+}
+
 function targetGetFeatureVector(row) {
   const vector = new Array(targetFeatureNames.length).fill(0);
   targetGetFeatureDetails(row).forEach((feature) => {
@@ -1381,21 +2041,38 @@ function targetGetAdjustedPred(row, mode = "normal") {
 }
 
 
-function targetGetExpectedClearProbability(row, mode = "normal") {
+function targetGetRecommendationModel(mode = "normal") {
   const modeModel = targetState.modelsByMode[mode] ?? null;
-  const model = modeModel ?? targetState.model;
+  return modeModel ?? targetState.model;
+}
+
+function targetGetRecommendationAppropriatePred(mode = "normal") {
+  const model = targetGetRecommendationModel(mode);
+  if (!model
+    || !Number.isFinite(model.center)
+    || !Number.isFinite(model.scale)
+    || !Number.isFinite(model.intercept)
+    || !Number.isFinite(model.slope)
+    || model.slope === 0) {
+    return null;
+  }
+  return model.center + (-model.intercept / model.slope) * model.scale;
+}
+
+function targetGetExpectedClearProbability(row, mode = "normal", adjustedPredOverride = null) {
+  const model = targetGetRecommendationModel(mode);
   if (!model) {
     return null;
   }
-  const adjustedPred = targetGetAdjustedPred(row, mode);
+  const adjustedPred = adjustedPredOverride ?? targetGetAdjustedPred(row, mode);
   const normalizedPred = (adjustedPred - model.center) / model.scale;
   return targetSigmoid(model.intercept + model.slope * normalizedPred);
 }
 function targetRecalculateModel() {
-  const overallObservations = targetGetPredObservations("overall");
+  const overallObservations = targetPreparePredObservations("overall");
   targetState.model = targetFitBaseModel(overallObservations, "overall");
   targetState.modelsByMode = Object.fromEntries(
-    Object.keys(targetPredModes).map((mode) => [mode, targetFitBaseModel(targetGetPredObservations(mode), mode)]),
+    Object.keys(targetPredModes).map((mode) => [mode, targetFitBaseModel(targetPreparePredObservations(mode), mode)]),
   );
   targetState.deltas = targetFitFeatureDeltas(overallObservations, targetState.model);
   targetState.adjustedPredById = new Map();
@@ -1415,10 +2092,17 @@ function targetRecalculateModel() {
   targetSetAdjustedPredBounds();
 }
 function targetGetAvailability() {
-  const observations = targetGetPredObservations("overall");
-  const chartCount = new Set(observations.map((observation) => String(observation.row?.chart_id ?? "").trim())).size;
-  const clearCount = observations.filter((observation) => observation.outcome === 1).length;
-  const notClearCount = observations.filter((observation) => observation.outcome === 0).length;
+  // Unlocking is based on saved registrations, not only rows still present in
+  // the current chart data. Missing chart data is reported separately.
+  const registeredRecords = [...targetState.records.entries()]
+    .map(([chartId, record]) => ({
+      chartId: String(chartId ?? "").trim(),
+      status: String(record?.status ?? "").trim().toLowerCase(),
+    }))
+    .filter(({ status }) => targetClearStatuses.has(status) || targetNotClearStatuses.has(status));
+  const chartCount = registeredRecords.length;
+  const clearCount = registeredRecords.filter(({ status }) => targetClearStatuses.has(status)).length;
+  const notClearCount = registeredRecords.filter(({ status }) => targetNotClearStatuses.has(status)).length;
   return {
     available: chartCount >= 10 && clearCount >= 3 && notClearCount >= 3,
     observationCount: chartCount,
@@ -1447,7 +2131,7 @@ function targetUpdateMissingDataMessage() {
   message.hidden = count === 0;
   message.textContent = count === 0
     ? ""
-    : "譜面データなし: " + count.toLocaleString() + "譜面。保存されたクリアランプ・手動メモは保持されていますが、現在の譜面データがないため、表・Pred推定・リコメンドの対象外です。";
+     : "未登録データ " + count.toLocaleString() + "件が見つかりません。保存されたクリアランプ・手動メモは保持されていますが、現在の譜面データがないため、表・Pred判定・リコメンドの対象外です。";
 }
 
 function targetCanShowContent() {
@@ -1477,38 +2161,81 @@ function targetUpdateAvailability() {
   const availability = targetGetAvailability();
   targetUpdateMissingDataMessage();
   const available = availability.available;
+  const dailyRoute = window.location.hash === "#daily";
   if (!available) {
-    targetElements.insufficientMessageText.textContent = "あとクリア" + availability.clearShortage.toLocaleString() + "件、未クリア" + availability.notClearShortage.toLocaleString() + "件、全体" + availability.totalShortage.toLocaleString() + "件登録で、マイターゲット機能が解禁されます。";
+     targetElements.insufficientMessageText.textContent = "あとクリア" + availability.clearShortage.toLocaleString() + "件、未クリア" + availability.notClearShortage.toLocaleString() + "件、合計" + availability.totalShortage.toLocaleString() + "件登録で、マイターゲットが利用可能になります。";
   }
-  targetElements.content.hidden = !available;
-  targetElements.insufficientMessage.hidden = available;
+  targetElements.content.hidden = !(available || dailyRoute);
+  targetElements.insufficientMessage.hidden = available || dailyRoute;
   if (available && !targetState.targetWasAvailable) {
     targetTrackUnlockEvent(availability);
   }
   targetState.targetWasAvailable = available;
 }
 
+function targetEnsureDatabaseStores(database) {
+  if (!database.objectStoreNames.contains(targetStoreName)) {
+    database.createObjectStore(targetStoreName, { keyPath: "chartId" });
+  }
+  if (!database.objectStoreNames.contains(targetManualMemoStoreName)) {
+    database.createObjectStore(targetManualMemoStoreName, { keyPath: "chartId" });
+  }
+  if (!database.objectStoreNames.contains(targetDailyTargetsStoreName)) {
+    database.createObjectStore(targetDailyTargetsStoreName, { keyPath: "date" });
+  }
+}
+
+function targetDatabaseHasRequiredStores(database) {
+  return [
+    targetStoreName,
+    targetManualMemoStoreName,
+    targetDailyTargetsStoreName,
+  ].every((storeName) => database.objectStoreNames.contains(storeName));
+}
+
 function targetOpenDatabase() {
   return new Promise((resolve, reject) => {
     if (!window.indexedDB) {
-      reject(new Error("IndexedDB is not available"));
+      reject(new Error("ローカル保存を開けませんでした。"));
       return;
     }
-    const request = window.indexedDB.open(targetDatabaseName, targetDatabaseVersion);
-    request.onupgradeneeded = () => {
-      const database = request.result;
-      if (!database.objectStoreNames.contains(targetStoreName)) {
-        database.createObjectStore(targetStoreName, { keyPath: "chartId" });
-      }
-      if (!database.objectStoreNames.contains(targetManualMemoStoreName)) {
-        database.createObjectStore(targetManualMemoStoreName, { keyPath: "chartId" });
-      }
-      if (!database.objectStoreNames.contains(targetDailyTargetsStoreName)) {
-        database.createObjectStore(targetDailyTargetsStoreName, { keyPath: "date" });
-      }
+
+    const rejectRequest = (request, fallbackMessage) => {
+      reject(request.error ?? new Error(fallbackMessage));
     };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("Unable to open IndexedDB"));
+
+    const openAtCurrentVersion = () => {
+      const request = window.indexedDB.open(targetDatabaseName);
+      request.onupgradeneeded = () => {
+        targetEnsureDatabaseStores(request.result);
+      };
+      request.onsuccess = () => {
+        const database = request.result;
+        database.onversionchange = () => database.close();
+        if (targetDatabaseHasRequiredStores(database)) {
+          resolve(database);
+          return;
+        }
+
+        const nextVersion = Math.max(database.version + 1, targetDatabaseVersion);
+        database.close();
+        const upgradeRequest = window.indexedDB.open(targetDatabaseName, nextVersion);
+        upgradeRequest.onupgradeneeded = () => {
+          targetEnsureDatabaseStores(upgradeRequest.result);
+        };
+        upgradeRequest.onsuccess = () => {
+          const upgradedDatabase = upgradeRequest.result;
+          upgradedDatabase.onversionchange = () => upgradedDatabase.close();
+          resolve(upgradedDatabase);
+        };
+        upgradeRequest.onerror = () => rejectRequest(upgradeRequest, "ローカル保存を開けませんでした。");
+        upgradeRequest.onblocked = () => reject(new Error("ローカル保存が別の画面で使用中です。"));
+      };
+      request.onerror = () => rejectRequest(request, "ローカル保存を開けませんでした。");
+      request.onblocked = () => reject(new Error("ローカル保存が別の画面で使用中です。"));
+    };
+
+    openAtCurrentVersion();
   });
 }
 
@@ -1524,8 +2251,8 @@ function targetReadAllRecords() {
 function targetApplyRecords(records) {
   targetState.records = new Map();
   records.forEach((record) => {
-    const chartId = String(record?.chartId ?? "").trim();
-    const status = String(record?.status ?? "").toLowerCase();
+    const chartId = String(record?.chartId ?? record?.chart_id ?? "").trim();
+    const status = String(record?.status ?? record?.clearType ?? "").trim().toLowerCase();
     if (/^\d+$/.test(chartId) && targetStatusValues.has(status)) {
       targetState.records.set(chartId, { ...(record ?? {}), chartId, status });
     }
@@ -1549,10 +2276,26 @@ function targetApplyManualMemos(memos) {
   );
 }
 
+async function targetRefreshFromExternalDataChange(event) {
+  if (event.detail?.source !== "daily-target" || !targetState.db) return;
+  try {
+    targetApplyRecords(await targetReadAllRecords());
+    targetApplyManualMemos(await targetReadAllManualMemos());
+    targetRecalculateModel();
+    targetUpdateAvailability();
+    targetState.autoRecommendationsInitialized = false;
+    targetRender();
+  } catch (error) {
+    console.warn("外部画面のデータ更新を反映できませんでした。", error);
+  }
+}
+
+window.addEventListener("cpi:status-changed", targetRefreshFromExternalDataChange);
+window.addEventListener("cpi:manual-memo-changed", targetRefreshFromExternalDataChange);
 function targetWriteManualMemo(chartId, registered) {
   return new Promise((resolve, reject) => {
     if (!targetState.db) {
-      reject(new Error("ローカル保存を開けませんでした。"));
+       reject(new Error("ローカル保存を開けませんでした。"));
       return;
     }
     const transaction = targetState.db.transaction(targetManualMemoStoreName, "readwrite");
@@ -1562,9 +2305,14 @@ function targetWriteManualMemo(chartId, registered) {
     } else {
       store.delete(chartId);
     }
-    transaction.oncomplete = resolve;
+    transaction.oncomplete = () => {
+      resolve();
+      window.dispatchEvent(new CustomEvent("cpi:manual-memo-changed", {
+        detail: { source: "target", chartId, registered },
+      }));
+    };
     transaction.onerror = () => reject(
-      transaction.error ?? new Error("手動メモを保存できませんでした。"),
+       transaction.error ?? new Error("手動メモを保存できませんでした。"),
     );
   });
 }
@@ -1572,7 +2320,7 @@ function targetWriteManualMemo(chartId, registered) {
 function targetWriteStatus(chartId, status) {
   return new Promise((resolve, reject) => {
     if (!targetState.db) {
-      reject(new Error("ローカル保存を開けませんでした。"));
+       reject(new Error("ローカル保存を開けませんでした。"));
       return;
     }
     const transaction = targetState.db.transaction(targetStoreName, "readwrite");
@@ -1582,9 +2330,14 @@ function targetWriteStatus(chartId, status) {
     } else {
       store.put({ chartId, status, updatedAt: new Date().toISOString() });
     }
-    transaction.oncomplete = resolve;
+    transaction.oncomplete = () => {
+      resolve();
+      window.dispatchEvent(new CustomEvent("cpi:status-changed", {
+        detail: { source: "target", chartId, status },
+      }));
+    };
     transaction.onerror = () => reject(
-      transaction.error ?? new Error("記録を保存できませんでした。"),
+       transaction.error ?? new Error("記録を保存できませんでした。"),
     );
   });
 }
@@ -1648,7 +2401,7 @@ async function targetHandleStatusChange(event) {
   } catch (error) {
     select.value = previousStatus;
     targetUpdateStatusSelect(select);
-    targetShowError(error.message || "記録を保存できませんでした。");
+     targetShowError(error.message || "データを保存できませんでした。");
   } finally {
     select.disabled = false;
   }
@@ -1701,7 +2454,7 @@ async function targetHandleManualMemoChange(event) {
     targetShowError("");
   } catch (error) {
     checkbox.checked = previousValue;
-    targetShowError(error.message || "手動メモを保存できませんでした。");
+     targetShowError(error.message || "データを保存できませんでした。");
   } finally {
     checkbox.disabled = false;
   }
@@ -1710,11 +2463,34 @@ async function targetHandleManualMemoChange(event) {
 function targetInitializeElements() {
   targetElements.autoNotice = document.getElementById("targetAutoNotice");
   targetElements.autoNoticeClose = document.getElementById("targetAutoNoticeClose");
+  targetElements.autoNoticeSettings = document.getElementById("targetAutoNoticeSettings");
+  targetElements.autoSettingsButton = document.getElementById("targetAutoSettingsButton");
+  targetElements.autoSettingsOverlay = document.getElementById("targetAutoSettingsOverlay");
+  targetElements.autoSettingsPanel = document.getElementById("targetAutoSettingsPanel");
+  targetElements.autoSettingsClose = document.getElementById("targetAutoSettingsCloseButton");
+  targetElements.autoSettingsMessage = document.getElementById("targetAutoSettingsMessage");
+  // Keep the fixed modal outside the filtered page panel so it is positioned against the viewport.
+  if (targetElements.autoSettingsOverlay && targetElements.autoSettingsOverlay.parentElement !== document.body) {
+    document.body.appendChild(targetElements.autoSettingsOverlay);
+  }
+  targetElements.recommendationDifficultyOptions = document.getElementById("targetRecommendationDifficultyOptions");
+  targetElements.recommendationDifficultySummary = document.getElementById("targetRecommendationDifficultySummary");
+  targetElements.recommendationFeatureReasonOptions = document.getElementById("targetRecommendationFeatureReasonOptions");
+  targetElements.recommendationFeatureReasonSummary = document.getElementById("targetRecommendationFeatureReasonSummary");
+  targetElements.recommendationFeatureOptions = document.getElementById("targetRecommendationFeatureOptions");
+  targetElements.recommendationGoalOptions = document.getElementById("targetRecommendationGoalOptions");
+  targetElements.recommendationFeatureSummary = document.getElementById("targetRecommendationFeatureSummary");
+  targetElements.recommendationCount = document.getElementById("targetRecommendationCount");
+  targetElements.recommendationSave = document.getElementById("targetRecommendationSaveButton");
+  targetElements.recommendationReset = document.getElementById("targetRecommendationResetButton");
   targetElements.autoEmpty = document.getElementById("targetAutoEmpty");
   targetElements.autoRowCount = document.getElementById("targetAutoRowCount");
   targetElements.autoRegenerate = document.getElementById("targetAutoRegenerateButton");
-  targetElements.autoTableShell = document.getElementById("targetAutoTableShell");
-  targetElements.autoTableBody = document.getElementById("targetAutoTableBody");
+  targetElements.autoCards = document.getElementById("targetAutoCards");
+
+
+
+
   targetElements.searchInput = document.getElementById("targetSearchInput");
   targetElements.statusMenu = document.getElementById("targetStatusFilterMenu");
   targetElements.statusSummary = document.getElementById("targetStatusFilterSummary");
@@ -1752,7 +2528,7 @@ function targetPopulateFilters() {
   const difficulties = targetGetDifficultyOptions();
   targetState.levelFilter = new Set(levels);
   targetState.difficultyFilter = new Set(difficulties);
-  targetFillMultiFilterOptions(targetElements.levelMenu, levels, "levelFilter", (value) => "☆" + value, targetElements.levelSummary);
+   targetFillMultiFilterOptions(targetElements.levelMenu, levels, "levelFilter", (value) => "☆" + value, targetElements.levelSummary);
   targetFillMultiFilterOptions(targetElements.difficultyMenu, difficulties, "difficultyFilter", (value) => targetDifficultyLabels[value] ?? value, targetElements.difficultySummary);
   targetFillMultiFilterOptions(
     targetElements.statusMenu,
@@ -1783,9 +2559,62 @@ function targetBindEvents() {
   if (targetElements.autoNoticeClose) {
     targetElements.autoNoticeClose.addEventListener("click", targetDismissAutoRecommendationNotice);
   }
+  if (targetElements.autoNoticeSettings) {
+    targetElements.autoNoticeSettings.addEventListener("click", (event) => {
+      event.preventDefault();
+      targetOpenRecommendationSettings();
+    });
+  }
+  if (targetElements.autoSettingsOverlay) {
+    document.addEventListener("click", (event) => {
+      const settingsButton = event.target.closest?.("#targetAutoSettingsButton");
+      if (!settingsButton) {
+        return;
+      }
+      targetElements.autoSettingsButton = settingsButton;
+      if (targetElements.autoSettingsOverlay.hidden) {
+        targetOpenRecommendationSettings();
+      } else {
+        targetCloseRecommendationSettings();
+      }
+    });
+  }
+  if (targetElements.autoSettingsClose) {
+    targetElements.autoSettingsClose.addEventListener("click", targetCloseRecommendationSettings);
+  }
+  if (targetElements.autoNoticeSettings) {
+    targetElements.autoNoticeSettings.addEventListener("click", (event) => {
+      event.preventDefault();
+      targetOpenRecommendationSettings();
+    });
+  }
+  if (targetElements.autoSettingsOverlay) {
+    targetElements.autoSettingsOverlay.addEventListener("click", (event) => {
+      if (event.target === targetElements.autoSettingsOverlay) {
+        targetCloseRecommendationSettings();
+      }
+    });
+  }
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && targetElements.autoSettingsOverlay && !targetElements.autoSettingsOverlay.hidden) {
+      targetCloseRecommendationSettings();
+    }
+  });
+  if (targetElements.recommendationSave) {
+    targetElements.recommendationSave.addEventListener("click", targetSaveRecommendationSettings);
+  }
+  if (targetElements.recommendationReset) {
+    targetElements.recommendationReset.addEventListener("click", targetResetRecommendationSettings);
+  }
+
+
+  if (targetElements.recommendationCount) {
+    targetElements.recommendationCount.addEventListener("change", targetCommitRecommendationCount);
+  }
   targetElements.autoRegenerate.addEventListener("click", () => {
     targetGenerateAutoRecommendations();
     targetRender();
+    targetElements.autoCards?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
   targetElements.searchInput.addEventListener("input", () => {
     targetState.searchQuery = targetElements.searchInput.value.trim().toLocaleLowerCase("ja");
@@ -1807,12 +2636,12 @@ function targetBindEvents() {
   document.querySelectorAll(".target-table thead button[data-sort-key]").forEach((button) => {
     button.addEventListener("click", () => targetSetSort(button.dataset.sortKey));
   });
-  targetElements.autoTableBody.addEventListener("change", targetHandleStatusChange);
-  targetElements.autoTableBody.addEventListener("change", targetHandleGoalChange);
+  if (targetElements.autoCards) {
+
+    targetElements.autoCards.addEventListener("change", targetHandleStatusChange);
+  }
   targetElements.tableBody.addEventListener("change", targetHandleGoalChange);
   targetElements.manualTableBody.addEventListener("change", targetHandleGoalChange);
-
-  targetElements.autoTableBody.addEventListener("change", targetHandleManualMemoChange);
   targetElements.tableBody.addEventListener("change", targetHandleStatusChange);
   targetElements.tableBody.addEventListener("change", targetHandleManualMemoChange);
   targetElements.manualTableBody.addEventListener("change", targetHandleStatusChange);
@@ -1821,10 +2650,12 @@ function targetBindEvents() {
     targetState.visibleLimit += targetPageSize;
     targetRender();
   });
-  targetElements.scrollTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
-  window.addEventListener("scroll", () => {
-    targetElements.scrollTop.hidden = window.scrollY < 360;
-  }, { passive: true });
+  if (targetElements.scrollTop) {
+    targetElements.scrollTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+    window.addEventListener("scroll", () => {
+      targetElements.scrollTop.hidden = window.scrollY < 360;
+    }, { passive: true });
+  }
   window.addEventListener("resize", targetUpdateTableOverflow);
 }
 function targetSetPredBounds() {
@@ -1874,41 +2705,64 @@ async function targetInitialize() {
     targetElements.autoNotice.hidden = targetReadAutoRecommendationNoticeDismissed();
   }
   targetState.recommendationSettings = targetReadRecommendationSettings();
+  targetRecommendationDraft = targetCloneRecommendationSettings(targetState.recommendationSettings);
+  targetRenderRecommendationSettings();
   targetState.statusFilter = new Set(targetDefaultStatusFilter);
   targetSetupFilterDetails();
   try {
     if (typeof window.__CSV_BUNDLE__ !== "string") {
-      throw new Error("データを読み込めませんでした。");
+       throw new Error("データを読み込めませんでした。");
     }
     targetState.rows = targetNormalizeRows(targetParseCsv(window.__CSV_BUNDLE__));
     targetState.rowsByChartId = new Map(targetState.rows.map((row) => [String(row.chart_id), row]));
     targetSetPredBounds();
     targetPopulateFilters();
+    targetRenderRecommendationSettings();
     targetBindEvents();
     targetRecalculateModel();
     targetUpdateAvailability();
     targetRender();
   } catch (error) {
-    targetShowError(error instanceof Error ? error.message : "データを読み込めませんでした。");
+     targetShowError(error instanceof Error ? error.message : "データを読み込めませんでした。");
     return;
   }
 
+  let storageError = null;
   try {
     targetState.db = await targetOpenDatabase();
-    targetApplyRecords(await targetReadAllRecords());
-    targetApplyManualMemos(await targetReadAllManualMemos());
+    window.dispatchEvent(new Event("cpi:target-storage-ready"));
+    try {
+      targetApplyRecords(await targetReadAllRecords());
+    } catch (error) {
+      storageError = error;
+      targetState.records = new Map();
+    }
+    try {
+      targetApplyManualMemos(await targetReadAllManualMemos());
+    } catch (error) {
+      storageError = storageError ?? error;
+      targetState.manualMemoIds = new Set();
+    }
+  } catch (error) {
+    storageError = error;
+    targetState.records = new Map();
+    targetState.manualMemoIds = new Set();
+  }
+
+  try {
     targetRecalculateModel();
     targetUpdateAvailability();
     targetRender();
   } catch (error) {
-    targetState.records = new Map();
-    targetRecalculateModel();
-    targetUpdateAvailability();
-    targetRender();
+    console.error("マイターゲットの表示更新に失敗しました。", error, storageError);
+    targetShowError(error instanceof Error ? error.message : "マイターゲットを表示できませんでした。");
   }
 }
 
+window.addEventListener("cpi:target-mode-changed", targetUpdateAvailability);
+
 document.addEventListener("DOMContentLoaded", targetInitialize);
+
 
 
 

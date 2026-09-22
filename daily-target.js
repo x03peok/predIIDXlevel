@@ -622,6 +622,14 @@ function dailyShuffleRows(rows) {
 function dailyGetAutoFillCandidates() {
   const settings = dailyReadRecommendationSettings();
   dailyState.recommendationSettings = settings;
+  let sharedCandidateIds = null;
+  if (typeof targetGetAutoCandidateDetails === "function"
+    && typeof targetState !== "undefined"
+    && targetState.model) {
+    sharedCandidateIds = new Set(
+      targetGetAutoCandidateDetails().map(({ row }) => String(row.chart_id)),
+    );
+  }
   return dailyState.rows.filter((row) => {
     if (dailyState.selected.has(String(row.chartId))) return false;
     const status = dailyGetStatus(row.chartId);
@@ -629,10 +637,12 @@ function dailyGetAutoFillCandidates() {
     if (dailyGetGoalOptions(status).length === 0) return false;
     const goal = dailyGetDefaultGoal(status);
     if (!goal || !settings.targetGoals.includes(goal)) return false;
-    const probability = goal ? dailyGetExpectedClearProbability(row, dailyGetPredModeForGoal(goal)) : null;
+    if (sharedCandidateIds) return sharedCandidateIds.has(String(row.chartId));
+    const probability = dailyGetExpectedClearProbability(row, dailyGetPredModeForGoal(goal));
     if (probability === null) return false;
     const probabilityPercent = probability * 100;
-    return probabilityPercent >= settings.probabilityMin && probabilityPercent <= settings.probabilityMax;
+    return probabilityPercent >= (settings.probabilityMin ?? 40)
+      && probabilityPercent <= (settings.probabilityMax ?? 60);
   });
 }
 
@@ -1235,6 +1245,11 @@ function dailyReadRecords() {
   });
 }
 
+function dailyNotifyDataChange(type, chartId, status) {
+  window.dispatchEvent(new CustomEvent(type, {
+    detail: { source: "daily-target", chartId: String(chartId ?? ""), status },
+  }));
+}
 function dailyWriteStatus(chartId, status) {
   return new Promise((resolve, reject) => {
     const transaction = dailyState.database.transaction(dailyStatusStoreName, "readwrite");
@@ -1244,7 +1259,10 @@ function dailyWriteStatus(chartId, status) {
     } else {
       store.put({ chartId: String(chartId), status, updatedAt: new Date().toISOString() });
     }
-    transaction.oncomplete = resolve;
+    transaction.oncomplete = () => {
+      resolve();
+      dailyNotifyDataChange("cpi:status-changed", chartId, status);
+    };
     transaction.onerror = () => reject(transaction.error ?? new Error("記録を保存できませんでした。"));
     transaction.onabort = () => reject(transaction.error ?? new Error("記録を保存できませんでした。"));
   });
@@ -1329,7 +1347,22 @@ function dailyWriteToday(record) {
   });
 }
 
-function dailyOpenDatabase() {
+async function dailyOpenDatabase() {
+  if (typeof targetState !== "undefined" && targetState.db) {
+    return targetState.db;
+  }
+  if (typeof targetState !== "undefined") {
+    await new Promise((resolve) => {
+      if (targetState.db) {
+        resolve();
+        return;
+      }
+      const handleReady = () => resolve();
+      window.addEventListener("cpi:target-storage-ready", handleReady, { once: true });
+      window.setTimeout(resolve, 5000);
+    });
+    if (targetState.db) return targetState.db;
+  }
   return new Promise((resolve, reject) => {
     if (!window.indexedDB) {
       reject(new Error("このブラウザでは今日の10曲を保存できません。"));
@@ -1622,7 +1655,7 @@ async function dailyConfirmSelection() {
 }
 
 const dailyShareWeightedLimit = 275;
-const dailyShareUrl = "https://cpi-next.com/daily-target.html";
+const dailyShareUrl = "https://cpi-next.com/target.html#daily";
 const dailyShareUrlLength = 23;
 const dailyShareWeightedRanges = [
   [0x0000, 0x10ff],
@@ -1768,7 +1801,7 @@ function dailyBuildShareText({ includeAchievementMarkers = true } = {}) {
     "",
     ...lines.map((line) => line.prefix + line.title + line.suffix),
     "",
-    "https://cpi-next.com/daily-target.html",
+    "https://cpi-next.com/target.html#daily",
     "",
     "#CPINext",
   ].join("\n");
@@ -1783,7 +1816,7 @@ function dailyBuildShareText({ includeAchievementMarkers = true } = {}) {
     "",
     ...lines.map((line) => line.prefix + line.suffix),
     "",
-    "https://cpi-next.com/daily-target.html",
+    "https://cpi-next.com/target.html#daily",
     "",
     "#CPINext",
   ].join("\n");
@@ -1859,16 +1892,29 @@ function dailyBindEvents() {
   });
   dailyElements.share.addEventListener("click", dailyShare);
   dailyElements.abandon.addEventListener("click", dailyAbandonToday);
-  const refreshOnReturn = () => {
+  window.addEventListener("cpi:status-changed", (event) => {
+    if (event.detail?.source === "daily-target") return;
+    void dailyRefreshPersistedState();
+  });
+  window.addEventListener("cpi:manual-memo-changed", () => {
+    void dailyRefreshPersistedState();
+  });
+  window.addEventListener("cpi:recommendation-settings-changed", () => {
+    dailyState.recommendationSettings = dailyReadRecommendationSettings();
+    if (dailyState.ready && !dailyState.today) dailyRenderCandidateTable();
+  });
+  window.addEventListener("cpi:daily-target-visible", () => {
+    void dailyRefreshPersistedState();
+  });  const refreshOnReturn = () => {
     if (document.visibilityState === "visible") void dailyRefreshPersistedState();
   };
   document.addEventListener("visibilitychange", refreshOnReturn);
   window.addEventListener("focus", refreshOnReturn);
   window.addEventListener("pageshow", refreshOnReturn);
   window.addEventListener("scroll", () => {
-    dailyElements.scrollTop.hidden = window.scrollY < 360;
+    if (dailyElements.scrollTop) dailyElements.scrollTop.hidden = window.scrollY < 360;
   }, { passive: true });
-  dailyElements.scrollTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+  if (dailyElements.scrollTop) dailyElements.scrollTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
 }
 
 function dailyInitializeElements() {

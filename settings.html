@@ -28,11 +28,11 @@
   <!-- Google Analytics -->
   <script defer src="analytics.js?v=20260905-1"></script>
   <link rel="stylesheet" href="styles.css?v=20260916-2">
-  <link rel="stylesheet" href="settings.css?v=20260908-2">
+  <link rel="stylesheet" href="settings.css?v=20260908-3">
   <link rel="stylesheet" href="menu.css?v=20260904-2">
-  <script defer src="menu.js?v=20260916-1"></script>
+  <script defer src="menu.js?v=20260922-1"></script>
   <script defer src="status-toast.js?v=20260908-1"></script>
-  <script defer src="settings.js?v=20260908-5"></script>
+  <script defer src="settings.js?v=20260922-2"></script>
 </head>
 <body data-page="settings">
   <main class="app">
@@ -78,63 +78,10 @@
         <input id="settingsImportInput" type="file" accept="application/json,.json" hidden>
         <p id="settingsMessage" class="settings-message" role="status" aria-live="polite"></p>
 
-        <section class="settings-recommendation" aria-labelledby="settingsRecommendationTitle">
-          <h3 id="settingsRecommendationTitle">自動リコメンド設定</h3>
-          <p>「マイターゲット」の自動リコメンド、「今日の10曲」の自動選択の条件を設定できます。この条件に当てはまる譜面からランダムに選択されます。</p>
-          <div class="settings-recommendation-filters">
-            <div class="settings-number-filter settings-probability-range">
-              <span>期待クリア確率の範囲</span>
-              <div class="settings-probability-range__inputs">
-                <label class="settings-number-input-wrap">
-                  <input id="settingsRecommendationProbabilityMin" type="number" min="0" max="100" step="1" inputmode="numeric" value="40" aria-label="期待クリア確率の下限">
-                  <span>%</span>
-                </label>
-                <span class="settings-probability-range__separator" aria-hidden="true">～</span>
-                <label class="settings-number-input-wrap">
-                  <input id="settingsRecommendationProbabilityMax" type="number" min="0" max="100" step="1" inputmode="numeric" value="60" aria-label="期待クリア確率の上限">
-                  <span>%</span>
-                </label>
-              </div>
-            </div>
-            <div class="multi-filter settings-recommendation-filter">
-              <span>Level</span>
-              <details id="settingsRecommendationLevelDetails" class="multi-filter__details">
-                <summary id="settingsRecommendationLevelSummary">all</summary>
-                <div id="settingsRecommendationLevelOptions" class="multi-filter__options"></div>
-              </details>
-            </div>
-            <div class="multi-filter settings-recommendation-filter">
-              <span>Status</span>
-              <details id="settingsRecommendationStatusDetails" class="multi-filter__details">
-                <summary id="settingsRecommendationStatusSummary">NO PLAY, FAILED, ASSISTED, EASY</summary>
-                <div id="settingsRecommendationStatusOptions" class="multi-filter__options"></div>
-              </details>
-            </div>
-            <label class="settings-number-filter settings-recommendation-count">
-              <span>表示件数</span>
-              <select id="settingsRecommendationCount">
-                <option value="5">5</option>
-                <option value="10" selected>10</option>
-                <option value="20">20</option>
-              </select>
-            </label>
-          </div>
-          <div class="settings-recommendation-actions">
-            <button id="settingsRecommendationSaveButton" class="settings-button settings-button--primary" type="button">保存</button>
-            <button id="settingsRecommendationResetButton" class="settings-button settings-button--secondary" type="button">デフォルトに戻す</button>
-          </div>
-          <section class="settings-target-settings" aria-labelledby="settingsTargetHeading">
-            <h3 id="settingsTargetHeading">ターゲット設定</h3>
-            <p>マイターゲットと「今日の10曲」に含める目標ランプを選択できます。</p>
-            <div class="settings-target-goals">
-              <span>ターゲットに含むランプ</span>
-              <div id="settingsTargetGoalOptions" class="settings-status-options"></div>
-            </div>
-            <div class="settings-recommendation-actions settings-target-actions">
-              <button id="settingsTargetSaveButton" class="settings-button settings-button--primary" type="button">保存</button>
-              <button id="settingsTargetResetButton" class="settings-button settings-button--secondary" type="button">デフォルトに戻す</button>
-            </div>
-          </section>
+        <section class="settings-recommendation settings-recommendation--moved" aria-labelledby="settingsRecommendationTitle">
+          <h3 id="settingsRecommendationTitle">自動リコメンド・ターゲット設定</h3>
+          <p>自動リコメンドとターゲットの設定は、マイターゲットの自動リコメンドタブにある歯車から変更できます。</p>
+          <p><a class="settings-moved-link" href="target.html">マイターゲットで設定を開く</a></p>
         </section>
 
       </div>

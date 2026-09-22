@@ -105,7 +105,31 @@
     grid-template-columns: 1fr;
   }
 }
-.settings-recommendation {
+.settings-recommendation {.settings-recommendation--moved p {
+  max-width: 58ch;
+}
+
+.settings-moved-link {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border: 1px solid rgba(37, 99, 235, 0.34);
+  border-radius: 11px;
+  background: rgba(219, 234, 254, 0.72);
+  color: #1d4ed8;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.settings-moved-link:hover,
+.settings-moved-link:focus-visible {
+  background: rgba(191, 219, 254, 0.9);
+  color: #1e40af;
+}
+
   margin-top: 24px;
   padding-top: 20px;
   border-top: 1px solid var(--line);

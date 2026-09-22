@@ -4,9 +4,8 @@ function targetSetupRecommendationTabs() {
   const highlights = document.querySelector("#targetContent .target-highlights");
   const autoPanel = document.getElementById("targetAutoPanel");
   const manualPanel = document.getElementById("targetManualPanel");
-  if (!highlights || !autoPanel || !manualPanel || document.getElementById("targetAutoTab")) {
-    return;
-  }
+  const dailyPanel = document.getElementById("targetDailyPanel");
+  if (!highlights || !autoPanel || !manualPanel || !dailyPanel || document.getElementById("targetAutoTab")) return;
 
   const switcher = document.createElement("div");
   switcher.className = "target-mode-switch";
@@ -15,32 +14,48 @@ function targetSetupRecommendationTabs() {
   switcher.innerHTML = [
     '<button id="targetAutoTab" class="target-mode-switch__button is-active" type="button" role="tab" aria-selected="true" aria-controls="targetAutoPanel">自動リコメンド</button>',
     '<button id="targetManualTab" class="target-mode-switch__button" type="button" role="tab" aria-selected="false" aria-controls="targetManualPanel">手動メモ</button>',
+    '<button id="targetDailyTab" class="target-mode-switch__button" type="button" role="tab" aria-selected="false" aria-controls="targetDailyPanel">今日の10曲</button>',
   ].join("");
   highlights.parentNode.insertBefore(switcher, highlights);
 
-  autoPanel.classList.add("target-mode-panel");
-  manualPanel.classList.add("target-mode-panel");
-  autoPanel.setAttribute("role", "tabpanel");
+  [autoPanel, manualPanel, dailyPanel].forEach((panel) => {
+    panel.classList.add("target-mode-panel");
+    panel.setAttribute("role", "tabpanel");
+  });
   autoPanel.setAttribute("aria-labelledby", "targetAutoTab");
-  manualPanel.setAttribute("role", "tabpanel");
   manualPanel.setAttribute("aria-labelledby", "targetManualTab");
+  dailyPanel.setAttribute("aria-labelledby", "targetDailyTab");
 
   const autoTab = switcher.querySelector("#targetAutoTab");
   const manualTab = switcher.querySelector("#targetManualTab");
+  const dailyTab = switcher.querySelector("#targetDailyTab");
 
-  const setActiveTab = (mode) => {
+  const setActiveTab = (mode, updateHash = false) => {
     const isManual = mode === "manual";
-    autoTab.classList.toggle("is-active", !isManual);
+    const isDaily = mode === "daily";
+    autoTab.classList.toggle("is-active", !isManual && !isDaily);
     manualTab.classList.toggle("is-active", isManual);
-    autoTab.setAttribute("aria-selected", String(!isManual));
+    dailyTab.classList.toggle("is-active", isDaily);
+    autoTab.setAttribute("aria-selected", String(!isManual && !isDaily));
     manualTab.setAttribute("aria-selected", String(isManual));
-    autoPanel.hidden = isManual;
+    dailyTab.setAttribute("aria-selected", String(isDaily));
+    autoPanel.hidden = isManual || isDaily;
     manualPanel.hidden = !isManual;
+    dailyPanel.hidden = !isDaily;
+    if (updateHash) {
+      const nextHash = isDaily ? "#daily" : "";
+      window.history.replaceState(null, "", window.location.pathname + window.location.search + nextHash);
+      window.dispatchEvent(new Event("cpi:target-mode-changed"));
+    }
+    if (isDaily) window.dispatchEvent(new Event("cpi:daily-target-visible"));
   };
 
-  autoTab.addEventListener("click", () => setActiveTab("auto"));
-  manualTab.addEventListener("click", () => setActiveTab("manual"));
-  setActiveTab("auto");
+  const setActiveFromHash = () => setActiveTab(window.location.hash === "#daily" ? "daily" : "auto");
+  autoTab.addEventListener("click", () => setActiveTab("auto", true));
+  manualTab.addEventListener("click", () => setActiveTab("manual", true));
+  dailyTab.addEventListener("click", () => setActiveTab("daily", true));
+  window.addEventListener("hashchange", setActiveFromHash);
+  setActiveFromHash();
 }
 
 document.addEventListener("DOMContentLoaded", targetSetupRecommendationTabs);
