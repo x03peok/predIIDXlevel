@@ -946,7 +946,7 @@ function targetRenderGoalSelect(row, disabled = false) {
   const selected = targetGetGoal(row);
   return '<select class="target-status-select target-goal-select" data-status="' + targetEscapeHtml(selected ?? "")
     + '" data-target-goal-chart-id="' + targetEscapeHtml(row.chart_id)
-    + '" aria-label="' + targetEscapeHtml(row.title) + "の目標ランプ" + (disabled ? " disabled" : "") + '>'
+    + '" aria-label="' + targetEscapeHtml(row.title) + "の目標ランプ" + (disabled ? '" disabled' : '"') + '>'
     + options.map(({ value, label }) => '<option value="' + value + '"' + (value === selected ? ' selected' : '') + '>' + label + '</option>').join("")
     + '</select>';
 }
@@ -1244,7 +1244,7 @@ function targetRenderStatusSelect(row, disabled = false) {
   const status = targetGetStatus(row);
   return '<select class="target-status-select" data-status="' + targetEscapeHtml(status)
     + '" data-chart-id="' + targetEscapeHtml(row.chart_id)
-    + '" aria-label="' + targetEscapeHtml(row.title) + "の目標ランプ" + (disabled ? " disabled" : "") + '>'
+    + '" aria-label="' + targetEscapeHtml(row.title) + "の目標ランプ" + (disabled ? '" disabled' : '"') + '>'
     + targetStatusOptions(status) + "</select>";
 }
 
