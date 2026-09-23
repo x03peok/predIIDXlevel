@@ -976,7 +976,7 @@
 .mypage-pred-section-heading,
 .mypage-status-distribution__title,
 .mypage-feature-result__title {
-  color: #64748b;
+  color: #315f91;
   font-size: 0.9rem;
   line-height: 1.3;
   font-weight: 700;
@@ -984,4 +984,637 @@
 
 .mypage-current-pred {
   white-space: nowrap;
+}
+
+.mypage-tab-panel[hidden],
+.mypage-tab-panel[aria-hidden="true"] {
+  display: none !important;
+}
+
+.mypage-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.mypage-tab {
+  min-width: 5rem;
+  padding: 9px 16px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 10px 10px 0 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.mypage-tab:hover,
+.mypage-tab:focus-visible {
+  background: rgba(219, 234, 254, 0.45);
+  color: var(--accent);
+}
+
+.mypage-tab.is-active {
+  border-bottom-color: var(--accent);
+  background: rgba(219, 234, 254, 0.55);
+  color: var(--accent);
+}
+
+.mypage-recommendation-block {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(248, 250, 252, 0.64);
+}
+
+.mypage-recommendation-block__title {
+  margin: 0;
+  color: #315f91;
+  font-size: 0.94rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.mypage-recommendation-block__note,
+.mypage-recommendation-block__message {
+  margin: 5px 0 10px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.mypage-recommendation-block__message {
+  padding: 10px 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.mypage-recommendation-block__message[hidden] {
+  display: none;
+}
+
+.mypage-recommendation-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mypage-recommendation-card {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.mypage-recommendation-card__meta,
+.mypage-recommendation-card__pred,
+.mypage-recommendation-card__probability {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mypage-recommendation-card__meta {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.mypage-recommendation-card__level {
+  color: var(--accent);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.mypage-recommendation-card__status {
+  display: inline-block;
+  max-width: 100%;
+  padding: 3px 7px;
+  border: 1px solid rgba(148, 163, 184, 0.42);
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.mypage-recommendation-card__status[data-status="easy"] {
+  border-color: rgba(132, 204, 22, 0.48);
+  background: rgba(132, 204, 22, 0.14);
+  color: #65a30d;
+}
+
+.mypage-recommendation-card__status[data-status="clear"] {
+  border-color: rgba(96, 165, 250, 0.5);
+  background: rgba(96, 165, 250, 0.14);
+  color: #2563eb;
+}
+
+.mypage-recommendation-card__status[data-status="hard"] {
+  border-color: rgba(248, 113, 113, 0.54);
+  background: rgba(248, 113, 113, 0.14);
+  color: #dc2626;
+}
+
+.mypage-recommendation-card__status[data-status="failed"] {
+  border-color: rgba(71, 85, 105, 0.45);
+  background: rgba(71, 85, 105, 0.12);
+  color: #475569;
+}
+
+.mypage-recommendation-card__status[data-status="assisted"] {
+  border-color: rgba(167, 139, 250, 0.5);
+  background: rgba(167, 139, 250, 0.14);
+  color: #7c3aed;
+}
+
+.mypage-recommendation-card__title {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px 9px;
+  margin: 0 auto;
+  border-radius: 10px;
+  font-size: 0.86rem;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
+.mypage-recommendation-card__pred,
+.mypage-recommendation-card__probability {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.mypage-recommendation-card__pred strong,
+.mypage-recommendation-card__probability strong {
+  color: var(--numeric-color, var(--ink));
+  font-size: 0.98rem;
+  font-weight: 800;
+}
+
+.mypage-recommendation-card__transition {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+}
+
+.mypage-recommendation-card .feature-chips {
+  justify-content: center;
+  min-height: 1.2rem;
+}
+
+.mypage-recommendation-more {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  margin: 12px auto 0;
+  padding: 8px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--panel-strong);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.mypage-recommendation-more:hover,
+.mypage-recommendation-more:focus-visible {
+  background: rgba(219, 234, 254, 0.55);
+}
+
+.mypage-recommendation-more[hidden] {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .mypage-tabs {
+    margin-bottom: 12px;
+  }
+
+  .mypage-tab {
+    flex: 1;
+    padding-inline: 10px;
+  }
+
+  .mypage-recommendation-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .mypage-recommendation-card {
+    padding: 11px;
+  }
+}
+.mypage-recommendation-card--summary {
+  align-content: start;
+  text-align: center;
+}
+
+.mypage-recommendation-card--summary .mypage-recommendation-card__title {
+  margin-top: 2px;
+}
+
+.mypage-recommendation-card__status-line {
+  display: flex;
+  justify-content: center;
+}
+
+.mypage-recommendation-card__level-pred {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.mypage-recommendation-card__level-pred .mypage-recommendation-card__level {
+  color: var(--accent);
+}
+
+.mypage-recommendation-card__level-pred strong {
+  color: var(--numeric-color, var(--ink));
+  font-size: 0.98rem;
+  font-weight: 800;
+}
+/* Match the status chips used by My Target recommendation cards. */
+.target-recommendation-status {
+  display: inline-flex;
+  min-height: 31px;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 10px;
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.target-recommendation-status--easy {
+  color: #65a30d;
+  background: rgba(132, 204, 22, 0.18);
+}
+
+.target-recommendation-status--clear {
+  color: #2563eb;
+  background: rgba(96, 165, 250, 0.16);
+}
+
+.target-recommendation-status--hard {
+  color: #dc2626;
+  background: rgba(248, 113, 113, 0.16);
+}
+
+.target-recommendation-status__suffix {
+  font-weight: 400;
+}
+
+.mypage-recommendation-card--summary .mypage-recommendation-card__level-pred {
+  color: var(--ink);
+  font-weight: 400;
+}
+
+.mypage-recommendation-card--summary .mypage-recommendation-card__level,
+.mypage-recommendation-card--summary .mypage-recommendation-card__pred-label {
+  color: var(--ink);
+}
+
+.mypage-recommendation-card--summary .mypage-recommendation-card__level {
+  font-weight: 400;
+}
+
+.mypage-recommendation-card--summary .mypage-recommendation-card__pred-label {
+  font-weight: 800;
+}
+
+.mypage-recommendation-card--summary .mypage-recommendation-card__level-pred strong {
+  color: var(--numeric-color, var(--ink));
+  font-weight: 800;
+}
+.mypage-recommendation-block--plain {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.mypage-recommendation-block--start {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.mypage-recommendation-card--summary .mypage-recommendation-card__probability,
+.mypage-recommendation-card--summary .mypage-recommendation-card__pred {
+  justify-content: center;
+}
+
+.mypage-recommendation-card--summary {
+  width: calc(100% - 8px);
+  justify-self: center;
+}
+.mypage-recommendation-card--high-pred .mypage-recommendation-card__header {
+  display: flex;
+  min-height: 31px;
+  align-items: center;
+  justify-content: center;
+  margin: -12px -12px 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 13px 13px 0 0;
+}
+
+.mypage-recommendation-card--high-pred .mypage-recommendation-card__header[data-status="easy"] {
+  background: rgba(132, 204, 22, 0.18);
+}
+
+.mypage-recommendation-card--high-pred .mypage-recommendation-card__header[data-status="clear"] {
+  background: rgba(96, 165, 250, 0.16);
+}
+
+.mypage-recommendation-card--high-pred .mypage-recommendation-card__header[data-status="hard"] {
+  background: rgba(248, 113, 113, 0.16);
+}
+
+.mypage-recommendation-card--high-pred .mypage-recommendation-card__header .target-recommendation-status {
+  min-height: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #111827;
+  font-weight: 400;
+}
+@media (max-width: 720px) {
+  .mypage-recommendation-card--high-pred .mypage-recommendation-card__header {
+    margin: -11px -11px 0;
+  }
+}
+.mypage-recommendation-card--update .mypage-recommendation-card__header--split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-height: 31px;
+  align-items: stretch;
+  margin: -12px -12px 0;
+  padding: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 13px 13px 0 0;
+  overflow: hidden;
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__header-side {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 6px;
+  color: #111827;
+  font-size: 0.8rem;
+  font-weight: 400;
+  text-align: center;
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__header-side + .mypage-recommendation-card__header-side {
+  border-left: 0;
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__header-side[data-status="easy"] {
+  background: rgba(132, 204, 22, 0.18);
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__header-side[data-status="clear"] {
+  background: rgba(96, 165, 250, 0.16);
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__header-side[data-status="hard"] {
+  background: rgba(248, 113, 113, 0.16);
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__header-side[data-status="failed"] {
+  background: rgba(71, 85, 105, 0.12);
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__header-side[data-status="assisted"] {
+  background: rgba(167, 139, 250, 0.14);
+}
+
+@media (max-width: 720px) {
+  .mypage-recommendation-card--update .mypage-recommendation-card__header--split {
+    margin: -11px -11px 0;
+  }
+}
+
+/* Keep recommendation headers neutral and use lamp colors only for their labels. */
+.mypage-recommendation-card--high-pred .mypage-recommendation-card__header[data-status],
+.mypage-recommendation-card--update .mypage-recommendation-card__header-side[data-status] {
+  background: rgba(226, 232, 240, 0.82);
+  font-weight: 800;
+}
+
+.mypage-recommendation-card--high-pred .mypage-recommendation-card__header[data-status="easy"] .target-recommendation-status,
+.mypage-recommendation-card--update .mypage-recommendation-card__header-side[data-status="easy"] {
+  color: #65a30d;
+}
+
+.mypage-recommendation-card--high-pred .mypage-recommendation-card__header[data-status="clear"] .target-recommendation-status,
+.mypage-recommendation-card--update .mypage-recommendation-card__header-side[data-status="clear"] {
+  color: #2563eb;
+}
+
+.mypage-recommendation-card--high-pred .mypage-recommendation-card__header[data-status="hard"] .target-recommendation-status,
+.mypage-recommendation-card--update .mypage-recommendation-card__header-side[data-status="hard"] {
+  color: #dc2626;
+}
+
+.mypage-recommendation-card--high-pred .mypage-recommendation-card__header[data-status="failed"] .target-recommendation-status,
+.mypage-recommendation-card--update .mypage-recommendation-card__header-side[data-status="failed"] {
+  color: #475569;
+}
+
+.mypage-recommendation-card--high-pred .mypage-recommendation-card__header[data-status="assisted"] .target-recommendation-status,
+.mypage-recommendation-card--update .mypage-recommendation-card__header-side[data-status="assisted"] {
+  color: #7c3aed;
+}
+
+.mypage-recommendation-card--high-pred .mypage-recommendation-card__header .target-recommendation-status__suffix {
+  font-weight: 800;
+}
+/* Keep recommendation update headers combined with a neutral background. */
+.mypage-recommendation-card--high-pred .mypage-recommendation-card__header .target-recommendation-status {
+  font-weight: 800;
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__header--combined {
+  display: flex;
+  min-height: 31px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: -12px -12px 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 13px 13px 0 0;
+  background: rgba(226, 232, 240, 0.82);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__header-status {
+  font-weight: 800;
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__header-arrow {
+  color: #111827;
+  font-weight: 400;
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__header-status[data-status="easy"] {
+  color: #65a30d;
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__header-status[data-status="clear"] {
+  color: #2563eb;
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__header-status[data-status="hard"] {
+  color: #dc2626;
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__header-status[data-status="failed"] {
+  color: #475569;
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__header-status[data-status="assisted"] {
+  color: #7c3aed;
+}
+
+@media (max-width: 720px) {
+  .mypage-recommendation-card--update .mypage-recommendation-card__header--combined {
+    margin: -11px -11px 0;
+  }
+}
+/* Match update recommendation header size to the evaluation card. */
+.mypage-recommendation-card--update .mypage-recommendation-card__header-status {
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__header-arrow {
+  font-size: 0.8rem;
+}
+/* Keep update recommendation header labels black and regular. */
+.mypage-recommendation-card--update .mypage-recommendation-card__header-status {
+  color: #111827;
+  font-weight: 400;
+}
+/* Color update header labels by lamp and bold only their values. */
+.mypage-recommendation-card--update .mypage-recommendation-card__header-status[data-status="easy"] {
+  color: #65a30d;
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__header-status[data-status="clear"] {
+  color: #2563eb;
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__header-status[data-status="hard"] {
+  color: #dc2626;
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__header-status[data-status="failed"] {
+  color: #475569;
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__header-status[data-status="assisted"] {
+  color: #7c3aed;
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__header-status-value {
+  font-weight: 800;
+}
+/* Keep update header labels black independently from lamp values. */
+.mypage-recommendation-card--update .mypage-recommendation-card__header-status-label {
+  color: #111827;
+  font-weight: 400;
+}
+/* Match summary recommendation headers to the overall Pred background. */
+.mypage-recommendation-card--high-pred .mypage-recommendation-card__header[data-status],
+.mypage-recommendation-card--update .mypage-recommendation-card__header--combined {
+  background: rgba(148, 163, 184, 0.1);
+}
+/* Make recommendation more buttons slightly prominent. */
+.mypage-recommendation-more {
+  border-color: rgba(59, 130, 246, 0.35);
+  background: rgba(219, 234, 254, 0.72);
+  color: #1d4ed8;
+  font-weight: 700;
+  box-shadow: 0 3px 8px rgba(30, 64, 175, 0.1);
+}
+
+.mypage-recommendation-more:hover,
+.mypage-recommendation-more:focus-visible {
+  border-color: rgba(37, 99, 235, 0.55);
+  background: rgba(191, 219, 254, 0.9);
+  color: #1e40af;
+}
+/* Color normal-mode target values as clear blue. */
+.mypage-recommendation-card--update .mypage-recommendation-card__header-status[data-status="normal"] .mypage-recommendation-card__header-status-value {
+  color: #2563eb;
+}
+/* Place the secondary share button beside the Pred heading. */
+.mypage-pred-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mypage-pred-section-heading > .chart-detail__label-group {
+  min-width: 0;
+}
+
+.mypage-share__button--heading {
+  min-height: 32px;
+  flex: 0 0 auto;
+  margin: 0 0 0 auto;
+  padding: 7px 11px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+}
+/* Keep My Page feature tooltips inside narrow viewports. */
+.mypage-panel .feature-chip[data-tooltip]::after {
+  left: 50%;
+  width: min(280px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  box-sizing: border-box;
+  transform: translateX(-50%);
+}
+
+@media (max-width: 720px) {
+  .mypage-panel .feature-chip[data-tooltip]::after {
+    width: min(240px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+  }
+}
+/* Add a small gap below the level status heading. */
+.mypage-status-distribution__controls {
+  margin-top: 6px;
 }

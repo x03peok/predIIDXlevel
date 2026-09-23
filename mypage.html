@@ -28,13 +28,13 @@
   <!-- Google Analytics -->
   <script defer src="analytics.js?v=20260905-1"></script>
   <link rel="stylesheet" href="styles.css?v=20260916-2">
-<link rel="stylesheet" href="mypage.css?v=20260910-1">
+<link rel="stylesheet" href="mypage.css?v=20260923-32">
   <link rel="stylesheet" href="menu.css?v=20260904-2">
   <script defer src="menu.js?v=20260922-1"></script>
   <script defer src="data.js?v=20260920-1"></script>
   <script defer src="app.js?v=20260910-1"></script>
   <script defer src="status-toast.js?v=20260908-1"></script>
-  <script defer src="mypage.js?v=20260923-1"></script>
+  <script defer src="mypage.js?v=20260923-26"></script>
 </head>
 <body data-page="mypage">
   <main class="app">
@@ -66,11 +66,18 @@
 
     <section class="view view--mypage" aria-live="polite">
       <div class="panel mypage-panel">
+        <div class="mypage-tabs" role="tablist" aria-label="マイページ表示切り替え">
+          <button id="mypageSummaryTab" class="mypage-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="mypageSummaryPanel" data-mypage-tab="summary">概要</button>
+          <button id="mypageDetailTab" class="mypage-tab" type="button" role="tab" aria-selected="false" aria-controls="mypageDetailPanel" data-mypage-tab="detail" tabindex="-1">詳細一覧</button>
+        </div>
+
+        <section id="mypageSummaryPanel" class="mypage-tab-panel" role="tabpanel" aria-labelledby="mypageSummaryTab" aria-hidden="false">
         <h2 class="mypage-section-heading mypage-pred-section-heading">
           <span class="chart-detail__label-group" data-tooltip="クリア確率の範囲が40%〜60%になる数値を表示しています" tabindex="0" role="button" aria-label="適正Predの説明">
             <span>適正Pred</span>
             <span class="chart-detail__info-mark" aria-hidden="true">ⓘ</span>
           </span>
+          <a id="mypageShareButtonTop" class="mypage-share__button mypage-share__button--heading" href="#" target="_blank" rel="noopener noreferrer" hidden>Xで共有</a>
         </h2>
         <div class="mypage-pred-estimate" aria-live="polite">
           <div class="mypage-pred-summary">
@@ -91,6 +98,20 @@
             <div id="mypageStatusDistributionChart" class="mypage-status-distribution__chart" role="list" aria-label="レベル別クリア状況"></div>
             <div id="mypageStatusDistributionLegend" class="mypage-status-distribution__legend" role="list" aria-label="Statusの凡例"></div>
           </div>
+        <section class="mypage-recommendation-block mypage-recommendation-block--plain mypage-recommendation-block--start" aria-labelledby="mypageHighPredTitle">
+          <h3 id="mypageHighPredTitle" class="mypage-recommendation-block__title">評価の高いクリアランプ</h3>
+          <p class="mypage-recommendation-block__note">クリア済の譜面から、Pred評価が高い順に表示します。<br>エクハ・フルコンはHARD以上にまとめられます。</p>
+          <div id="mypageHighPredMessage" class="mypage-recommendation-block__message" role="status" hidden></div>
+          <div id="mypageHighPredCards" class="mypage-recommendation-cards"></div>
+          <button id="mypageHighPredMore" class="mypage-recommendation-more" type="button" hidden>さらに表示</button>
+        </section>
+        <section class="mypage-recommendation-block mypage-recommendation-block--plain mypage-recommendation-block--start" aria-labelledby="mypageUpdateTargetTitle">
+          <h3 id="mypageUpdateTargetTitle" class="mypage-recommendation-block__title">更新を狙える譜面</h3>
+          <p class="mypage-recommendation-block__note">プレイ済みの譜面から、次のランプ更新を狙いやすい順に表示します。<br>更新確率の計算には、得意・苦手な譜面特徴も加味しています。</p>
+          <div id="mypageUpdateTargetMessage" class="mypage-recommendation-block__message" role="status" hidden></div>
+          <div id="mypageUpdateTargetCards" class="mypage-recommendation-cards"></div>
+          <button id="mypageUpdateTargetMore" class="mypage-recommendation-more" type="button" hidden>さらに表示</button>
+        </section>
           <section id="mypageFeatureResult" class="mypage-status-distribution mypage-feature-result" aria-labelledby="mypageFeatureResultTitle" hidden>
             <h3 id="mypageFeatureResultTitle" class="mypage-status-distribution__title mypage-feature-result__title">譜面傾向</h3>
             <p class="mypage-feature-result__note">同程度のPredの譜面と比べた、譜面特徴ごとの得意・不得意の傾向です。</p>
@@ -100,7 +121,10 @@
             <a id="mypageShareButton" class="mypage-share__button" href="#" target="_blank" rel="noopener noreferrer" hidden>Xで共有</a>
           </div>
 
-        <h2 class="mypage-section-heading">クリア状況詳細</h2>
+        </section>
+
+        <section id="mypageDetailPanel" class="mypage-tab-panel" role="tabpanel" aria-labelledby="mypageDetailTab" aria-hidden="true" hidden">
+
         <details class="filter-group">
           <summary>絞り込み</summary>
           <div class="filter-group__body">
@@ -191,6 +215,7 @@
         <div class="mypage-pagination">
           <button id="mypageLoadMoreButton" class="mypage-load-more" type="button" hidden>さらに表示</button>
         </div>
+        </section>
       </div>
     </section>
   </main>

@@ -32,6 +32,7 @@ const mypageFeatureDescriptions = {
   "連皿": "短い時間に連続するスクラッチの難しさが特徴です。",
   "連打": "同じ鍵盤に連続して降ってくるノーツの難しさが特徴です。",
 };
+const mypageFeatureNoneDescription = "既定の譜面特徴に強く当てはまらない譜面です。";
 const mypagePredNotClearStatuses = new Set(["failed", "assisted", "easy"]);
 const mypagePredClearStatuses = new Set(["clear", "hard"]);
 const mypagePredModes = {
@@ -70,6 +71,13 @@ const mypageStatuses = [
 ];
 const mypageStatusValues = new Set(mypageStatuses.map(({ value }) => value));
 const mypageStoredStatusValues = new Set([...mypageStatusValues, "failed"]);
+const mypageRecommendationPageSize = 3;
+const mypageUpdateTargetByStatus = Object.freeze({
+  failed: { mode: "easy", label: "EASY" },
+  assisted: { mode: "easy", label: "EASY" },
+  easy: { mode: "normal", label: "CLEAR" },
+  clear: { mode: "hard", label: "HARD以上" },
+});
 
 const mypageState = {
   rows: [],
@@ -94,6 +102,9 @@ const mypageState = {
   visibleLimit: mypagePageSize,
   renderTimer: null,
   db: null,
+  activeTab: "summary",
+  highPredVisibleLimit: 3,
+  updateTargetVisibleLimit: 3,
 };
 
 const mypageElements = {};
@@ -697,16 +708,23 @@ function mypageFormatBpmCell(minValue, maxValue) {
 function mypageRenderFeatureChips(row) {
   const features = mypageGetRawRowFeatures(row);
   if (features.length === 0) {
-    return "";
+    const tooltip = ' data-tooltip="' + mypageEscapeHtml(mypageFeatureNoneDescription) + '"'
+      + ' tabindex="0" role="button" aria-label="特徴の説明"';
+    return '<div class="feature-chips"><span class="feature-chip feature-chip--none"' + tooltip + '>特徴なし</span></div>';
   }
   return '<div class="feature-chips">' + features.map((feature) => {
     const plusCount = (feature.match(/\+/g) ?? []).length;
     const colorLevel = Math.min(3, plusCount);
-    return '<span class="feature-chip feature-chip--plus-' + colorLevel + '">'
+    const featureName = feature.replace(/\+{1,2}$/, "");
+    const description = mypageFeatureDescriptions[featureName] ?? "";
+    const tooltip = description
+      ? ' data-tooltip="' + mypageEscapeHtml(description) + '"'
+        + ' tabindex="0" role="button" aria-label="' + mypageEscapeHtml(feature + "の説明") + '"'
+      : "";
+    return '<span class="feature-chip feature-chip--plus-' + colorLevel + '"' + tooltip + '>'
       + mypageEscapeHtml(feature) + "</span>";
   }).join("") + "</div>";
 }
-
 function mypageGetChartPageHref(chartId) {
   return "chart-pages/" + encodeURIComponent(String(chartId ?? "").trim()) + ".html";
 }
@@ -1345,6 +1363,7 @@ function mypageGetPublicUrl() {
 
 function mypageBuildShareText(result, scores, lampResults = {}) {
   const tendencies = mypageGetFeatureShareTendencies(scores);
+  const bestClear = mypageGetHighPredCandidates()[0] ?? null;
   const lines = [
     "推定適正Pred",
     "   総合: " + (result.range || "ー"),
@@ -1354,27 +1373,57 @@ function mypageBuildShareText(result, scores, lampResults = {}) {
     lines.push("   " + definition.label + ": " + (lampResults[mode]?.range || "ー"));
   }
 
+  const tendencyLines = [];
   if (tendencies.strong.length) {
-    lines.push("得意傾向: " + tendencies.strong.join("、"));
+    tendencyLines.push("得意傾向: " + tendencies.strong.join("、"));
   }
   if (tendencies.weak.length) {
-    lines.push("不得意傾向: " + tendencies.weak.join("、"));
+    tendencyLines.push("不得意傾向: " + tendencies.weak.join("、"));
   }
 
-  lines.push("", mypageGetPublicUrl().replace("https://", "").replace("http://", ""), "", "#CPINext");
+  if (tendencyLines.length) {
+    lines.push("", ...tendencyLines);
+  }
+
+  if (bestClear) {
+    const difficulty = mypageDifficultyLabels[String(bestClear.row.difficulty ?? "").toUpperCase()]
+      ?? String(bestClear.row.difficulty ?? "");
+    const marker = bestClear.status === "hard"
+      ? "🟥"
+      : bestClear.status === "clear"
+        ? "🟦"
+        : "🟩";
+    const predText = Number.isFinite(bestClear.pred) ? bestClear.pred.toFixed(2) : "ー";
+    lines.push(
+      "",
+      "ベストクリア: " + marker + " " + (bestClear.row.title ?? "") + " [" + difficulty + "]",
+      "   適正Pred: " + predText,
+    );
+  }
+
+  lines.push("", mypageGetPublicUrl().replace("https://", "").replace("http://", ""));
   return lines.join("\n");
 }
 function mypageUpdateShare(shareText) {
-  const button = mypageElements.shareButton;
-  if (!button) {
+  const buttons = [mypageElements.shareButton, mypageElements.shareButtonTop].filter(Boolean);
+  if (!buttons.length) {
+    return;
+  }
+  if (!shareText) {
+    buttons.forEach((button) => {
+      button.hidden = true;
+      button.removeAttribute("href");
+    });
     return;
   }
 
-  button.href = "https://x.com/intent/tweet?"
+  const href = "https://x.com/intent/tweet?"
     + new URLSearchParams({ text: shareText }).toString();
-  button.hidden = false;
+  buttons.forEach((button) => {
+    button.href = href;
+    button.hidden = false;
+  });
 }
-
 function mypageRenderPredResult(element, result, scaleMin, scaleMax) {
   element.replaceChildren();
   if (!Number.isFinite(result.rangeLower)) {
@@ -1401,6 +1450,198 @@ function mypageRenderPredResult(element, result, scaleMin, scaleMax) {
   if (result.rangeQualifier) element.append(document.createTextNode(result.rangeQualifier));
 }
 
+function mypageGetStatusLabel(status) {
+  return mypageStatuses.find(({ value }) => value === status)?.label ?? "未登録";
+}
+
+function mypageGetRecommendationModel(mode, overallResult, lampResults) {
+  const lampResult = lampResults?.[mode];
+  if (lampResult?.usedLogistic === true && lampResult.model) {
+    return lampResult.model;
+  }
+  if (overallResult?.usedLogistic === true && overallResult.model) {
+    return overallResult.model;
+  }
+  return null;
+}
+
+function mypageGetRecommendationAdjustedPred(row, mode, featureDeltas) {
+  const definition = mypagePredModes[mode];
+  const rawPred = definition ? mypageGetNumericValue(row?.[definition.key]) : null;
+  if (rawPred === null) {
+    return null;
+  }
+  if (!Array.isArray(featureDeltas)) {
+    return rawPred;
+  }
+  const adjustment = mypageGetFeatureVector(row)
+    .reduce((total, strength, index) => total + (featureDeltas[index] ?? 0) * strength, 0);
+  return rawPred + adjustment;
+}
+
+function mypageGetRecommendationProbability(row, mode, overallResult, lampResults, featureDeltas) {
+  const model = mypageGetRecommendationModel(mode, overallResult, lampResults);
+  const adjustedPred = mypageGetRecommendationAdjustedPred(row, mode, featureDeltas);
+  if (!model || adjustedPred === null
+    || !Number.isFinite(model.intercept)
+    || !Number.isFinite(model.slope)
+    || !Number.isFinite(model.center)
+    || !Number.isFinite(model.scale)
+    || model.scale <= 0) {
+    return null;
+  }
+  const normalizedPred = (adjustedPred - model.center) / model.scale;
+  return mypageSigmoid(model.intercept + model.slope * normalizedPred);
+}
+
+function mypageGetHighPredCandidates() {
+  return mypageState.rows
+    .map((row) => {
+      const status = mypageGetStatus(row);
+      const mode = mypageGetCurrentPredMode(status);
+      const pred = mode ? mypageGetNumericValue(row[mypagePredModes[mode].key]) : null;
+      return mode && pred !== null ? { row, status, mode, pred } : null;
+    })
+    .filter(Boolean)
+    .sort((left, right) => right.pred - left.pred || left.row.__order - right.row.__order);
+}
+
+function mypageGetUpdateTargetCandidates(overallResult, lampResults, featureDeltas) {
+  if (overallResult?.usedLogistic !== true) {
+    return [];
+  }
+
+  return mypageState.rows
+    .map((row) => {
+      const status = mypageGetStatus(row);
+      const target = mypageUpdateTargetByStatus[status];
+      if (!target) {
+        return null;
+      }
+      const probability = mypageGetRecommendationProbability(
+        row,
+        target.mode,
+        overallResult,
+        lampResults,
+        featureDeltas,
+      );
+      const adjustedPred = mypageGetRecommendationAdjustedPred(row, target.mode, featureDeltas);
+      return probability === null || adjustedPred === null
+        ? null
+        : { row, status, target, probability, adjustedPred };
+    })
+    .filter(Boolean)
+    .sort((left, right) => (
+      right.probability - left.probability
+      || right.adjustedPred - left.adjustedPred
+      || left.row.__order - right.row.__order
+    ));
+}
+
+function mypageGetRecommendationTitleHtml(row) {
+  const difficulty = String(row.difficulty ?? "").toUpperCase();
+  const difficultyClass = mypageDifficultyClasses[difficulty] ?? "";
+  const difficultyText = mypageDifficultyLabels[difficulty] ?? difficulty;
+  const href = mypageEscapeHtml(mypageGetChartPageHref(row.chart_id));
+  return '<a class="chart-link ' + difficultyClass + ' mypage-recommendation-card__title" href="' + href + '">'
+    + '<span class="chart-title-cell__name">' + mypageEscapeHtml(row.title ?? "") + '</span>'
+    + ' <span class="chart-title-cell__difficulty">[' + mypageEscapeHtml(difficultyText) + ']</span>'
+    + '</a>';
+}
+
+function mypageRenderHighPredStatusLabel(status) {
+  const label = mypageGetStatusLabel(status);
+  if (status === "hard" && label === "HARD以上") {
+    return '<span>HARD</span><span class="target-recommendation-status__suffix">以上</span>';
+  }
+  return mypageEscapeHtml(label);
+}
+function mypageRenderHighPredCard(candidate) {
+  const row = candidate.row;
+  const predText = Number.isFinite(candidate.pred)
+    ? candidate.pred.toFixed(2)
+    : String(candidate.pred);
+  const predColor = getNumericColorStyle(
+    candidate.pred,
+    mypageGetPredBounds(candidate.mode).min,
+    mypageGetPredBounds(candidate.mode).max,
+  );
+  return [
+    '<article class="mypage-recommendation-card mypage-recommendation-card--high-pred mypage-recommendation-card--summary">',
+    '  <div class="mypage-recommendation-card__header" data-status="' + mypageEscapeHtml(candidate.status) + '" aria-label="クリアランプ"><div class="mypage-recommendation-card__status-line"><span class="target-recommendation-status target-recommendation-status--' + mypageEscapeHtml(candidate.status) + '">' + mypageRenderHighPredStatusLabel(candidate.status) + '</span></div></div>',
+    '  ' + mypageGetRecommendationTitleHtml(row),
+    '  <div class="mypage-recommendation-card__level-pred"><span class="mypage-recommendation-card__level">☆' + mypageEscapeHtml(row.original_level ?? "") + '</span><span class="mypage-recommendation-card__pred-label">Pred</span><strong class="numeric-value numeric-value--pred"' + predColor + '>' + mypageEscapeHtml(predText) + '</strong></div>',
+    '  ' + mypageRenderFeatureChips(row),
+    '</article>',
+  ].join("");
+}
+
+function mypageFormatRecommendationProbability(value) {
+  const probability = Number(value);
+  if (!Number.isFinite(probability)) {
+    return "ー";
+  }
+  const percent = Math.max(0, Math.min(100, probability * 100));
+  const bucket = Math.min(95, Math.floor(percent / 5) * 5);
+  return bucket >= 95 ? "95%以上" : bucket + "%～" + (bucket + 5) + "%";
+}
+
+function mypageRenderUpdateTargetCard(candidate) {
+  const row = candidate.row;
+  const targetLabel = candidate.target.mode === "hard" ? "HARD" : candidate.target.label;
+  const probabilityText = mypageFormatRecommendationProbability(candidate.probability);
+  return [
+    '<article class="mypage-recommendation-card mypage-recommendation-card--update mypage-recommendation-card--summary">',
+    '  <div class="mypage-recommendation-card__header mypage-recommendation-card__header--combined" aria-label="現在と目標">',
+    '    <span class="mypage-recommendation-card__header-status" data-status="' + mypageEscapeHtml(candidate.status) + '"><span class="mypage-recommendation-card__header-status-label">現在：</span><strong class="mypage-recommendation-card__header-status-value">' + mypageRenderHighPredStatusLabel(candidate.status) + '</strong></span>',
+    '    <span class="mypage-recommendation-card__header-arrow" aria-hidden="true">→</span>',
+    '    <span class="mypage-recommendation-card__header-status" data-status="' + mypageEscapeHtml(candidate.target.mode) + '"><span class="mypage-recommendation-card__header-status-label">目標：</span><strong class="mypage-recommendation-card__header-status-value">' + mypageEscapeHtml(targetLabel) + '</strong></span>',
+    '  </div>',
+    '  ' + mypageGetRecommendationTitleHtml(row),
+    '  <div class="mypage-recommendation-card__level-pred"><span class="mypage-recommendation-card__level">' + mypageEscapeHtml("☆" + (row.original_level ?? "")) + '</span><span class="mypage-recommendation-card__pred-label">更新確率</span><strong>' + probabilityText + '</strong></div>',
+    '  ' + mypageRenderFeatureChips(row),
+    '</article>',
+  ].join("");
+}
+
+function mypageRenderRecommendationLists(overallResult, lampResults, featureDeltas) {
+  const highCards = mypageElements.highPredCards;
+  const highMore = mypageElements.highPredMore;
+  const highMessage = mypageElements.highPredMessage;
+  const highCandidates = mypageGetHighPredCandidates();
+  if (highCards && highMore && highMessage) {
+    const highVisible = highCandidates.slice(0, mypageState.highPredVisibleLimit);
+    highCards.innerHTML = highVisible.map(mypageRenderHighPredCard).join("");
+    highMore.hidden = highCandidates.length <= mypageState.highPredVisibleLimit;
+    highMessage.hidden = highCandidates.length > 0;
+    highMessage.textContent = highCandidates.length > 0
+      ? ""
+      : "EASY以上のクリアランプを登録すると表示されます。";
+  }
+
+  const updateCards = mypageElements.updateTargetCards;
+  const updateMore = mypageElements.updateTargetMore;
+  const updateMessage = mypageElements.updateTargetMessage;
+  if (!updateCards || !updateMore || !updateMessage) {
+    return;
+  }
+  const updateCandidates = mypageGetUpdateTargetCandidates(overallResult, lampResults, featureDeltas);
+  const calculationUnavailable = overallResult?.usedLogistic !== true;
+  if (calculationUnavailable) {
+    updateCards.replaceChildren();
+    updateMore.hidden = true;
+    updateMessage.hidden = false;
+    updateMessage.textContent = "クリア確率を計算できるデータがありません。クリアランプ登録が増えると表示されます。";
+    return;
+  }
+  const updateVisible = updateCandidates.slice(0, mypageState.updateTargetVisibleLimit);
+  updateCards.innerHTML = updateVisible.map(mypageRenderUpdateTargetCard).join("");
+  updateMore.hidden = updateCandidates.length <= mypageState.updateTargetVisibleLimit;
+  updateMessage.hidden = updateCandidates.length > 0;
+  updateMessage.textContent = updateCandidates.length > 0
+    ? ""
+    : "現在StatusがFAILED以上の譜面がありません。";
+}
 function mypageRenderPredEstimate() {
   const overallResult = mypageFitPredRegression("overall");
   mypageRenderPredResult(mypageElements.predEstimate, overallResult, mypageGetPredBounds("overall").min, mypageGetPredBounds("overall").max);
@@ -1434,10 +1675,18 @@ function mypageRenderPredEstimate() {
       mypageElements.predLampEstimates.append(row);
     }
   }
+  const featureDeltas = overallResult.usedLogistic === true && Array.isArray(overallResult.observations)
+    ? mypageFitFeatureDeltas(overallResult.observations, overallResult.model)
+    : null;
   const featureScores = overallResult.usedLogistic === true && Array.isArray(overallResult.observations) && overallResult.observations.length >= 5
     ? mypageGetFeatureScores(overallResult.observations, overallResult.model)
     : [];
-  mypageUpdateShare(mypageBuildShareText(overallResult, featureScores, lampResults));
+  mypageRenderRecommendationLists(overallResult, lampResults, featureDeltas);
+  mypageUpdateShare(
+    overallResult.usedLogistic === true
+      ? mypageBuildShareText(overallResult, featureScores, lampResults)
+      : "",
+  );
   mypageRenderStatusDistribution();
   mypageRenderFeatureResult(overallResult);
 }
@@ -1606,7 +1855,37 @@ function mypagePopulateFilters() {
   mypageFillFeatureFilter();
 }
 
+function mypageSetActiveTab(tabName) {
+  const isSummary = tabName !== "detail";
+  mypageState.activeTab = isSummary ? "summary" : "detail";
+  const tabs = [
+    [mypageElements.summaryTab, mypageElements.summaryPanel, isSummary],
+    [mypageElements.detailTab, mypageElements.detailPanel, !isSummary],
+  ];
+  tabs.forEach(([tab, panel, active]) => {
+    if (!tab || !panel) {
+      return;
+    }
+    tab.classList.toggle("is-active", active);
+    tab.setAttribute("aria-selected", active ? "true" : "false");
+    tab.tabIndex = active ? 0 : -1;
+    panel.hidden = !active;
+    panel.setAttribute("aria-hidden", active ? "false" : "true");
+  });
+}
 function mypageBindEvents() {
+  [mypageElements.summaryTab, mypageElements.detailTab].forEach((tab) => {
+    tab?.addEventListener("click", () => mypageSetActiveTab(tab.dataset.mypageTab));
+  });
+  mypageElements.highPredMore.addEventListener("click", () => {
+    mypageState.highPredVisibleLimit += mypageRecommendationPageSize;
+    mypageRender();
+  });
+  mypageElements.updateTargetMore.addEventListener("click", () => {
+    mypageState.updateTargetVisibleLimit += mypageRecommendationPageSize;
+    mypageRender();
+  });
+
   mypageElements.searchInput.addEventListener("input", () => {
     mypageState.query = mypageElements.searchInput.value;
     mypageScheduleRender(100);
@@ -1890,7 +2169,18 @@ function mypageInitializeElements() {
   mypageElements.includeUnowned = document.getElementById("mypageIncludeUnowned");
   mypageElements.predEstimateNote = document.getElementById("mypagePredEstimateNote");
   mypageElements.predLampEstimates = document.getElementById("mypagePredLampEstimates");
+  mypageElements.summaryTab = document.getElementById("mypageSummaryTab");
+  mypageElements.detailTab = document.getElementById("mypageDetailTab");
+  mypageElements.summaryPanel = document.getElementById("mypageSummaryPanel");
+  mypageElements.detailPanel = document.getElementById("mypageDetailPanel");
+  mypageElements.highPredCards = document.getElementById("mypageHighPredCards");
+  mypageElements.highPredMore = document.getElementById("mypageHighPredMore");
+  mypageElements.highPredMessage = document.getElementById("mypageHighPredMessage");
+  mypageElements.updateTargetCards = document.getElementById("mypageUpdateTargetCards");
+  mypageElements.updateTargetMore = document.getElementById("mypageUpdateTargetMore");
+  mypageElements.updateTargetMessage = document.getElementById("mypageUpdateTargetMessage");
   mypageElements.shareButton = document.getElementById("mypageShareButton");
+  mypageElements.shareButtonTop = document.getElementById("mypageShareButtonTop");
 }
 
 async function mypageInitialize() {
