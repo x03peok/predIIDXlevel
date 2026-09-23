@@ -105,6 +105,9 @@ const mypageState = {
   activeTab: "summary",
   highPredVisibleLimit: 3,
   updateTargetVisibleLimit: 3,
+  analysis: null,
+  analysisDirty: true,
+  storageRefreshPromise: null,
 };
 
 const mypageElements = {};
@@ -1267,8 +1270,10 @@ function mypageFitFeatureDeltas(observations, model) {
   return deltas;
 }
 
-function mypageGetFeatureScores(observations, model) {
-  const deltas = mypageFitFeatureDeltas(observations, model);
+function mypageGetFeatureScores(observations, model, featureDeltas = null) {
+  const deltas = Array.isArray(featureDeltas)
+    ? featureDeltas
+    : mypageFitFeatureDeltas(observations, model);
   return mypageFeatureNames.map((feature, index) => {
     const known = observations.reduce((count, observation) => count
       + (mypageGetFeatureDetails(observation.row).some((item) => item.name === feature) ? 1 : 0), 0);
@@ -1277,7 +1282,7 @@ function mypageGetFeatureScores(observations, model) {
     return { name: feature, score, delta, known };
   });
 }
-function mypageRenderFeatureResult(predResult) {
+function mypageRenderFeatureResult(predResult, precomputedScores = null) {
   const section = mypageElements.featureResult;
   const bars = mypageElements.featureBars;
   if (!section || !bars) {
@@ -1298,7 +1303,9 @@ function mypageRenderFeatureResult(predResult) {
     return;
   }
 
-  const scores = mypageGetFeatureScores(observations, predResult.model)
+  const scores = (Array.isArray(precomputedScores)
+    ? precomputedScores
+    : mypageGetFeatureScores(observations, predResult.model))
     .map((score, order) => ({ ...score, order }))
     .sort((left, right) => right.score - left.score || left.order - right.order);
   const scale = [
@@ -1598,17 +1605,60 @@ function mypageRenderUpdateTargetCard(candidate) {
     '    <span class="mypage-recommendation-card__header-status" data-status="' + mypageEscapeHtml(candidate.target.mode) + '"><span class="mypage-recommendation-card__header-status-label">目標：</span><strong class="mypage-recommendation-card__header-status-value">' + mypageEscapeHtml(targetLabel) + '</strong></span>',
     '  </div>',
     '  ' + mypageGetRecommendationTitleHtml(row),
-    '  <div class="mypage-recommendation-card__level-pred"><span class="mypage-recommendation-card__level">' + mypageEscapeHtml("☆" + (row.original_level ?? "")) + '</span><span class="mypage-recommendation-card__pred-label">更新確率</span><strong>' + probabilityText + '</strong></div>',
+    '  <div class="mypage-recommendation-card__level-pred"><span class="mypage-recommendation-card__level">' + mypageEscapeHtml("☆" + (row.original_level ?? "")) + '</span><span class="mypage-recommendation-card__pred-label">更新見込み</span><strong>' + probabilityText + '</strong></div>',
     '  ' + mypageRenderFeatureChips(row),
     '</article>',
   ].join("");
 }
 
-function mypageRenderRecommendationLists(overallResult, lampResults, featureDeltas) {
+function mypageInvalidateAnalysis() {
+  mypageState.analysisDirty = true;
+}
+
+function mypageBuildAnalysis() {
+  const overallResult = mypageFitPredRegression("overall");
+  const lampResults = {};
+  for (const mode of Object.keys(mypagePredModes)) {
+    lampResults[mode] = mypageFitPredRegression(mode);
+  }
+  const featureDeltas = overallResult.usedLogistic === true
+    && Array.isArray(overallResult.observations)
+    ? mypageFitFeatureDeltas(overallResult.observations, overallResult.model)
+    : null;
+  const featureScores = overallResult.usedLogistic === true
+    && Array.isArray(overallResult.observations)
+    && overallResult.observations.length >= 5
+    ? mypageGetFeatureScores(overallResult.observations, overallResult.model, featureDeltas)
+    : [];
+  const highPredCandidates = mypageGetHighPredCandidates();
+  const updateTargetCandidates = mypageGetUpdateTargetCandidates(
+    overallResult,
+    lampResults,
+    featureDeltas,
+  );
+  return {
+    overallResult,
+    lampResults,
+    featureDeltas,
+    featureScores,
+    highPredCandidates,
+    updateTargetCandidates,
+  };
+}
+
+function mypageGetAnalysis() {
+  if (!mypageState.analysis || mypageState.analysisDirty) {
+    mypageState.analysis = mypageBuildAnalysis();
+    mypageState.analysisDirty = false;
+  }
+  return mypageState.analysis;
+}
+function mypageRenderRecommendationLists(analysis) {
+  const { overallResult } = analysis;
   const highCards = mypageElements.highPredCards;
   const highMore = mypageElements.highPredMore;
   const highMessage = mypageElements.highPredMessage;
-  const highCandidates = mypageGetHighPredCandidates();
+  const highCandidates = analysis.highPredCandidates;
   if (highCards && highMore && highMessage) {
     const highVisible = highCandidates.slice(0, mypageState.highPredVisibleLimit);
     highCards.innerHTML = highVisible.map(mypageRenderHighPredCard).join("");
@@ -1625,7 +1675,7 @@ function mypageRenderRecommendationLists(overallResult, lampResults, featureDelt
   if (!updateCards || !updateMore || !updateMessage) {
     return;
   }
-  const updateCandidates = mypageGetUpdateTargetCandidates(overallResult, lampResults, featureDeltas);
+  const updateCandidates = analysis.updateTargetCandidates;
   const calculationUnavailable = overallResult?.usedLogistic !== true;
   if (calculationUnavailable) {
     updateCards.replaceChildren();
@@ -1640,11 +1690,17 @@ function mypageRenderRecommendationLists(overallResult, lampResults, featureDelt
   updateMessage.hidden = updateCandidates.length > 0;
   updateMessage.textContent = updateCandidates.length > 0
     ? ""
-    : "現在StatusがFAILED以上の譜面がありません。";
+    : "次のランプ更新を狙えるプレイ済み譜面がありません。";
 }
 function mypageRenderPredEstimate() {
-  const overallResult = mypageFitPredRegression("overall");
-  mypageRenderPredResult(mypageElements.predEstimate, overallResult, mypageGetPredBounds("overall").min, mypageGetPredBounds("overall").max);
+  const analysis = mypageGetAnalysis();
+  const { overallResult, lampResults } = analysis;
+  mypageRenderPredResult(
+    mypageElements.predEstimate,
+    overallResult,
+    mypageGetPredBounds("overall").min,
+    mypageGetPredBounds("overall").max,
+  );
   const note = mypageElements.predEstimateNote;
   note.replaceChildren();
   if (overallResult.message) {
@@ -1657,38 +1713,34 @@ function mypageRenderPredEstimate() {
     }
   }
   note.hidden = !overallResult.message;
-  const lampResults = {};
   if (mypageElements.predLampEstimates) {
     mypageElements.predLampEstimates.replaceChildren();
     for (const [mode, definition] of Object.entries(mypagePredModes)) {
       const row = document.createElement("div");
-      row.className = `mypage-pred-lamp-row mypage-pred-lamp-row--${mode}`;
+      row.className = "mypage-pred-lamp-row mypage-pred-lamp-row--" + mode;
       const label = document.createElement("span");
       label.className = "mypage-pred-lamp-row__label";
       label.textContent = definition.label.replace(/Pred$/, "");
       const value = document.createElement("span");
       value.className = "mypage-pred-lamp-row__value";
-      const result = mypageFitPredRegression(mode);
-      lampResults[mode] = result;
-      mypageRenderPredResult(value, result, mypageGetPredBounds(mode).min, mypageGetPredBounds(mode).max);
+      mypageRenderPredResult(
+        value,
+        lampResults[mode],
+        mypageGetPredBounds(mode).min,
+        mypageGetPredBounds(mode).max,
+      );
       row.append(label, value);
       mypageElements.predLampEstimates.append(row);
     }
   }
-  const featureDeltas = overallResult.usedLogistic === true && Array.isArray(overallResult.observations)
-    ? mypageFitFeatureDeltas(overallResult.observations, overallResult.model)
-    : null;
-  const featureScores = overallResult.usedLogistic === true && Array.isArray(overallResult.observations) && overallResult.observations.length >= 5
-    ? mypageGetFeatureScores(overallResult.observations, overallResult.model)
-    : [];
-  mypageRenderRecommendationLists(overallResult, lampResults, featureDeltas);
+  mypageRenderRecommendationLists(analysis);
   mypageUpdateShare(
     overallResult.usedLogistic === true
-      ? mypageBuildShareText(overallResult, featureScores, lampResults)
+      ? mypageBuildShareText(overallResult, analysis.featureScores, lampResults)
       : "",
   );
   mypageRenderStatusDistribution();
-  mypageRenderFeatureResult(overallResult);
+  mypageRenderFeatureResult(overallResult, analysis.featureScores);
 }
 function mypageUpdateSortMarks() {
   mypageElements.table.querySelectorAll("thead button[data-sort-key]").forEach((button) => {
@@ -1924,6 +1976,16 @@ function mypageBindEvents() {
   mypageElements.scrollTopButton.addEventListener("click", mypageScrollToTop);
   window.addEventListener("scroll", mypageUpdateScrollTopButton, { passive: true });
   window.addEventListener("resize", mypageUpdateTableOverflowState);
+  const refreshFromStorage = () => {
+    void mypageRefreshFromStorage();
+  };
+  window.addEventListener("pageshow", refreshFromStorage);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      refreshFromStorage();
+    }
+  });
+  window.addEventListener("focus", refreshFromStorage);
   mypageUpdateScrollTopButton();
 }
 
@@ -2037,8 +2099,8 @@ function mypageApplyRecords(records) {
       mypageState.records.set(chartId, { ...(record ?? {}), chartId, status });
     }
   }
+  mypageInvalidateAnalysis();
 }
-
 async function mypageHandleStatusChange(event) {
   const select = event.target.closest?.(".mypage-status-select");
   if (!select || !mypageStatusValues.has(select.value)) {
@@ -2064,12 +2126,8 @@ async function mypageHandleStatusChange(event) {
     const row = mypageState.rowsByChartId.get(chartId);
     const currentPredCell = select.closest("tr")?.querySelector(".mypage-current-pred");
     if (row && currentPredCell) currentPredCell.outerHTML = mypageRenderCurrentPredCell(row, status);
-    mypageRenderPredEstimate();
-    if (mypageState.sortKey === "status" || !mypageStatusMatchesFilter(status)) {
-      mypageRender();
-    } else {
-      mypageCompactStatusSelect(select);
-    }
+    mypageInvalidateAnalysis();
+    mypageRender();
     mypageSetMessage("記録を保存しました。");
     window.cpiStatusToast?.show({
       onUndo: async () => {
@@ -2083,7 +2141,7 @@ async function mypageHandleStatusChange(event) {
             updatedAt: new Date().toISOString(),
           });
         }
-        mypageRenderPredEstimate();
+        mypageInvalidateAnalysis();
         mypageRender();
         mypageSetMessage("記録を元に戻しました。");
       },
@@ -2139,6 +2197,30 @@ function mypageSetMessage(message) {
   mypageElements.message.hidden = !message;
 }
 
+async function mypageRefreshFromStorage() {
+  if (!mypageState.db) {
+    return;
+  }
+  if (mypageState.storageRefreshPromise) {
+    return mypageState.storageRefreshPromise;
+  }
+  mypageState.storageRefreshPromise = Promise.all([
+    mypageReadAllRecords(),
+    mypageReadAllManualMemos(),
+  ])
+    .then(([records, memos]) => {
+      mypageApplyRecords(records);
+      mypageApplyManualMemos(memos);
+      mypageRender();
+    })
+    .catch((error) => {
+      mypageSetMessage(error.message || "記録を読み込めませんでした。");
+    })
+    .finally(() => {
+      mypageState.storageRefreshPromise = null;
+    });
+  return mypageState.storageRefreshPromise;
+}
 function mypageInitializeElements() {
   mypageElements.searchInput = document.getElementById("mypageSearchInput");
   mypageElements.statusFilterSummary = document.getElementById("mypageStatusFilterSummary");
@@ -2210,9 +2292,7 @@ async function mypageInitialize() {
 
   try {
     mypageState.db = await mypageOpenDatabase();
-    mypageApplyRecords(await mypageReadAllRecords());
-    mypageApplyManualMemos(await mypageReadAllManualMemos());
-    mypageRender();
+    await mypageRefreshFromStorage();
   } catch (error) {
     mypageSetMessage(error.message || "記録を読み込めませんでした。");
   }
