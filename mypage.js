@@ -400,7 +400,10 @@ function mypageFillFeatureFilter() {
 }
 
 function mypageGetStatus(row) {
-  return mypageState.records.get(String(row.chart_id))?.status ?? "unregistered";
+  const status = String(mypageState.records.get(String(row.chart_id))?.status ?? "")
+    .trim()
+    .toLowerCase();
+  return mypageStatusValues.has(status) ? status : "unregistered";
 }
 
 function mypageRenderStatusDistribution() {
@@ -1749,9 +1752,10 @@ function mypageWriteStatus(chartId, status) {
 function mypageApplyRecords(records) {
   mypageState.records = new Map();
   for (const record of records) {
-    const chartId = String(record.chartId ?? "");
-    if (/^\d+$/.test(chartId) && mypageStoredStatusValues.has(record.status)) {
-      mypageState.records.set(chartId, record);
+    const chartId = String(record?.chartId ?? record?.chart_id ?? "").trim();
+    const status = String(record?.status ?? record?.clearType ?? "").trim().toLowerCase();
+    if (/^\d+$/.test(chartId) && mypageStoredStatusValues.has(status)) {
+      mypageState.records.set(chartId, { ...(record ?? {}), chartId, status });
     }
   }
 }
