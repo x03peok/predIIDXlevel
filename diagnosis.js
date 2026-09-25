@@ -1043,7 +1043,7 @@ function diagnosisBuildLevelClearRateText(model) {
     : "";
 }
 function diagnosisGetPublicUrl() {
-  return "https://cpi-next.com/diagnosis.html";
+  return "https://cpi-next.com/diagnosis.html?utm_source=x&utm_medium=share&utm_campaign=diagnosis_result";
 }
 
 function diagnosisBuildShareText(result, levelRateText) {

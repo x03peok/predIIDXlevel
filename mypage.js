@@ -108,6 +108,7 @@ const mypageState = {
   analysis: null,
   analysisDirty: true,
   storageRefreshPromise: null,
+  analyticsStateTracked: false,
 };
 
 const mypageElements = {};
@@ -1365,7 +1366,7 @@ function mypageGetFeatureShareTendencies(scores) {
   return { strong: strong.slice(0, 3), weak: weak.slice(0, 3) };
 }
 function mypageGetPublicUrl() {
-  return "https://cpi-next.com/mypage.html";
+  return "https://cpi-next.com/mypage.html?utm_source=x&utm_medium=share&utm_campaign=mypage_result";
 }
 
 function mypageBuildShareText(result, scores, lampResults = {}) {
@@ -1785,6 +1786,22 @@ function mypageUpdateMissingDataMessage() {
     : "譜面データなし: " + count.toLocaleString() + "譜面。保存されたクリアランプ・手動メモは保持されていますが、現在の譜面データがないため、表・Pred推定・リコメンドの対象外です。";
 }
 
+function mypageTrackStateEvent() {
+  if (mypageState.analyticsStateTracked || typeof window.cpiAnalytics?.track !== "function") {
+    return;
+  }
+  const analysis = mypageGetAnalysis();
+  const state = mypageState.records.size === 0
+    ? "empty"
+    : analysis.overallResult?.usedLogistic === true
+      ? "ready"
+      : "provisional";
+  window.cpiAnalytics.track("mypage_state", {
+    state,
+    registered_count: mypageState.records.size,
+  });
+  mypageState.analyticsStateTracked = true;
+}
 function mypageRender() {
   mypageUpdateMissingDataMessage();
   mypageUpdateAdvancedSummary();
@@ -2293,6 +2310,7 @@ async function mypageInitialize() {
   try {
     mypageState.db = await mypageOpenDatabase();
     await mypageRefreshFromStorage();
+    mypageTrackStateEvent();
   } catch (error) {
     mypageSetMessage(error.message || "記録を読み込めませんでした。");
   }

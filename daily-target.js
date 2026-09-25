@@ -1655,7 +1655,7 @@ async function dailyConfirmSelection() {
 }
 
 const dailyShareWeightedLimit = 275;
-const dailyShareUrl = "https://cpi-next.com/target.html#daily";
+const dailyShareUrl = "https://cpi-next.com/target.html?utm_source=x&utm_medium=share&utm_campaign=daily_target#daily";
 const dailyShareUrlLength = 23;
 const dailyShareWeightedRanges = [
   [0x0000, 0x10ff],
@@ -1801,7 +1801,7 @@ function dailyBuildShareText({ includeAchievementMarkers = true } = {}) {
     "",
     ...lines.map((line) => line.prefix + line.title + line.suffix),
     "",
-    "https://cpi-next.com/target.html#daily",
+    dailyShareUrl,
     "",
     "#CPINext",
   ].join("\n");
@@ -1816,7 +1816,7 @@ function dailyBuildShareText({ includeAchievementMarkers = true } = {}) {
     "",
     ...lines.map((line) => line.prefix + line.suffix),
     "",
-    "https://cpi-next.com/target.html#daily",
+    dailyShareUrl,
     "",
     "#CPINext",
   ].join("\n");

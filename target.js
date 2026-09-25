@@ -161,6 +161,7 @@ const targetState = {
   goalById: new Map(),
   expectedProbabilityById: new Map(),
   targetWasAvailable: false,
+  analyticsStateTracked: false,
 };
 
 const targetElements = {};
@@ -2157,6 +2158,19 @@ function targetTrackUnlockEvent(availability) {
   });
 }
 
+function targetTrackStateEvent() {
+  if (targetState.analyticsStateTracked || typeof window.cpiAnalytics?.track !== "function") {
+    return;
+  }
+  const availability = targetGetAvailability();
+  window.cpiAnalytics.track("target_state", {
+    state: availability.available ? "ready" : "locked",
+    registered_count: availability.observationCount,
+    clear_count: availability.clearCount,
+    not_clear_count: availability.notClearCount,
+  });
+  targetState.analyticsStateTracked = true;
+}
 function targetUpdateAvailability() {
   const availability = targetGetAvailability();
   targetUpdateMissingDataMessage();
@@ -2753,6 +2767,7 @@ async function targetInitialize() {
     targetRecalculateModel();
     targetUpdateAvailability();
     targetRender();
+    targetTrackStateEvent();
   } catch (error) {
     console.error("マイターゲットの表示更新に失敗しました。", error, storageError);
     targetShowError(error instanceof Error ? error.message : "マイターゲットを表示できませんでした。");

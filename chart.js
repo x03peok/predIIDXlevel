@@ -709,7 +709,10 @@ function renderChart() {
         .filter(Boolean)
         .join("、");
       const shareFeatures = !shareFeatureValues || shareFeatureValues === "特徴なし" ? "―" : shareFeatureValues;
-      const shareUrl = getPublicChartUrl(chartId);
+      const shareUrl = new URL(getPublicChartUrl(chartId), window.location.href);
+      shareUrl.searchParams.set("utm_source", "x");
+      shareUrl.searchParams.set("utm_medium", "share");
+      shareUrl.searchParams.set("utm_campaign", "chart_detail");
       const shareText = [
         "☆" + (row.original_level ?? "") + " " + row.title + (shareDifficultyLabel ? " [" + shareDifficultyLabel + "]" : ""),
         "",
