@@ -1109,7 +1109,7 @@ function mypageFitPredRegression(mode = "normal") {
       range: mypageFormatPredValue(bounds.max) + "以上",
       rangeLower: bounds.max,
       rangeQualifier: "以上",
-      message: "未クリア曲数不足により推定できませんでした",
+      message: "未クリア曲数不足により推定できませんでした。ノマゲ以下の未登録譜面があれば登録してください",
       model: null,
       usedLogistic: false,
       observations,
@@ -1546,6 +1546,19 @@ function mypageGetUpdateTargetCandidates(overallResult, lampResults, featureDelt
     ));
 }
 
+function mypageGetUpdateTargetQualityMessage(updateTargetCandidates) {
+  const playedStatuses = new Set(["failed", "assisted", "easy", "clear", "hard"]);
+  const playedCount = mypageState.rows.reduce(
+    (count, row) => count + (playedStatuses.has(mypageGetStatus(row)) ? 1 : 0),
+    0,
+  );
+  const highProbabilityCount = updateTargetCandidates.filter(({ probability }) => (
+    Number.isFinite(probability) && probability >= 0.95
+  )).length;
+  return highProbabilityCount > Math.max(10, playedCount / 10)
+    ? "プレイ済み譜面を埋め直すと、現在の実力を推測する精度が上がる可能性があります"
+    : "";
+}
 function mypageGetRecommendationTitleHtml(row) {
   const difficulty = String(row.difficulty ?? "").toUpperCase();
   const difficultyClass = mypageDifficultyClasses[difficulty] ?? "";
@@ -1637,6 +1650,7 @@ function mypageBuildAnalysis() {
     lampResults,
     featureDeltas,
   );
+  const updateTargetQualityMessage = mypageGetUpdateTargetQualityMessage(updateTargetCandidates);
   return {
     overallResult,
     lampResults,
@@ -1644,6 +1658,7 @@ function mypageBuildAnalysis() {
     featureScores,
     highPredCandidates,
     updateTargetCandidates,
+    updateTargetQualityMessage,
   };
 }
 
@@ -1703,9 +1718,10 @@ function mypageRenderPredEstimate() {
     mypageGetPredBounds("overall").max,
   );
   const note = mypageElements.predEstimateNote;
+  const message = analysis.updateTargetQualityMessage || overallResult.message;
   note.replaceChildren();
-  if (overallResult.message) {
-    note.append(document.createTextNode(overallResult.message));
+  if (message) {
+    note.append(document.createTextNode(message));
     if (mypageState.records.size === 0) {
       const link = document.createElement("a");
       link.href = "record.html";
@@ -1713,7 +1729,7 @@ function mypageRenderPredEstimate() {
       note.append(document.createElement("br"), link, document.createTextNode("を行ってください"));
     }
   }
-  note.hidden = !overallResult.message;
+  note.hidden = !message;
   if (mypageElements.predLampEstimates) {
     mypageElements.predLampEstimates.replaceChildren();
     for (const [mode, definition] of Object.entries(mypagePredModes)) {
