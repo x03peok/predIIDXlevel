@@ -1555,7 +1555,7 @@ function mypageGetUpdateTargetQualityMessage(updateTargetCandidates) {
   const highProbabilityCount = updateTargetCandidates.filter(({ probability }) => (
     Number.isFinite(probability) && probability >= 0.95
   )).length;
-  return highProbabilityCount > Math.max(10, playedCount / 10)
+  return highProbabilityCount > Math.min(10, playedCount / 10)
     ? "プレイ済み譜面を埋め直すと、現在の実力を推測する精度が上がる可能性があります"
     : "";
 }
