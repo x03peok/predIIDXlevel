@@ -19,14 +19,14 @@
   <script src="analytics.js?v=20260905-1" defer></script>
   <link rel="stylesheet" href="styles.css?v=20260916-2">
   <link rel="stylesheet" href="menu.css?v=20260904-2">
-  <link rel="stylesheet" href="target.css?v=20260923-1">
+  <link rel="stylesheet" href="target.css?v=20260926-7">
   <link rel="stylesheet" href="daily-target.css?v=20260922-2">
   <script src="menu.js?v=20260925-1" defer></script>
   <script src="data.js?v=20260920-1" defer></script>
   <script src="status-toast.js?v=20260908-1" defer></script>
-  <script src="target.js?v=20260925-2" defer></script>
+  <script src="target.js?v=20260926-8" defer></script>
   <script src="target-tabs.js?v=20260922-4" defer></script>
-  <script src="daily-target.js?v=20260925-1" defer></script>
+  <script src="daily-target.js?v=20260926-1" defer></script>
   <link rel="icon" type="image/jpeg" href="site-icon.jpg">
   <link rel="apple-touch-icon" href="site-icon.jpg">
   <meta property="og:image" content="https://cpi-next.com/site-icon.jpg?v=20260904-2">
@@ -261,14 +261,24 @@
                       <span class="chart-detail__label-group" data-tooltip="あなたの得意・苦手傾向との相性に応じた分類です。" tabindex="0" aria-label="譜面傾向の説明"><span>譜面傾向</span><span class="chart-detail__info-mark" aria-hidden="true">ⓘ</span></span>
                       <div id="targetRecommendationFeatureReasonOptions" class="target-auto-settings-options multi-filter__options"></div>
                     </div>
+                    <div class="target-auto-settings-filter target-auto-settings-filter--levels">
+                      <span>レベル</span>
+                      <div id="targetRecommendationLevelOptions" class="target-auto-settings-options multi-filter__options"></div>
+                    </div>
+
+                    <div class="target-auto-settings-filter target-auto-settings-filter--statuses">
+                      <span>現在Status</span>
+                      <div id="targetRecommendationStatusOptions" class="target-auto-settings-options multi-filter__options"></div>
+                    </div>
+                    <div class="target-auto-settings-filter target-auto-settings-filter--goals">
+                      <span>目標ランプ</span>
+                      <div id="targetRecommendationGoalOptions" class="target-auto-settings-options multi-filter__options"></div>
+                    </div>
                     <div class="target-auto-settings-filter target-auto-settings-filter--features">
                       <span>Feature</span>
                       <div id="targetRecommendationFeatureOptions" class="target-auto-settings-options multi-filter__options"></div>
                     </div>
-                    <div class="target-auto-settings-filter target-auto-settings-filter--goals">
-                      <span>ターゲットに含むランプ</span>
-                      <div id="targetRecommendationGoalOptions" class="target-auto-settings-options multi-filter__options"></div>
-                    </div>
+
                     <label class="target-auto-settings-number target-auto-settings-count">
                       <span>表示件数（1〜20）</span>
                       <input id="targetRecommendationCount" type="number" min="1" max="20" step="1" inputmode="numeric">

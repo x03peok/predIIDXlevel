@@ -62,11 +62,15 @@ const targetStatuses = [
 const targetGoalStatuses = [
   { value: "easy", label: "EASY" },
   { value: "clear", label: "CLEAR" },
-  { value: "hard", label: "HARD以上" },
+  { value: "hard", label: "HARD" },
 ];
 const targetStatusValues = new Set(targetStatuses.map(({ value }) => value));
+const targetRecommendationLockedStatusValues = new Set(["hard"]);
 const targetDefaultStatusFilter = targetStatuses
   .filter(({ value }) => !["unowned", "clear", "hard"].includes(value))
+  .map(({ value }) => value);
+const targetDefaultRecommendationStatusFilter = targetStatuses
+  .filter(({ value }) => !["unowned", "hard"].includes(value))
   .map(({ value }) => value);
 const targetRecommendationSettingsKey = "cpi-next-target-recommendation-statuses";
 const targetEmptyTargetGoalsConfirmedKey = "cpi-next-target-recommendation-empty-target-goals-confirmed";
@@ -104,7 +108,7 @@ const targetDefaultRecommendationSettings = {
   count: 10,
   // Keep these defaults for the existing candidate scope and old saved settings.
   levels: [...targetRecommendationLevelValues],
-  statuses: ["unregistered", "no-play", "failed", "assisted", "easy"],
+  statuses: [...targetDefaultRecommendationStatusFilter],
   targetGoals: targetGoalStatuses.map(({ value }) => value),
 };const targetDifficultyOrder = ["N", "H", "A", "L"];
 const targetDifficultyLabels = {
@@ -1021,48 +1025,47 @@ function targetGetAutoCandidateDetails() {
   const featureReasons = Array.isArray(settings.featureReasons)
     ? settings.featureReasons
     : targetDefaultRecommendationSettings.featureReasons;
-  return targetState.rows.map((row) => {
+  return targetState.rows.flatMap((row) => {
     const status = targetGetStatus(row);
-    if (!settings.statuses.includes(status) || !settings.levels.includes(row.original_level)) {
-      return null;
+    if (targetRecommendationLockedStatusValues.has(status) || !settings.statuses.includes(status) || !settings.levels.includes(row.original_level)) {
+      return [];
     }
     if (!targetRecommendationFeatureMatches(row, settings.featureFilters ?? settings.features)) {
-      return null;
+      return [];
     }
-    const goal = targetGetDefaultGoalForStatus(status);
-    if (!goal || !settings.targetGoals.includes(goal)) {
-      return null;
-    }
-    const predMode = targetGetPredModeForGoal(goal);
-    const rawPred = targetGetNumericValue(targetGetPredValue(row, predMode));
-    const adjustedPred = targetGetNumericValue(targetGetAdjustedPred(row, predMode));
-    const probability = targetGetExpectedClearProbability(row, predMode, adjustedPred);
-    const probabilityPercent = probability === null ? null : probability * 100;
-    if (!Number.isFinite(probabilityPercent) || rawPred === null || adjustedPred === null) {
-      return null;
-    }
-    const appropriatePred = targetGetRecommendationAppropriatePred(predMode);
-    const appropriateDifference = appropriatePred === null ? null : adjustedPred - appropriatePred;
-    const correctionDifference = adjustedPred - rawPred;
-    const probabilityReason = targetGetRecommendationProbabilityBand(probabilityPercent);
-    const featureReason = targetGetRecommendationFeatureBand(correctionDifference);
-    if (!difficultyReasons.includes(probabilityReason) || !featureReasons.includes(featureReason)) {
-      return null;
-    }
-    return {
-      row,
-      goal,
-      predMode,
-      probability,
-      probabilityPercent,
-      probabilityReason,
-      featureReason,
-      rawPred,
-      adjustedPred,
-      appropriateDifference,
-      correctionDifference,
-    };
-  }).filter(Boolean);
+    const goals = targetGetGoalOptions(status);
+    return goals.map(({ value: goal }) => {
+      const predMode = targetGetPredModeForGoal(goal);
+      const rawPred = targetGetNumericValue(targetGetPredValue(row, predMode));
+      const adjustedPred = targetGetNumericValue(targetGetAdjustedPred(row, predMode));
+      const probability = targetGetExpectedClearProbability(row, predMode, adjustedPred);
+      const probabilityPercent = probability === null ? null : probability * 100;
+      if (!Number.isFinite(probabilityPercent) || rawPred === null || adjustedPred === null) {
+        return null;
+      }
+      const appropriatePred = targetGetRecommendationAppropriatePred(predMode);
+      const appropriateDifference = appropriatePred === null ? null : adjustedPred - appropriatePred;
+      const correctionDifference = adjustedPred - rawPred;
+      const probabilityReason = targetGetRecommendationProbabilityBand(probabilityPercent);
+      const featureReason = targetGetRecommendationFeatureBand(correctionDifference);
+      if (!difficultyReasons.includes(probabilityReason) || !featureReasons.includes(featureReason)) {
+        return null;
+      }
+      return {
+        row,
+        goal,
+        predMode,
+        probability,
+        probabilityPercent,
+        probabilityReason,
+        featureReason,
+        rawPred,
+        adjustedPred,
+        appropriateDifference,
+        correctionDifference,
+      };
+    }).filter(Boolean);
+  });
 }
 
 function targetRenderRecommendationReasonTag(axis, value) {
@@ -1148,20 +1151,25 @@ function targetGenerateAutoRecommendations() {
       }
       return (left.row.__order ?? 0) - (right.row.__order ?? 0);
     });
+  const getCandidateKey = (candidate) => String(candidate.row.chart_id) + "::" + candidate.goal;
 
   targetState.autoRecommendationCandidateCount = candidates.length;
-  targetState.autoRecommendationIds = selected.map(({ row }) => String(row.chart_id));
+  targetState.autoRecommendationIds = selected.map(getCandidateKey);
   targetState.autoRecommendationMetaById = new Map(
-    selected.map((candidate) => [String(candidate.row.chart_id), candidate]),
+    selected.map((candidate) => [getCandidateKey(candidate), candidate]),
   );
   targetState.autoRecommendationsInitialized = true;
 }
+
 function targetRenderAutoRecommendations() {
   const recommendedRows = targetState.autoRecommendationIds
-    .map((chartId) => ({
-      row: targetState.rowsByChartId.get(chartId),
-      candidate: targetState.autoRecommendationMetaById.get(chartId),
-    }))
+    .map((candidateKey) => {
+      const candidate = targetState.autoRecommendationMetaById.get(candidateKey);
+      return {
+        row: candidate?.row,
+        candidate,
+      };
+    })
     .filter(({ row, candidate }) => row && candidate);
   targetElements.autoRowCount.textContent = recommendedRows.length.toLocaleString()
     + "件表示 / " + targetState.autoRecommendationCandidateCount.toLocaleString() + "件中";
@@ -1357,7 +1365,7 @@ function targetReadRecommendationSettings() {
     if (Array.isArray(parsed)) {
       return {
         ...fallback,
-        statuses: [...new Set(parsed.filter((value) => targetStatusValues.has(value)))],
+        statuses: [...new Set(parsed.filter((value) => targetStatusValues.has(value) && !targetRecommendationLockedStatusValues.has(value)))],
       };
     }
     if (!parsed || typeof parsed !== "object") {
@@ -1389,7 +1397,7 @@ function targetReadRecommendationSettings() {
         .filter((value) => targetRecommendationLevelValues.includes(value)))]
       : [...fallback.levels];
     const statuses = Array.isArray(parsed.statuses)
-      ? [...new Set(parsed.statuses.filter((value) => targetStatusValues.has(value)))]
+      ? [...new Set(parsed.statuses.filter((value) => targetStatusValues.has(value) && !targetRecommendationLockedStatusValues.has(value)))]
       : [...fallback.statuses];
     const targetGoals = Array.isArray(parsed.targetGoals)
       ? [...new Set(parsed.targetGoals.filter((value) => targetGoalStatuses.some((goal) => goal.value === value)))]
@@ -1423,7 +1431,7 @@ function targetCloneRecommendationSettings(settings) {
     featureFilters: targetCloneRecommendationFeatureFilters(source.featureFilters ?? targetDefaultRecommendationSettings.featureFilters),
     count: targetNormalizeRecommendationCount(source.count),
     levels: [...(source.levels ?? targetDefaultRecommendationSettings.levels)],
-    statuses: [...(source.statuses ?? targetDefaultRecommendationSettings.statuses)],
+    statuses: [...new Set((source.statuses ?? targetDefaultRecommendationSettings.statuses).filter((value) => targetStatusValues.has(value) && !targetRecommendationLockedStatusValues.has(value)))],
     targetGoals: [...(source.targetGoals ?? targetDefaultRecommendationSettings.targetGoals)],
   };
 }
@@ -1461,12 +1469,15 @@ function targetUpdateRecommendationSummary(summary, selectedValues, options) {
   summary.title = labels.join(", ");
 }
 
-function targetRenderRecommendationFilter({ container, summary, options, settingKey, includeAll = true }) {
+function targetRenderRecommendationFilter({ container, summary, options, settingKey, includeAll = true, disabledValues = [] }) {
   if (!container || !targetRecommendationDraft) {
     return;
   }
   const values = options.map(({ value }) => value);
+  const disabledSet = new Set(disabledValues);
   const selectedValues = new Set(targetRecommendationDraft[settingKey]);
+  disabledSet.forEach((value) => selectedValues.delete(value));
+  targetRecommendationDraft[settingKey] = [...selectedValues];
   const convertValue = (value) => typeof values[0] === "number" ? Number(value) : value;
 
   const syncCheckboxes = () => {
@@ -1501,6 +1512,12 @@ function targetRenderRecommendationFilter({ container, summary, options, setting
     input.type = "checkbox";
     input.dataset.filterOption = "true";
     input.value = String(option.value);
+    const isDisabled = disabledSet.has(option.value);
+    input.disabled = isDisabled;
+    if (isDisabled) {
+      label.classList.add("multi-filter__option--disabled");
+      label.title = "この項目は自動リコメンドの対象外です";
+    }
     const text = document.createElement("span");
     text.textContent = option.label;
     label.append(input, text);
@@ -1636,6 +1653,24 @@ function targetRenderRecommendationSettings() {
       label: targetRecommendationFeatureLabels[value],
     })),
     settingKey: "featureReasons",
+    includeAll: false,
+  });
+  targetRenderRecommendationFilter({
+    container: targetElements.recommendationLevelOptions,
+    summary: null,
+    options: targetRecommendationLevelValues.map((value) => ({
+      value,
+      label: "☆" + value,
+    })),
+    settingKey: "levels",
+    includeAll: false,
+  });
+  targetRenderRecommendationFilter({
+    container: targetElements.recommendationStatusOptions,
+    summary: null,
+    options: targetStatuses,
+    settingKey: "statuses",
+    disabledValues: ["hard"],
     includeAll: false,
   });
   targetRenderRecommendationFeatureFilter();
@@ -2491,6 +2526,8 @@ function targetInitializeElements() {
   targetElements.recommendationDifficultySummary = document.getElementById("targetRecommendationDifficultySummary");
   targetElements.recommendationFeatureReasonOptions = document.getElementById("targetRecommendationFeatureReasonOptions");
   targetElements.recommendationFeatureReasonSummary = document.getElementById("targetRecommendationFeatureReasonSummary");
+  targetElements.recommendationLevelOptions = document.getElementById("targetRecommendationLevelOptions");
+  targetElements.recommendationStatusOptions = document.getElementById("targetRecommendationStatusOptions");
   targetElements.recommendationFeatureOptions = document.getElementById("targetRecommendationFeatureOptions");
   targetElements.recommendationGoalOptions = document.getElementById("targetRecommendationGoalOptions");
   targetElements.recommendationFeatureSummary = document.getElementById("targetRecommendationFeatureSummary");

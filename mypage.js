@@ -104,7 +104,6 @@ const mypageState = {
   db: null,
   activeTab: "summary",
   highPredVisibleLimit: 3,
-  updateTargetVisibleLimit: 3,
   analysis: null,
   analysisDirty: true,
   storageRefreshPromise: null,
@@ -1686,23 +1685,20 @@ function mypageRenderRecommendationLists(analysis) {
   }
 
   const updateCards = mypageElements.updateTargetCards;
-  const updateMore = mypageElements.updateTargetMore;
   const updateMessage = mypageElements.updateTargetMessage;
-  if (!updateCards || !updateMore || !updateMessage) {
+  if (!updateCards || !updateMessage) {
     return;
   }
   const updateCandidates = analysis.updateTargetCandidates;
   const calculationUnavailable = overallResult?.usedLogistic !== true;
   if (calculationUnavailable) {
     updateCards.replaceChildren();
-    updateMore.hidden = true;
     updateMessage.hidden = false;
     updateMessage.textContent = "クリア確率を計算できるデータがありません。クリアランプ登録が増えると表示されます。";
     return;
   }
-  const updateVisible = updateCandidates.slice(0, mypageState.updateTargetVisibleLimit);
+  const updateVisible = updateCandidates.slice(0, mypageRecommendationPageSize);
   updateCards.innerHTML = updateVisible.map(mypageRenderUpdateTargetCard).join("");
-  updateMore.hidden = updateCandidates.length <= mypageState.updateTargetVisibleLimit;
   updateMessage.hidden = updateCandidates.length > 0;
   updateMessage.textContent = updateCandidates.length > 0
     ? ""
@@ -1964,10 +1960,6 @@ function mypageBindEvents() {
   });
   mypageElements.highPredMore.addEventListener("click", () => {
     mypageState.highPredVisibleLimit += mypageRecommendationPageSize;
-    mypageRender();
-  });
-  mypageElements.updateTargetMore.addEventListener("click", () => {
-    mypageState.updateTargetVisibleLimit += mypageRecommendationPageSize;
     mypageRender();
   });
 
@@ -2292,7 +2284,6 @@ function mypageInitializeElements() {
   mypageElements.highPredMore = document.getElementById("mypageHighPredMore");
   mypageElements.highPredMessage = document.getElementById("mypageHighPredMessage");
   mypageElements.updateTargetCards = document.getElementById("mypageUpdateTargetCards");
-  mypageElements.updateTargetMore = document.getElementById("mypageUpdateTargetMore");
   mypageElements.updateTargetMessage = document.getElementById("mypageUpdateTargetMessage");
   mypageElements.shareButton = document.getElementById("mypageShareButton");
   mypageElements.shareButtonTop = document.getElementById("mypageShareButtonTop");

@@ -66,6 +66,7 @@ const dailyStatuses = [
   { value: "hard", label: "HARD以上" },
 ];
 const dailyStatusValues = new Set(dailyStatuses.map(({ value }) => value));
+const dailyRecommendationLockedStatusValues = new Set(["hard"]);
 const dailyStatusRank = {
   unregistered: 0,
   unowned: 0,
@@ -87,7 +88,7 @@ const dailyDefaultRecommendationSettings = {
   probabilityMin: 40,
   probabilityMax: 60,
   levels: [...dailyRecommendationLevelValues],
-  statuses: ["unregistered", "no-play", "failed", "assisted", "easy"],
+  statuses: dailyStatuses.filter(({ value }) => !["unowned", "hard"].includes(value)).map(({ value }) => value),
   targetGoals: dailyGoalStatuses.map(({ value }) => value),
 };
 const dailyEntityDecoder = document.createElement("textarea");
@@ -577,7 +578,7 @@ function dailyReadRecommendationSettings() {
   try {
     const parsed = JSON.parse(window.localStorage?.getItem(dailyRecommendationSettingsKey) ?? "null");
     if (Array.isArray(parsed)) {
-      return { ...fallback, statuses: [...new Set(parsed.filter((value) => dailyStatusValues.has(value)))] };
+      return { ...fallback, statuses: [...new Set(parsed.filter((value) => dailyStatusValues.has(value) && !dailyRecommendationLockedStatusValues.has(value)))] };
     }
     if (!parsed || typeof parsed !== "object") return fallback;
     let probabilityMin = dailyNormalizeRecommendationProbability(parsed.probabilityMin, fallback.probabilityMin);
@@ -587,7 +588,7 @@ function dailyReadRecommendationSettings() {
       ? [...new Set(parsed.levels.map((value) => Number(value)).filter((value) => dailyRecommendationLevelValues.includes(value)))]
       : [...fallback.levels];
     const statuses = Array.isArray(parsed.statuses)
-      ? [...new Set(parsed.statuses.filter((value) => dailyStatusValues.has(value)))]
+      ? [...new Set(parsed.statuses.filter((value) => dailyStatusValues.has(value) && !dailyRecommendationLockedStatusValues.has(value)))]
       : [...fallback.statuses];
     const targetGoals = Array.isArray(parsed.targetGoals)
       ? [...new Set(parsed.targetGoals.filter((value) => dailyGoalStatuses.some((goal) => goal.value === value)))]
@@ -633,7 +634,7 @@ function dailyGetAutoFillCandidates() {
   return dailyState.rows.filter((row) => {
     if (dailyState.selected.has(String(row.chartId))) return false;
     const status = dailyGetStatus(row.chartId);
-    if (!settings.statuses.includes(status) || !settings.levels.includes(row.level)) return false;
+    if (dailyRecommendationLockedStatusValues.has(status) || !settings.statuses.includes(status) || !settings.levels.includes(row.level)) return false;
     if (dailyGetGoalOptions(status).length === 0) return false;
     const goal = dailyGetDefaultGoal(status);
     if (!goal || !settings.targetGoals.includes(goal)) return false;

@@ -1618,3 +1618,24 @@
 .mypage-status-distribution__controls {
   margin-top: 6px;
 }
+.mypage-update-target-link,
+.mypage-update-target-link:visited {
+  text-decoration: none;
+}
+.mypage-update-target-link,
+.mypage-update-target-link:visited {
+  width: fit-content;
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 800;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
+}
+
+.mypage-update-target-link:hover,
+.mypage-update-target-link:focus-visible {
+  border-color: #1d4ed8;
+  background: #1d4ed8;
+  color: #ffffff;
+  box-shadow: 0 5px 12px rgba(29, 78, 216, 0.28);
+}

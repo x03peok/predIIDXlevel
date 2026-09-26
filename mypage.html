@@ -28,13 +28,13 @@
   <!-- Google Analytics -->
   <script defer src="analytics.js?v=20260905-1"></script>
   <link rel="stylesheet" href="styles.css?v=20260916-2">
-<link rel="stylesheet" href="mypage.css?v=20260923-32">
+<link rel="stylesheet" href="mypage.css?v=20260923-34">
   <link rel="stylesheet" href="menu.css?v=20260904-2">
   <script defer src="menu.js?v=20260925-1"></script>
   <script defer src="data.js?v=20260920-1"></script>
   <script defer src="app.js?v=20260910-1"></script>
   <script defer src="status-toast.js?v=20260908-1"></script>
-  <script defer src="mypage.js?v=20260925-3"></script>
+  <script defer src="mypage.js?v=20260925-4"></script>
 </head>
 <body data-page="mypage">
   <main class="app">
@@ -110,7 +110,7 @@
           <p class="mypage-recommendation-block__note">プレイ済みの譜面から、次のランプ更新を狙いやすい順に表示します。<br>更新見込みの推定には、得意・苦手な譜面特徴も加味しています。</p>
           <div id="mypageUpdateTargetMessage" class="mypage-recommendation-block__message" role="status" hidden></div>
           <div id="mypageUpdateTargetCards" class="mypage-recommendation-cards"></div>
-          <button id="mypageUpdateTargetMore" class="mypage-recommendation-more" type="button" hidden>さらに表示</button>
+          <a class="mypage-recommendation-more mypage-update-target-link" href="target.html">マイターゲットを見る</a>
         </section>
           <section id="mypageFeatureResult" class="mypage-status-distribution mypage-feature-result" aria-labelledby="mypageFeatureResultTitle" hidden>
             <h3 id="mypageFeatureResultTitle" class="mypage-status-distribution__title mypage-feature-result__title">譜面傾向</h3>

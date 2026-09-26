@@ -13,7 +13,7 @@
 
 .target-mode-switch__button {
   min-height: 2.6rem;
-  padding: 0.6rem 1.15rem 0.55rem;
+  padding: 0.6rem 0.9rem 0.55rem;
   border: 0;
   border-bottom: 3px solid transparent;
   border-radius: 10px 10px 0 0;
@@ -208,7 +208,7 @@ body.target-settings-modal-open {
 .target-auto-settings-filters {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 14px;
+  gap: 16px;
   margin-top: 14px;
 }
 
@@ -225,7 +225,6 @@ body.target-settings-modal-open {
 }
 
 .target-auto-settings-filter--features,
-.target-auto-settings-filter--goals,
 .target-auto-settings-count {
   grid-column: 1 / -1;
 }
@@ -239,6 +238,31 @@ body.target-settings-modal-open {
   line-height: 1.45;
 }
 
+.target-auto-settings-filter--levels {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: start;
+}
+
+.target-auto-settings-filter--statuses {
+  grid-column: 2;
+  grid-row: 2 / span 2;
+  align-self: start;
+}
+
+.target-auto-settings-filter--goals {
+  grid-column: 1;
+  grid-row: 3;
+  align-self: start;
+}
+
+.target-auto-settings-filter--levels .target-auto-settings-options {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.target-auto-settings-filter--statuses .target-auto-settings-options {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 .target-auto-settings-filter--goals .target-auto-settings-options {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -298,7 +322,7 @@ body.target-settings-modal-open {
   z-index: auto;
   display: grid;
   grid-template-columns: 1fr;
-  gap: 4px;
+  gap: 3px;
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
@@ -320,6 +344,15 @@ body.target-settings-modal-open {
   font-weight: 400;
   letter-spacing: 0;
   white-space: normal;
+}
+
+.target-auto-settings-options .multi-filter__option--disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.target-auto-settings-options .multi-filter__option--disabled:hover {
+  background: transparent;
 }
 
 .target-auto-settings-options .multi-filter__option--all {
