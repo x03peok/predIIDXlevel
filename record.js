@@ -1,10 +1,11 @@
 "use strict";
 
 const recordDbName = "cpi-next-clear-status";
-const recordDbVersion = 3;
+const recordDbVersion = 4;
 const recordStoreName = "chart-statuses";
 const recordManualMemoStoreName = "manual-targets";
 const recordDailyTargetsStoreName = "daily-targets";
+const recordUpdateHistoryStoreName = "status-update-events";
 const recordPageSize = 100;
 const recordDifficultyLabels = {
   NORMAL: "N",
@@ -162,22 +163,67 @@ function recordMapImportClearType(clearType) {
   if (value.includes("HARD") || value.includes("FULLCOMBO")) return "hard";
   return undefined;
 }
-function recordWriteStatuses(statuses) {
+function recordGetHistorySnapshot(chartId) {
+  const row = recordState.rowsByChartId.get(String(chartId ?? ""));
+  return row ? {
+    title: row.title,
+    difficulty: row.difficulty,
+    level: row.level,
+  } : undefined;
+}
+
+function recordWriteStatuses(statuses, options = {}) {
   return new Promise((resolve, reject) => {
-    if (!recordState.db) { reject(new Error("ローカル保存を開けませんでした。")); return; }
-    const transaction = recordState.db.transaction(recordStoreName, "readwrite");
+    if (!recordState.db) {
+      reject(new Error("ローカル保存を開けませんでした."));
+      return;
+    }
+    const entries = statuses instanceof Map ? [...statuses] : [];
+    const beforeStatuses = options.beforeStatuses instanceof Map ? options.beforeStatuses : null;
+    const recordHistory = options.recordHistory !== false;
+    const source = String(options.source ?? "record");
+    const hasHistory = Boolean(
+      recordHistory
+      && window.cpiUpdateHistory
+      && recordState.db.objectStoreNames.contains(recordUpdateHistoryStoreName),
+    );
+    const stores = hasHistory
+      ? [recordStoreName, recordUpdateHistoryStoreName]
+      : [recordStoreName];
+    const transaction = recordState.db.transaction(stores, "readwrite");
     const store = transaction.objectStore(recordStoreName);
     const updatedAt = new Date().toISOString();
+    const changes = entries.map(([chartId, status]) => ({
+      chartId: String(chartId),
+      beforeStatus: beforeStatuses?.get(String(chartId))
+        ?? recordState.records.get(String(chartId))?.status
+        ?? "unregistered",
+      afterStatus: status,
+      snapshot: recordGetHistorySnapshot(chartId),
+    }));
     try {
-      for (const [chartId, status] of statuses) {
+      for (const [chartId, status] of entries) {
         if (status === "unregistered") {
-          store.delete(chartId);
+          store.delete(String(chartId));
         } else {
-          store.put({ chartId, status, updatedAt });
+          store.put({ chartId: String(chartId), status, updatedAt });
         }
       }
-    } catch (error) { reject(error); return; }
-    transaction.oncomplete = resolve;
+      if (hasHistory) {
+        window.cpiUpdateHistory.appendToTransaction(transaction, changes, { source, changedAt: updatedAt });
+      }
+    } catch (error) {
+      reject(error);
+      return;
+    }
+    transaction.oncomplete = () => {
+      resolve();
+      for (const [chartId, status] of entries) {
+        window.dispatchEvent(new CustomEvent("cpi:status-changed", {
+          detail: { source: "record", chartId: String(chartId), status },
+        }));
+      }
+    };
     transaction.onerror = () => reject(transaction.error ?? new Error("記録を保存できませんでした。"));
     transaction.onabort = () => reject(transaction.error ?? new Error("記録を保存できませんでした。"));
   });
@@ -321,7 +367,11 @@ async function recordHandleCsvImport() {
         recordState.records.get(chartId)?.status ?? "unregistered",
       ]),
     );
-    await recordWriteStatuses(result.updates);
+    await recordWriteStatuses(result.updates, {
+      recordHistory: !showImportCta,
+      source: "csv-import",
+      beforeStatuses: previousStatuses,
+    });
     const updatedAt = new Date().toISOString();
     for (const [chartId, status] of result.updates) recordState.records.set(chartId, { chartId, status, updatedAt });
     recordRender();
@@ -332,7 +382,10 @@ async function recordHandleCsvImport() {
     recordSetCsvMessage(message, false, Boolean(fileWarning));
     window.cpiStatusToast?.show({
       onUndo: async () => {
-        await recordWriteStatuses(previousStatuses);
+        await recordWriteStatuses(previousStatuses, {
+          source: "csv-undo",
+          beforeStatuses: result.updates,
+        });
         for (const [chartId, status] of previousStatuses) {
           if (status === "unregistered") {
             recordState.records.delete(chartId);
@@ -349,6 +402,9 @@ async function recordHandleCsvImport() {
       },
     });
     if (showImportCta && recordElements.csvImportLinks) recordElements.csvImportLinks.hidden = false;
+    if (!showImportCta) {
+      window.location.assign("mypage.html?tab=history");
+    }
   } catch (error) {
     recordHideCsvImportLinks();
     recordSetCsvMessage(error.message || "CSVをインポートできませんでした。", true);
@@ -435,6 +491,7 @@ function recordOpenDatabase() {
       if (!database.objectStoreNames.contains(recordDailyTargetsStoreName)) {
         database.createObjectStore(recordDailyTargetsStoreName, { keyPath: "date" });
       }
+      window.cpiUpdateHistory?.ensureStore(database);
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error("ローカル保存を開けませんでした。"));
@@ -450,18 +507,8 @@ function recordReadAll() {
   });
 }
 
-function recordWriteStatus(chartId, status) {
-  return new Promise((resolve, reject) => {
-    const transaction = recordState.db.transaction(recordStoreName, "readwrite");
-    const store = transaction.objectStore(recordStoreName);
-    if (status === "unregistered") {
-      store.delete(chartId);
-    } else {
-      store.put({ chartId, status, updatedAt: new Date().toISOString() });
-    }
-    transaction.oncomplete = resolve;
-    transaction.onerror = () => reject(transaction.error ?? new Error("記録を保存できませんでした。"));
-  });
+function recordWriteStatus(chartId, status, options = {}) {
+  return recordWriteStatuses(new Map([[String(chartId), status]]), options);
 }
 
 function recordApplyRecords(records) {

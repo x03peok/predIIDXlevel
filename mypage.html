@@ -28,13 +28,14 @@
   <!-- Google Analytics -->
   <script defer src="analytics.js?v=20260905-1"></script>
   <link rel="stylesheet" href="styles.css?v=20260916-2">
-<link rel="stylesheet" href="mypage.css?v=20260923-34">
+<link rel="stylesheet" href="mypage.css?v=20260930-9">
   <link rel="stylesheet" href="menu.css?v=20260904-2">
   <script defer src="menu.js?v=20260925-1"></script>
   <script defer src="data.js?v=20260920-1"></script>
   <script defer src="app.js?v=20260910-1"></script>
   <script defer src="status-toast.js?v=20260908-1"></script>
-  <script defer src="mypage.js?v=20260925-4"></script>
+  <script defer src="update-history.js?v=20260929-7"></script>
+  <script defer src="mypage.js?v=20260930-13"></script>
 </head>
 <body data-page="mypage">
   <main class="app">
@@ -69,6 +70,7 @@
         <div class="mypage-tabs" role="tablist" aria-label="マイページ表示切り替え">
           <button id="mypageSummaryTab" class="mypage-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="mypageSummaryPanel" data-mypage-tab="summary">概要</button>
           <button id="mypageDetailTab" class="mypage-tab" type="button" role="tab" aria-selected="false" aria-controls="mypageDetailPanel" data-mypage-tab="detail" tabindex="-1">詳細一覧</button>
+          <button id="mypageHistoryTab" class="mypage-tab" type="button" role="tab" aria-selected="false" aria-controls="mypageHistoryPanel" data-mypage-tab="history" tabindex="-1">更新履歴</button>
         </div>
 
         <section id="mypageSummaryPanel" class="mypage-tab-panel" role="tabpanel" aria-labelledby="mypageSummaryTab" aria-hidden="false">
@@ -215,6 +217,14 @@
         <div class="mypage-pagination">
           <button id="mypageLoadMoreButton" class="mypage-load-more" type="button" hidden>さらに表示</button>
         </div>
+        </section>
+
+        <section id="mypageHistoryPanel" class="mypage-tab-panel mypage-history-panel" role="tabpanel" aria-labelledby="mypageHistoryTab" aria-hidden="true" hidden>
+          <h2 class="mypage-section-heading mypage-history__heading">更新履歴</h2>
+          <p class="mypage-history__note">直近30日間のクリア更新履歴です。日付の切り替わりは5:00 (JST)です。</p>
+
+          <p id="mypageHistoryMessage" class="mypage-message" role="status" aria-live="polite" hidden></p>
+          <div id="mypageHistoryEvents" class="mypage-history__events" aria-label="クリアランプ更新履歴"></div>
         </section>
       </div>
     </section>

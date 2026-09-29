@@ -1,10 +1,11 @@
 "use strict";
 
 const mypageDatabaseName = "cpi-next-clear-status";
-const mypageDatabaseVersion = 3;
+const mypageDatabaseVersion = 4;
 const mypageStoreName = "chart-statuses";
 const mypageManualMemoStoreName = "manual-targets";
 const mypageDailyTargetsStoreName = "daily-targets";
+const mypageUpdateHistoryStoreName = "status-update-events";
 const mypagePageSize = 100;
 const mypageFeatureNone = "特徴なし";
 const mypageFeatureNames = [
@@ -72,6 +73,7 @@ const mypageStatuses = [
 const mypageStatusValues = new Set(mypageStatuses.map(({ value }) => value));
 const mypageStoredStatusValues = new Set([...mypageStatusValues, "failed"]);
 const mypageRecommendationPageSize = 3;
+const mypageHistoryPageSize = 10;
 const mypageUpdateTargetByStatus = Object.freeze({
   failed: { mode: "easy", label: "EASY" },
   assisted: { mode: "easy", label: "EASY" },
@@ -108,6 +110,8 @@ const mypageState = {
   analysisDirty: true,
   storageRefreshPromise: null,
   analyticsStateTracked: false,
+  updateHistoryEvents: [],
+  historyVisibleLimits: new Map(),
 };
 
 const mypageElements = {};
@@ -1798,6 +1802,440 @@ function mypageUpdateMissingDataMessage() {
     : "譜面データなし: " + count.toLocaleString() + "譜面。保存されたクリアランプ・手動メモは保持されていますが、現在の譜面データがないため、表・Pred推定・リコメンドの対象外です。";
 }
 
+function mypageApplyUpdateHistory(events) {
+  const sourceEvents = Array.isArray(events) ? events : [];
+  const statusRanks = window.cpiUpdateHistory?.statusRanks ?? {};
+  const displayStatuses = new Set(["assisted", "easy", "clear", "hard"]);
+  const mappedEvents = sourceEvents
+    .filter((event) => {
+      const before = String(event?.beforeStatus ?? "").trim().toLowerCase();
+      const after = String(event?.afterStatus ?? "").trim().toLowerCase();
+      return (statusRanks[after] ?? 0) > (statusRanks[before] ?? 0);
+    })
+    .map((event) => {
+      const chartId = String(event?.chartId ?? "").trim();
+      const row = mypageState.rowsByChartId.get(chartId);
+      const record = mypageState.records.get(chartId);
+      // Older backup-import events were timestamped at import time. When the
+      // current record still matches that event, recover the source timestamp.
+      const legacyImportedEvent = event?.source === "backup-import"
+        && !event?.updatedAt
+        && record?.status === event?.afterStatus;
+      const historyTimestamp = legacyImportedEvent
+        ? (record?.updatedAt ?? record?.updatedat ?? record?.updated_at)
+        : (event?.updatedAt ?? event?.changedAt);
+      const eventDate = new Date(historyTimestamp);
+      const fallbackDate = new Date(record?.updatedAt);
+      const changedAt = Number.isFinite(eventDate.getTime())
+        ? historyTimestamp
+        : Number.isFinite(fallbackDate.getTime())
+          ? record.updatedAt
+          : "";
+      const changedDate = new Date(changedAt);
+      const cycleKey = Number.isFinite(changedDate.getTime())
+        ? window.cpiUpdateHistory?.getCycleKey?.(changedDate)
+        : String(event?.cycleKey ?? "").trim();
+      const afterStatus = String(event?.afterStatus ?? "").trim().toLowerCase();
+      return {
+        ...event,
+        changedAt,
+        cycleKey,
+        afterStatus,
+        beforeStatus: String(event?.beforeStatus ?? "").trim().toLowerCase(),
+        pred: row
+          ? mypageGetHistoryPred(row, afterStatus)
+          : mypageGetNumericValue(event?.pred),
+        title: String(event?.title ?? "").trim() || String(row?.title ?? "").trim(),
+        difficulty: String(event?.difficulty ?? "").trim() || String(row?.difficulty ?? "").trim(),
+        level: String(event?.level ?? event?.original_level ?? "").trim()
+          || String(row?.original_level ?? "").trim(),
+      };
+    });
+
+  mypageState.updateHistoryEvents = mypageMergeUpdateHistoryEvents(
+    mappedEvents,
+    statusRanks,
+    displayStatuses,
+  );
+}
+
+function mypageMergeUpdateHistoryEvents(events, statusRanks, displayStatuses) {
+  const orderedEvents = events.slice().sort((left, right) => {
+    const leftTime = new Date(left?.changedAt).getTime();
+    const rightTime = new Date(right?.changedAt).getTime();
+    const leftValid = Number.isFinite(leftTime);
+    const rightValid = Number.isFinite(rightTime);
+    if (leftValid && rightValid && leftTime !== rightTime) return leftTime - rightTime;
+    if (leftValid !== rightValid) return leftValid ? -1 : 1;
+    return Number(left?.id ?? 0) - Number(right?.id ?? 0);
+  });
+  const merged = new Map();
+
+  for (const event of orderedEvents) {
+    const key = String(event?.cycleKey ?? "") + "|" + String(event?.chartId ?? "");
+    const previous = merged.get(key);
+    if (!previous) {
+      merged.set(key, { ...event });
+      continue;
+    }
+    merged.set(key, {
+      ...previous,
+      ...event,
+      beforeStatus: previous.beforeStatus,
+    });
+  }
+
+  return [...merged.values()].filter((event) => (
+    displayStatuses.has(event.afterStatus)
+      && (statusRanks[event.afterStatus] ?? 0) > (statusRanks[event.beforeStatus] ?? 0)
+  ));
+}
+function mypageRenderUpdateHistory() {
+  const container = mypageElements.historyEvents;
+  const message = mypageElements.historyMessage;
+  if (!container || !message) return;
+
+  const events = mypageState.updateHistoryEvents
+    .filter((event) => /^\d{4}-\d{2}-\d{2}$/.test(String(event?.cycleKey ?? "").trim()))
+    .slice();
+
+  const groups = [];
+  const groupsByDate = new Map();
+  for (const event of events) {
+    const dateKey = String(event.cycleKey);
+    let group = groupsByDate.get(dateKey);
+    if (!group) {
+      group = { dateKey, events: [] };
+      groupsByDate.set(dateKey, group);
+      groups.push(group);
+    }
+    group.events.push(event);
+  }
+
+  groups.sort((left, right) => right.dateKey.localeCompare(left.dateKey));
+  for (const group of groups) {
+    group.events.sort(mypageCompareUpdateHistoryEvents);
+  }
+  const bestHistoryEvent = events.slice().sort(mypageCompareUpdateHistoryEvents)[0] ?? null;
+  const bestHighPredCandidate = mypageGetAnalysis().highPredCandidates?.[0] ?? null;
+  const bestClearUpdateEvent = bestHistoryEvent
+    && bestHighPredCandidate
+    && String(bestHistoryEvent.chartId) === String(bestHighPredCandidate.row?.chart_id)
+    ? bestHistoryEvent
+    : null;
+
+  container.replaceChildren(...groups.map((group, index) => {
+    const currentLimit = mypageState.historyVisibleLimits.get(group.dateKey) ?? mypageHistoryPageSize;
+    const visibleLimit = Math.min(group.events.length, Math.max(mypageHistoryPageSize, currentLimit));
+    mypageState.historyVisibleLimits.set(group.dateKey, visibleLimit);
+    return mypageRenderUpdateHistoryDay(
+      group.dateKey,
+      group.events,
+      group.events.slice(0, visibleLimit),
+      index === 0,
+      bestClearUpdateEvent,
+    );
+  }));
+
+  const isDemo = new URLSearchParams(window.location.search).get("demo") === "update-history";
+  message.hidden = events.length > 0;
+  message.textContent = isDemo && events.length === 0
+    ? "ダミー更新履歴を表示できませんでした。"
+    : "過去30日間に更新履歴はありません。";
+}
+
+function mypageGetHistoryPred(row, afterStatus) {
+  const predKey = {
+    easy: "easy_pred_skill",
+    clear: "calibrated_pred_skill",
+    hard: "hard_pred_skill",
+  }[String(afterStatus ?? "").trim().toLowerCase()];
+  return predKey ? mypageGetNumericValue(row?.[predKey]) : null;
+}
+
+function mypageGetHistoryEventPred(event) {
+  const directPred = mypageGetNumericValue(event?.pred);
+  if (directPred !== null) return directPred;
+  const chartId = String(event?.chartId ?? "").trim();
+  const row = mypageState.rowsByChartId.get(chartId);
+  return row ? mypageGetHistoryPred(row, event?.afterStatus) : null;
+}
+
+function mypageCompareUpdateHistoryEvents(left, right) {
+  const leftPred = mypageGetHistoryEventPred(left);
+  const rightPred = mypageGetHistoryEventPred(right);
+  if (leftPred === null && rightPred !== null) return 1;
+  if (leftPred !== null && rightPred === null) return -1;
+  if (leftPred !== null && rightPred !== null && leftPred !== rightPred) {
+    return rightPred - leftPred;
+  }
+
+  const leftLevel = mypageGetNumericValue(left?.level);
+  const rightLevel = mypageGetNumericValue(right?.level);
+  if (leftLevel === null && rightLevel !== null) return 1;
+  if (leftLevel !== null && rightLevel === null) return -1;
+  if (leftLevel !== null && rightLevel !== null && leftLevel !== rightLevel) {
+    return rightLevel - leftLevel;
+  }
+
+  return String(right?.changedAt ?? "").localeCompare(String(left?.changedAt ?? ""));
+}
+
+function mypageGetHistoryShareMarker(status) {
+  return status === "hard"
+    ? "🟥"
+    : status === "clear"
+      ? "🟦"
+      : status === "easy"
+        ? "🟩"
+        : status === "assisted"
+          ? "🟪"
+          : "";
+}
+
+function mypageBuildUpdateHistoryShareText(dateLabel, events, bestClearUpdateEvent) {
+  const summaryCounts = new Map();
+  for (const event of events) {
+    const status = String(event?.afterStatus ?? "").trim().toLowerCase();
+    summaryCounts.set(status, (summaryCounts.get(status) ?? 0) + 1);
+  }
+
+  const summary = ["assisted", "easy", "clear", "hard"]
+    .filter((status) => summaryCounts.has(status))
+    .map((status) => mypageGetHistoryShareMarker(status) + "+" + summaryCounts.get(status))
+    .join(" / ");
+  const bestEvent = events.slice().sort(mypageCompareUpdateHistoryEvents)[0] ?? null;
+  const lines = ["《" + dateLabel + "の更新》 #CPINext", "", summary];
+
+  if (bestEvent) {
+    const status = String(bestEvent.afterStatus ?? "").trim().toLowerCase();
+    const marker = mypageGetHistoryShareMarker(status);
+    const difficulty = mypageGetHistoryDifficulty(bestEvent);
+    const title = String(bestEvent.title ?? "").trim() || "譜面";
+    const titleWithDifficulty = difficulty ? title + " [" + difficulty + "]" : title;
+    const pred = mypageGetHistoryEventPred(bestEvent);
+    lines.push(
+      "",
+      "最高クリア: " + (marker ? marker + " " : "") + titleWithDifficulty,
+      "Pred: " + (pred === null ? "－" : pred.toFixed(2)),
+    );
+    if (bestEvent === bestClearUpdateEvent) {
+      lines.push("マイベストクリア更新🎉");
+    }
+  }
+
+  lines.push(
+    "",
+    "cpi-next.com/mypage.html?utm_source=x&utm_medium=share&utm_campaign=mypage_history",
+  );
+  return lines.join("\n");
+}
+function mypageRenderUpdateHistoryDay(dateKey, events, visibleEvents, isOpen, bestClearUpdateEvent) {
+  const details = document.createElement("details");
+  details.className = "mypage-history__day";
+  details.dataset.cycleKey = dateKey;
+  details.open = isOpen;
+
+  const summary = document.createElement("summary");
+  summary.className = "mypage-history__day-summary";
+
+  const dateLabel = window.cpiUpdateHistory?.formatCycleDate?.(dateKey) ?? dateKey;
+  const summaryCounts = new Map();
+  for (const event of events) {
+    const status = String(event?.afterStatus ?? "").trim().toLowerCase();
+    summaryCounts.set(status, (summaryCounts.get(status) ?? 0) + 1);
+  }
+
+  const date = document.createElement("span");
+  date.className = "mypage-history__day-date";
+  const dateMatch = String(dateLabel).match(/^(\d{4}-)(\d{1,2}-\d{1,2})$/);
+  if (dateMatch) {
+    const year = document.createElement("span");
+    year.className = "mypage-history__day-date-year";
+    year.textContent = dateMatch[1];
+    const monthDay = document.createElement("span");
+    monthDay.className = "mypage-history__day-date-month-day";
+    monthDay.textContent = dateMatch[2];
+    date.append(year, monthDay);
+  } else {
+    date.textContent = dateLabel;
+  }
+
+  const overview = document.createElement("span");
+  overview.className = "mypage-history__day-overview";
+  const overviewParts = [];
+  for (const status of ["assisted", "easy", "clear", "hard"]) {
+    const count = summaryCounts.get(status);
+    if (!count) continue;
+    const chip = mypageRenderHistoryStatus(status);
+    chip.textContent = status === "hard" ? "HARD以上" : mypageGetHistoryStatusLabel(status);
+    const overviewItem = document.createElement("span");
+    overviewItem.className = "mypage-history__day-overview-item";
+    const countLabel = document.createElement("strong");
+    countLabel.className = "mypage-history__day-count";
+    countLabel.textContent = "+" + count;
+    overviewItem.append(chip, countLabel);
+    overview.append(overviewItem);
+    overviewParts.push(chip.textContent + "+" + count);
+  }
+
+  summary.setAttribute(
+    "aria-label",
+    dateLabel + (overviewParts.length ? " " + overviewParts.join(" ") : ""),
+  );
+  const shareButton = document.createElement("a");
+  shareButton.className = "mypage-share__button mypage-history__share-button";
+  shareButton.textContent = "Xで共有";
+  shareButton.href = "https://x.com/intent/tweet?"
+    + new URLSearchParams({
+      text: mypageBuildUpdateHistoryShareText(dateLabel, events, bestClearUpdateEvent),
+    }).toString();
+  shareButton.target = "_blank";
+  shareButton.rel = "noopener noreferrer";
+  shareButton.setAttribute("aria-label", dateLabel + "の更新履歴をXで共有");
+  summary.append(date, overview);
+
+  const shareArea = document.createElement("div");
+  shareArea.className = "mypage-history__share";
+  shareArea.append(shareButton);
+
+  const list = document.createElement("div");
+  list.className = "mypage-history__day-events";
+  list.append(...visibleEvents.map((event) => (
+    mypageRenderUpdateHistoryEvent(event, event === bestClearUpdateEvent)
+  )));
+  const children = [summary, shareArea, list];
+  if (visibleEvents.length < events.length) {
+    const moreButton = document.createElement("button");
+    moreButton.type = "button";
+    moreButton.className = "mypage-load-more mypage-history__more";
+    moreButton.textContent = "さらに表示";
+    moreButton.setAttribute("aria-label", dateLabel + "の更新履歴をさらに表示");
+    moreButton.addEventListener("click", () => {
+      const currentLimit = mypageState.historyVisibleLimits.get(dateKey) ?? visibleEvents.length;
+      const nextLimit = Math.min(events.length, currentLimit + mypageHistoryPageSize);
+      const nextEvents = events.slice(currentLimit, nextLimit);
+      list.append(...nextEvents.map((event) => (
+        mypageRenderUpdateHistoryEvent(event, event === bestClearUpdateEvent)
+      )));
+      mypageState.historyVisibleLimits.set(dateKey, nextLimit);
+      if (nextLimit >= events.length) moreButton.remove();
+    });
+    children.push(moreButton);
+  }
+  details.append(...children);
+  return details;
+}
+function mypageGetHistoryDifficulty(event) {
+  const value = String(event?.difficulty ?? "").trim().toUpperCase();
+  return mypageDifficultyLabels[value] ?? value;
+}
+
+function mypageGetHistoryStatusLabel(status) {
+  return window.cpiUpdateHistory?.statusLabels?.[status] ?? mypageGetStatusLabel(status);
+}
+
+function mypageRenderHistoryStatus(status) {
+  const normalized = window.cpiUpdateHistory?.statusLabels?.[status] ? status : "unregistered";
+  const chip = document.createElement("span");
+  chip.className = "mypage-history__status";
+  chip.dataset.status = normalized;
+  chip.textContent = mypageGetHistoryStatusLabel(normalized);
+  return chip;
+}
+
+function mypageRenderUpdateHistoryEvent(event, showBestClearUpdate = false) {
+  const article = document.createElement("article");
+  article.className = "mypage-history__event";
+
+  const body = document.createElement("div");
+  body.className = "mypage-history__event-body";
+
+  const songLine = document.createElement("div");
+  songLine.className = "mypage-history__song-line";
+
+  const difficultyValue = String(event?.difficulty ?? "").trim().toUpperCase();
+  const difficultyLabel = mypageGetHistoryDifficulty(event);
+  const songChip = document.createElement("span");
+  songChip.className = "mypage-history__song-chip " + (mypageDifficultyClasses[difficultyValue] ?? "");
+
+  const title = document.createElement("a");
+  title.className = "mypage-history__title";
+  title.textContent = String(event?.title ?? "").trim() || "譜面";
+  const chartId = String(event?.chartId ?? "").trim();
+  if (/^\d+$/.test(chartId)) {
+    title.href = mypageGetChartPageHref(chartId);
+  } else {
+    title.classList.add("is-unlinked");
+  }
+
+  songChip.append(title);
+  if (difficultyLabel) {
+    const difficulty = document.createElement("span");
+    difficulty.className = "mypage-history__difficulty";
+    difficulty.textContent = " [" + difficultyLabel + "]";
+    songChip.append(difficulty);
+  }
+  songLine.append(songChip);
+
+  const levelPredLine = document.createElement("div");
+  levelPredLine.className = "mypage-history__level-pred";
+
+  const level = document.createElement("span");
+  level.className = "mypage-history__level";
+  level.textContent = String(event?.level ?? "").trim() ? "☆" + String(event.level).trim() : "☆";
+
+  const pred = mypageGetHistoryEventPred(event);
+  levelPredLine.append(level, document.createTextNode("　"));
+  if (pred === null) {
+    const predText = document.createElement("span");
+    predText.className = "mypage-history__pred mypage-history__pred--missing";
+    predText.textContent = "－";
+    levelPredLine.append(predText);
+  } else {
+    const predMode = {
+      easy: "easy",
+      clear: "normal",
+      hard: "hard",
+    }[String(event?.afterStatus ?? "").trim().toLowerCase()] ?? "normal";
+    const predBounds = mypageGetPredBounds(predMode);
+    const predLabel = document.createElement("span");
+    predLabel.className = "mypage-history__pred-label";
+    predLabel.textContent = "Pred";
+    const predValue = document.createElement("strong");
+    predValue.className = "mypage-history__pred numeric-value numeric-value--pred";
+    predValue.textContent = pred.toFixed(2);
+    const predColor = getNumericScaleColor(pred, predBounds.min, predBounds.max);
+    if (predColor) {
+      predValue.style.setProperty("--numeric-color", predColor);
+    }
+    const predGroup = document.createElement("span");
+    predGroup.className = "mypage-history__pred-group";
+    predGroup.append(predLabel, predValue);
+    levelPredLine.append(predGroup);
+  }
+
+  const bestClearUpdate = showBestClearUpdate
+    ? Object.assign(document.createElement("div"), {
+      className: "mypage-history__best-clear-update",
+      textContent: "ベストクリア更新🎉",
+    })
+    : null;
+
+  const transition = document.createElement("div");
+  transition.className = "mypage-history__transition";
+  transition.append(
+    mypageRenderHistoryStatus(event?.beforeStatus),
+    document.createTextNode("→"),
+    mypageRenderHistoryStatus(event?.afterStatus),
+  );
+
+  body.append(songLine, levelPredLine);
+  if (bestClearUpdate) body.append(bestClearUpdate);
+  body.append(transition);
+  article.append(body);
+  return article;
+}
 function mypageTrackStateEvent() {
   if (mypageState.analyticsStateTracked || typeof window.cpiAnalytics?.track !== "function") {
     return;
@@ -1816,6 +2254,7 @@ function mypageTrackStateEvent() {
 }
 function mypageRender() {
   mypageUpdateMissingDataMessage();
+  mypageRenderUpdateHistory();
   mypageUpdateAdvancedSummary();
   mypageRenderPredEstimate();
   const filteredRows = mypageGetVisibleRows();
@@ -1937,16 +2376,15 @@ function mypagePopulateFilters() {
 }
 
 function mypageSetActiveTab(tabName) {
-  const isSummary = tabName !== "detail";
-  mypageState.activeTab = isSummary ? "summary" : "detail";
+  const activeTab = ["detail", "history"].includes(tabName) ? tabName : "summary";
+  mypageState.activeTab = activeTab;
   const tabs = [
-    [mypageElements.summaryTab, mypageElements.summaryPanel, isSummary],
-    [mypageElements.detailTab, mypageElements.detailPanel, !isSummary],
+    [mypageElements.summaryTab, mypageElements.summaryPanel, activeTab === "summary"],
+    [mypageElements.detailTab, mypageElements.detailPanel, activeTab === "detail"],
+    [mypageElements.historyTab, mypageElements.historyPanel, activeTab === "history"],
   ];
   tabs.forEach(([tab, panel, active]) => {
-    if (!tab || !panel) {
-      return;
-    }
+    if (!tab || !panel) return;
     tab.classList.toggle("is-active", active);
     tab.setAttribute("aria-selected", active ? "true" : "false");
     tab.tabIndex = active ? 0 : -1;
@@ -1955,7 +2393,7 @@ function mypageSetActiveTab(tabName) {
   });
 }
 function mypageBindEvents() {
-  [mypageElements.summaryTab, mypageElements.detailTab].forEach((tab) => {
+  [mypageElements.summaryTab, mypageElements.detailTab, mypageElements.historyTab].forEach((tab) => {
     tab?.addEventListener("click", () => mypageSetActiveTab(tab.dataset.mypageTab));
   });
   mypageElements.highPredMore.addEventListener("click", () => {
@@ -2004,6 +2442,7 @@ function mypageBindEvents() {
   const refreshFromStorage = () => {
     void mypageRefreshFromStorage();
   };
+  window.addEventListener("cpi:status-changed", refreshFromStorage);
   window.addEventListener("pageshow", refreshFromStorage);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
@@ -2044,6 +2483,7 @@ function mypageOpenDatabase() {
       if (!database.objectStoreNames.contains(mypageDailyTargetsStoreName)) {
         database.createObjectStore(mypageDailyTargetsStoreName, { keyPath: "date" });
       }
+      window.cpiUpdateHistory?.ensureStore(database);
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error("ローカル保存を開けませんでした。"));
@@ -2057,6 +2497,14 @@ function mypageReadAllRecords() {
     request.onsuccess = () => resolve(request.result ?? []);
     request.onerror = () => reject(request.error ?? new Error("記録を読み込めませんでした。"));
   });
+}
+
+function mypageReadUpdateHistory() {
+  if (!window.cpiUpdateHistory || !mypageState.db) return Promise.resolve([]);
+  if (new URLSearchParams(window.location.search).get("demo") === "update-history") {
+    return Promise.resolve(window.cpiUpdateHistory.getDemoEvents());
+  }
+  return window.cpiUpdateHistory.cleanup(mypageState.db).then(() => window.cpiUpdateHistory.readEvents(mypageState.db));
 }
 
 function mypageReadAllManualMemos() {
@@ -2096,21 +2544,49 @@ function mypageApplyManualMemos(memos) {
   );
 }
 
-function mypageWriteStatus(chartId, status) {
+function mypageWriteStatus(chartId, status, beforeStatus = null) {
   return new Promise((resolve, reject) => {
     if (!mypageState.db) {
       reject(new Error("ローカル保存を開けませんでした。"));
       return;
     }
-    const transaction = mypageState.db.transaction(mypageStoreName, "readwrite");
+    const normalizedChartId = String(chartId ?? "").trim();
+    const previousStatus = beforeStatus
+      ?? mypageState.records.get(normalizedChartId)?.status
+      ?? "unregistered";
+    const now = new Date();
+    const hasHistory = Boolean(
+      window.cpiUpdateHistory
+      && mypageState.db.objectStoreNames.contains(mypageUpdateHistoryStoreName),
+    );
+    const stores = hasHistory
+      ? [mypageStoreName, mypageUpdateHistoryStoreName]
+      : [mypageStoreName];
+    const transaction = mypageState.db.transaction(stores, "readwrite");
     const store = transaction.objectStore(mypageStoreName);
     if (status === "unregistered") {
-      store.delete(chartId);
+      store.delete(normalizedChartId);
     } else {
-      store.put({ chartId, status, updatedAt: new Date().toISOString() });
+      store.put({ chartId: normalizedChartId, status, updatedAt: now.toISOString() });
     }
-    transaction.oncomplete = resolve;
+    if (hasHistory) {
+      window.cpiUpdateHistory.appendToTransaction(transaction, [{
+        chartId: normalizedChartId,
+        beforeStatus: previousStatus,
+        afterStatus: status,
+        snapshot: mypageState.rowsByChartId.get(normalizedChartId),
+      }], { source: "mypage", changedAt: now });
+    }
+    transaction.oncomplete = () => {
+      resolve();
+      window.dispatchEvent(new CustomEvent("cpi:status-changed", {
+        detail: { source: "mypage", chartId: normalizedChartId, status },
+      }));
+    };
     transaction.onerror = () => reject(
+      transaction.error ?? new Error("記録を保存できませんでした。"),
+    );
+    transaction.onabort = () => reject(
       transaction.error ?? new Error("記録を保存できませんでした。"),
     );
   });
@@ -2232,10 +2708,12 @@ async function mypageRefreshFromStorage() {
   mypageState.storageRefreshPromise = Promise.all([
     mypageReadAllRecords(),
     mypageReadAllManualMemos(),
+    mypageReadUpdateHistory(),
   ])
-    .then(([records, memos]) => {
+    .then(([records, memos, updateHistory]) => {
       mypageApplyRecords(records);
       mypageApplyManualMemos(memos);
+      mypageApplyUpdateHistory(updateHistory);
       mypageRender();
     })
     .catch((error) => {
@@ -2278,6 +2756,10 @@ function mypageInitializeElements() {
   mypageElements.predLampEstimates = document.getElementById("mypagePredLampEstimates");
   mypageElements.summaryTab = document.getElementById("mypageSummaryTab");
   mypageElements.detailTab = document.getElementById("mypageDetailTab");
+  mypageElements.historyTab = document.getElementById("mypageHistoryTab");
+  mypageElements.historyPanel = document.getElementById("mypageHistoryPanel");
+  mypageElements.historyMessage = document.getElementById("mypageHistoryMessage");
+  mypageElements.historyEvents = document.getElementById("mypageHistoryEvents");
   mypageElements.summaryPanel = document.getElementById("mypageSummaryPanel");
   mypageElements.detailPanel = document.getElementById("mypageDetailPanel");
   mypageElements.highPredCards = document.getElementById("mypageHighPredCards");
@@ -2308,6 +2790,7 @@ async function mypageInitialize() {
     mypageState.predDataMax = predRange.max;
     mypagePopulateFilters();
     mypageBindEvents();
+    mypageSetActiveTab(new URLSearchParams(window.location.search).get("tab"));
     mypageRender();
   } catch (error) {
     mypageSetMessage(error.message || "マイページを初期化できませんでした。");
