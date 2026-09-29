@@ -2499,12 +2499,18 @@ function mypageReadAllRecords() {
   });
 }
 
-function mypageReadUpdateHistory() {
+function mypageReadUpdateHistory(records = []) {
   if (!window.cpiUpdateHistory || !mypageState.db) return Promise.resolve([]);
   if (new URLSearchParams(window.location.search).get("demo") === "update-history") {
     return Promise.resolve(window.cpiUpdateHistory.getDemoEvents());
   }
-  return window.cpiUpdateHistory.cleanup(mypageState.db).then(() => window.cpiUpdateHistory.readEvents(mypageState.db));
+  return window.cpiUpdateHistory.cleanup(mypageState.db)
+    .then(() => window.cpiUpdateHistory.seedFromRecords(
+      mypageState.db,
+      records,
+      mypageState.rowsByChartId,
+    ))
+    .then(() => window.cpiUpdateHistory.readEvents(mypageState.db));
 }
 
 function mypageReadAllManualMemos() {
@@ -2708,13 +2714,14 @@ async function mypageRefreshFromStorage() {
   mypageState.storageRefreshPromise = Promise.all([
     mypageReadAllRecords(),
     mypageReadAllManualMemos(),
-    mypageReadUpdateHistory(),
   ])
-    .then(([records, memos, updateHistory]) => {
+    .then(([records, memos]) => {
       mypageApplyRecords(records);
       mypageApplyManualMemos(memos);
-      mypageApplyUpdateHistory(updateHistory);
-      mypageRender();
+      return mypageReadUpdateHistory(records).then((updateHistory) => {
+        mypageApplyUpdateHistory(updateHistory);
+        mypageRender();
+      });
     })
     .catch((error) => {
       mypageSetMessage(error.message || "記録を読み込めませんでした。");
