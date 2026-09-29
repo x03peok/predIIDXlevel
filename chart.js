@@ -1,8 +1,9 @@
 const chartDatabaseName = "cpi-next-clear-status";
-const chartDatabaseVersion = 3;
+const chartDatabaseVersion = 5;
 const chartStatusStoreName = "chart-statuses";
 const chartManualMemoStoreName = "manual-targets";
 const chartDailyTargetsStoreName = "daily-targets";
+const chartUpdateHistoryStoreName = "status-update-events";
 const chartState = {
   db: null,
   chartId: "",
@@ -513,6 +514,7 @@ function chartOpenDatabase() {
       if (!database.objectStoreNames.contains(chartDailyTargetsStoreName)) {
         database.createObjectStore(chartDailyTargetsStoreName, { keyPath: "date" });
       }
+      window.cpiUpdateHistory?.ensureStore(database);
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error("ローカル保存を開けませんでした。"));

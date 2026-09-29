@@ -1,10 +1,11 @@
 "use strict";
 
 const targetDatabaseName = "cpi-next-clear-status";
-const targetDatabaseVersion = 3;
+const targetDatabaseVersion = 5;
 const targetStoreName = "chart-statuses";
 const targetManualMemoStoreName = "manual-targets";
 const targetDailyTargetsStoreName = "daily-targets";
+const targetUpdateHistoryStoreName = "status-update-events";
 const targetPageSize = 100;
 const targetFeatureNone = "特徴なし";
 const targetUnlockEventStorageKey = "cpi-next-target-unlocked-event-sent";
@@ -2232,6 +2233,7 @@ function targetEnsureDatabaseStores(database) {
   if (!database.objectStoreNames.contains(targetDailyTargetsStoreName)) {
     database.createObjectStore(targetDailyTargetsStoreName, { keyPath: "date" });
   }
+  window.cpiUpdateHistory?.ensureStore(database);
 }
 
 function targetDatabaseHasRequiredStores(database) {
@@ -2239,6 +2241,7 @@ function targetDatabaseHasRequiredStores(database) {
     targetStoreName,
     targetManualMemoStoreName,
     targetDailyTargetsStoreName,
+    targetUpdateHistoryStoreName,
   ].every((storeName) => database.objectStoreNames.contains(storeName));
 }
 
@@ -2366,27 +2369,50 @@ function targetWriteManualMemo(chartId, registered) {
   });
 }
 
-function targetWriteStatus(chartId, status) {
+function targetWriteStatus(chartId, status, beforeStatus = null) {
   return new Promise((resolve, reject) => {
     if (!targetState.db) {
-       reject(new Error("ローカル保存を開けませんでした。"));
+      reject(new Error("ローカル保存を開けませんでした。"));
       return;
     }
-    const transaction = targetState.db.transaction(targetStoreName, "readwrite");
+    const normalizedChartId = String(chartId ?? "").trim();
+    const previousStatus = beforeStatus
+      ?? targetState.records.get(normalizedChartId)?.status
+      ?? "unregistered";
+    const now = new Date();
+    const hasHistory = Boolean(
+      window.cpiUpdateHistory
+      && targetState.db.objectStoreNames.contains(targetUpdateHistoryStoreName),
+    );
+    const stores = hasHistory
+      ? [targetStoreName, targetUpdateHistoryStoreName]
+      : [targetStoreName];
+    const transaction = targetState.db.transaction(stores, "readwrite");
     const store = transaction.objectStore(targetStoreName);
     if (status === "unregistered") {
-      store.delete(chartId);
+      store.delete(normalizedChartId);
     } else {
-      store.put({ chartId, status, updatedAt: new Date().toISOString() });
+      store.put({ chartId: normalizedChartId, status, updatedAt: now.toISOString() });
+    }
+    if (hasHistory) {
+      window.cpiUpdateHistory.appendToTransaction(transaction, [{
+        chartId: normalizedChartId,
+        beforeStatus: previousStatus,
+        afterStatus: status,
+        snapshot: targetState.rowsByChartId.get(normalizedChartId),
+      }], { source: "target", changedAt: now });
     }
     transaction.oncomplete = () => {
       resolve();
       window.dispatchEvent(new CustomEvent("cpi:status-changed", {
-        detail: { source: "target", chartId, status },
+        detail: { source: "target", chartId: normalizedChartId, status },
       }));
     };
     transaction.onerror = () => reject(
-       transaction.error ?? new Error("記録を保存できませんでした。"),
+      transaction.error ?? new Error("記録を保存できませんでした。"),
+    );
+    transaction.onabort = () => reject(
+      transaction.error ?? new Error("記録を保存できませんでした。"),
     );
   });
 }

@@ -1,7 +1,7 @@
 "use strict";
 
 const mypageDatabaseName = "cpi-next-clear-status";
-const mypageDatabaseVersion = 4;
+const mypageDatabaseVersion = 5;
 const mypageStoreName = "chart-statuses";
 const mypageManualMemoStoreName = "manual-targets";
 const mypageDailyTargetsStoreName = "daily-targets";

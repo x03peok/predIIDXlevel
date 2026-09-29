@@ -1,7 +1,7 @@
 "use strict";
 
 const recordDbName = "cpi-next-clear-status";
-const recordDbVersion = 4;
+const recordDbVersion = 5;
 const recordStoreName = "chart-statuses";
 const recordManualMemoStoreName = "manual-targets";
 const recordDailyTargetsStoreName = "daily-targets";

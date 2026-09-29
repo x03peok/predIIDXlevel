@@ -1,9 +1,10 @@
 "use strict";
 
 const dailyDatabaseName = "cpi-next-clear-status";
-const dailyDatabaseVersion = 3;
+const dailyDatabaseVersion = 5;
 const dailyStatusStoreName = "chart-statuses";
 const dailyTargetsStoreName = "daily-targets";
+const dailyUpdateHistoryStoreName = "status-update-events";
 const dailyPageSize = 100;
 const dailyFeatureNone = "特徴なし";
 const dailyFeatureNames = ["BPM変化", "チャージノート", "ラスト難", "皿複合", "単鍵ラッシュ", "同時押し", "物量", "連皿", "連打"];
@@ -1251,18 +1252,42 @@ function dailyNotifyDataChange(type, chartId, status) {
     detail: { source: "daily-target", chartId: String(chartId ?? ""), status },
   }));
 }
-function dailyWriteStatus(chartId, status) {
+function dailyWriteStatus(chartId, status, beforeStatus = null) {
   return new Promise((resolve, reject) => {
-    const transaction = dailyState.database.transaction(dailyStatusStoreName, "readwrite");
+    if (!dailyState.database) {
+      reject(new Error("ローカル保存を開けませんでした。"));
+      return;
+    }
+    const normalizedChartId = String(chartId ?? "").trim();
+    const previousStatus = beforeStatus
+      ?? dailyState.records.get(normalizedChartId)?.status
+      ?? "unregistered";
+    const now = new Date();
+    const hasHistory = Boolean(
+      window.cpiUpdateHistory
+      && dailyState.database.objectStoreNames.contains(dailyUpdateHistoryStoreName),
+    );
+    const stores = hasHistory
+      ? [dailyStatusStoreName, dailyUpdateHistoryStoreName]
+      : [dailyStatusStoreName];
+    const transaction = dailyState.database.transaction(stores, "readwrite");
     const store = transaction.objectStore(dailyStatusStoreName);
     if (status === "unregistered") {
-      store.delete(String(chartId));
+      store.delete(normalizedChartId);
     } else {
-      store.put({ chartId: String(chartId), status, updatedAt: new Date().toISOString() });
+      store.put({ chartId: normalizedChartId, status, updatedAt: now.toISOString() });
+    }
+    if (hasHistory) {
+      window.cpiUpdateHistory.appendToTransaction(transaction, [{
+        chartId: normalizedChartId,
+        beforeStatus: previousStatus,
+        afterStatus: status,
+        snapshot: dailyState.rowsById.get(normalizedChartId),
+      }], { source: "daily-target", changedAt: now });
     }
     transaction.oncomplete = () => {
       resolve();
-      dailyNotifyDataChange("cpi:status-changed", chartId, status);
+      dailyNotifyDataChange("cpi:status-changed", normalizedChartId, status);
     };
     transaction.onerror = () => reject(transaction.error ?? new Error("記録を保存できませんでした。"));
     transaction.onabort = () => reject(transaction.error ?? new Error("記録を保存できませんでした。"));
@@ -1375,6 +1400,7 @@ async function dailyOpenDatabase() {
       if (!database.objectStoreNames.contains(dailyStatusStoreName)) database.createObjectStore(dailyStatusStoreName, { keyPath: "chartId" });
       if (!database.objectStoreNames.contains("manual-targets")) database.createObjectStore("manual-targets", { keyPath: "chartId" });
       if (!database.objectStoreNames.contains(dailyTargetsStoreName)) database.createObjectStore(dailyTargetsStoreName, { keyPath: "date" });
+      window.cpiUpdateHistory?.ensureStore(database);
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error("ローカル保存を開けませんでした。"));

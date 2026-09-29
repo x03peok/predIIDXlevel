@@ -1,10 +1,11 @@
 "use strict";
 
 const settingsDatabaseName = "cpi-next-clear-status";
-const settingsDatabaseVersion = 3;
+const settingsDatabaseVersion = 5;
 const settingsStoreName = "chart-statuses";
 const settingsManualMemoStoreName = "manual-targets";
 const settingsDailyTargetsStoreName = "daily-targets";
+const settingsUpdateHistoryStoreName = "status-update-events";
 const settingsBackupFormat = "cpi-next-clear-status-backup";
 const settingsBackupVersion = 2;
 const settingsMaxBackupBytes = 10 * 1024 * 1024;
@@ -76,6 +77,7 @@ function settingsOpenDatabase() {
       if (!database.objectStoreNames.contains(settingsDailyTargetsStoreName)) {
         database.createObjectStore(settingsDailyTargetsStoreName, { keyPath: "date" });
       }
+      window.cpiUpdateHistory?.ensureStore(database);
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error("ローカル保存を開けませんでした。"));
@@ -110,6 +112,12 @@ function settingsReadAllManualMemos() {
   });
 }
 
+function settingsGetRecordUpdatedAt(record) {
+  const value = record?.updatedAt ?? record?.updatedat ?? record?.updated_at;
+  return typeof value === "string" && value.length <= 100
+    ? value
+    : new Date().toISOString();
+}
 function settingsIsValidRecord(record) {
   const chartId = String(record?.chartId ?? "").trim();
   return /^\d+$/.test(chartId) && settingsStatusValues.has(record?.status);
@@ -121,9 +129,7 @@ function settingsGetValidRecords(records) {
     .map((record) => ({
       chartId: String(record.chartId).trim(),
       status: record.status,
-      updatedAt: typeof record.updatedAt === "string" && record.updatedAt.length <= 100
-        ? record.updatedAt
-        : new Date().toISOString(),
+      updatedAt: settingsGetRecordUpdatedAt(record),
     }));
 }
 
@@ -151,17 +157,41 @@ function settingsGetValidManualMemos(memos) {
     }));
 }
 
-function settingsWriteAll(records, manualMemos) {
+function settingsBuildStatusChanges(beforeRecords, afterRecords, options = {}) {
+  const before = new Map((beforeRecords ?? []).map((record) => [String(record.chartId), record.status]));
+  const after = new Map((afterRecords ?? []).map((record) => [String(record.chartId), record.status]));
+  const afterByChartId = new Map((afterRecords ?? []).map((record) => [String(record.chartId), record]));
+  const useUpdatedAt = options.useUpdatedAt !== false;
+  const chartIds = new Set([...before.keys(), ...after.keys()]);
+  return [...chartIds].map((chartId) => {
+    const afterRecord = afterByChartId.get(chartId);
+    const changedAt = useUpdatedAt && typeof afterRecord?.updatedAt === "string"
+      ? afterRecord.updatedAt
+      : undefined;
+    return {
+      chartId,
+      beforeStatus: before.get(chartId) ?? "unregistered",
+      afterStatus: after.get(chartId) ?? "unregistered",
+      ...(changedAt ? { changedAt } : {}),
+    };
+  }).filter((change) => change.beforeStatus !== change.afterStatus);
+}
+
+function settingsWriteAll(records, manualMemos, historyChanges = [], historySource = "settings") {
   return new Promise((resolve, reject) => {
     if (!settingsDatabase) {
       reject(new Error("ローカル保存を開けませんでした。"));
       return;
     }
-
-    const transaction = settingsDatabase.transaction(
-      [settingsStoreName, settingsManualMemoStoreName],
-      "readwrite",
+    const hasHistory = Boolean(
+      historyChanges.length
+      && window.cpiUpdateHistory
+      && settingsDatabase.objectStoreNames.contains(settingsUpdateHistoryStoreName),
     );
+    const stores = hasHistory
+      ? [settingsStoreName, settingsManualMemoStoreName, settingsUpdateHistoryStoreName]
+      : [settingsStoreName, settingsManualMemoStoreName];
+    const transaction = settingsDatabase.transaction(stores, "readwrite");
     const store = transaction.objectStore(settingsStoreName);
     const manualMemoStore = transaction.objectStore(settingsManualMemoStoreName);
     store.clear();
@@ -176,6 +206,9 @@ function settingsWriteAll(records, manualMemos) {
         manualMemoStore.put(memo);
       }
     }
+    if (hasHistory) {
+      window.cpiUpdateHistory.appendToTransaction(transaction, historyChanges, { source: historySource });
+    }
     transaction.oncomplete = resolve;
     transaction.onerror = () => reject(transaction.error ?? new Error("データを保存できませんでした。"));
     transaction.onabort = () => reject(transaction.error ?? new Error("データを保存できませんでした。"));
@@ -184,11 +217,18 @@ function settingsWriteAll(records, manualMemos) {
 
 function settingsClearAll() {
   return settingsWriteAll([]).then(() => new Promise((resolve, reject) => {
-    const transaction = settingsDatabase.transaction(settingsDailyTargetsStoreName, "readwrite");
+    const stores = [settingsDailyTargetsStoreName];
+    const hasHistory = Boolean(
+      window.cpiUpdateHistory
+      && settingsDatabase.objectStoreNames.contains(settingsUpdateHistoryStoreName),
+    );
+    if (hasHistory) stores.push(settingsUpdateHistoryStoreName);
+    const transaction = settingsDatabase.transaction(stores, "readwrite");
     transaction.objectStore(settingsDailyTargetsStoreName).clear();
+    if (hasHistory) transaction.objectStore(settingsUpdateHistoryStoreName).clear();
     transaction.oncomplete = resolve;
-    transaction.onerror = () => reject(transaction.error ?? new Error("今日の10曲を削除できませんでした。"));
-    transaction.onabort = () => reject(transaction.error ?? new Error("今日の10曲を削除できませんでした。"));
+    transaction.onerror = () => reject(transaction.error ?? new Error("保存データを削除できませんでした。"));
+    transaction.onabort = () => reject(transaction.error ?? new Error("保存データを削除できませんでした。"));
   }));
 }
 
@@ -560,9 +600,7 @@ function settingsValidateBackup(payload) {
     return {
       chartId,
       status: record.status,
-      updatedAt: typeof record.updatedAt === "string" && record.updatedAt.length <= 100
-        ? record.updatedAt
-        : new Date().toISOString(),
+      updatedAt: settingsGetRecordUpdatedAt(record),
     };
   });
 
@@ -663,6 +701,8 @@ async function settingsHandleImport(event) {
     await settingsWriteAll(
       backup.records,
       backup.version >= 2 ? backup.manualMemos : undefined,
+      settingsBuildStatusChanges(previousRecords, backup.records),
+      "backup-import",
     );
     settingsUpdateCount(backup.records);
     settingsSetMessage("データをインポートしました。");
@@ -670,7 +710,12 @@ async function settingsHandleImport(event) {
       onUndo: async () => {
         settingsSetBusy(true);
         try {
-          await settingsWriteAll(previousRecords, previousManualMemos);
+          await settingsWriteAll(
+            previousRecords,
+            previousManualMemos,
+            settingsBuildStatusChanges(backup.records, previousRecords, { useUpdatedAt: false }),
+            "backup-undo",
+          );
           settingsUpdateCount(previousRecords);
           settingsSetMessage("インポートを元に戻しました。");
         } finally {
@@ -690,7 +735,7 @@ async function settingsHandleImport(event) {
 }
 
 async function settingsHandleReset() {
-  if (settingsBusy || !window.confirm("保存されているクリアランプ記録と今日の10曲を削除します。手動メモは保持されます。よろしいですか？")) {
+  if (settingsBusy || !window.confirm("保存されているクリアランプ記録、今日の10曲、更新履歴を削除します。手動メモは保持されます。よろしいですか？")) {
     return;
   }
 
@@ -698,7 +743,7 @@ async function settingsHandleReset() {
   try {
     await settingsClearAll();
     settingsUpdateCount([]);
-    settingsSetMessage("クリアランプ記録をリセットしました。");
+    settingsSetMessage("クリアランプ記録と更新履歴をリセットしました。");
     window.cpiAnalytics?.track("data_reset");
   } catch (error) {
     settingsSetMessage(error.message || "データをリセットできませんでした。", true);
