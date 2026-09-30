@@ -213,6 +213,12 @@ function recordWriteStatuses(statuses, options = {}) {
     try {
       for (const change of changes) {
         if (!change.changed && change.existingRecord) {
+          if (
+            options.recordHistory === false
+            && change.existingRecord.historyBackfillExcluded !== true
+          ) {
+            store.put({ ...change.existingRecord, historyBackfillExcluded: true });
+          }
           continue;
         }
         if (change.afterStatus === "unregistered") {
@@ -227,13 +233,16 @@ function recordWriteStatuses(statuses, options = {}) {
         if (change.changed || !change.existingRecord) {
           nextRecord.updatedAt = updatedAt;
         }
+        if (options.recordHistory === false) {
+          nextRecord.historyBackfillExcluded = true;
+        }
         store.put(nextRecord);
       }
       if (hasHistory) {
         window.cpiUpdateHistory.appendToTransaction(
           transaction,
           changedEntries,
-          { source, changedAt: updatedAt },
+          { source, changedAt: updatedAt, reconcileReverts: options.reconcileReverts === true },
         );
       }
     } catch (error) {
@@ -551,7 +560,10 @@ function recordReadAll() {
 }
 
 function recordWriteStatus(chartId, status, options = {}) {
-  return recordWriteStatuses(new Map([[String(chartId), status]]), options);
+  return recordWriteStatuses(new Map([[String(chartId), status]]), {
+    reconcileReverts: true,
+    ...options,
+  });
 }
 
 function recordApplyRecords(records) {

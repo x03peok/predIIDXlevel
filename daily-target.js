@@ -1283,7 +1283,7 @@ function dailyWriteStatus(chartId, status, beforeStatus = null) {
         beforeStatus: previousStatus,
         afterStatus: status,
         snapshot: dailyState.rowsById.get(normalizedChartId),
-      }], { source: "daily-target", changedAt: now });
+      }], { source: "daily-target", changedAt: now, reconcileReverts: true });
     }
     transaction.oncomplete = () => {
       resolve();

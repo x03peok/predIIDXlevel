@@ -2400,7 +2400,7 @@ function targetWriteStatus(chartId, status, beforeStatus = null) {
         beforeStatus: previousStatus,
         afterStatus: status,
         snapshot: targetState.rowsByChartId.get(normalizedChartId),
-      }], { source: "target", changedAt: now });
+      }], { source: "target", changedAt: now, reconcileReverts: true });
     }
     transaction.oncomplete = () => {
       resolve();

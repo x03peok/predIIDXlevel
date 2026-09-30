@@ -1807,11 +1807,6 @@ function mypageApplyUpdateHistory(events) {
   const statusRanks = window.cpiUpdateHistory?.statusRanks ?? {};
   const displayStatuses = new Set(["assisted", "easy", "clear", "hard"]);
   const mappedEvents = sourceEvents
-    .filter((event) => {
-      const before = String(event?.beforeStatus ?? "").trim().toLowerCase();
-      const after = String(event?.afterStatus ?? "").trim().toLowerCase();
-      return (statusRanks[after] ?? 0) > (statusRanks[before] ?? 0);
-    })
     .map((event) => {
       const chartId = String(event?.chartId ?? "").trim();
       const row = mypageState.rowsByChartId.get(chartId);
@@ -2499,15 +2494,19 @@ function mypageReadAllRecords() {
   });
 }
 
-function mypageReadUpdateHistory() {
+function mypageReadUpdateHistory(records = []) {
   if (!window.cpiUpdateHistory || !mypageState.db) return Promise.resolve([]);
   if (new URLSearchParams(window.location.search).get("demo") === "update-history") {
     return Promise.resolve(window.cpiUpdateHistory.getDemoEvents());
   }
   return window.cpiUpdateHistory.cleanup(mypageState.db)
+    .then(() => window.cpiUpdateHistory.backfillFromRecords(
+      mypageState.db,
+      records,
+      mypageState.rowsByChartId,
+    ))
     .then(() => window.cpiUpdateHistory.readEvents(mypageState.db));
 }
-
 function mypageReadAllManualMemos() {
   return new Promise((resolve, reject) => {
     const transaction = mypageState.db.transaction(mypageManualMemoStoreName, "readonly");
@@ -2576,7 +2575,7 @@ function mypageWriteStatus(chartId, status, beforeStatus = null) {
         beforeStatus: previousStatus,
         afterStatus: status,
         snapshot: mypageState.rowsByChartId.get(normalizedChartId),
-      }], { source: "mypage", changedAt: now });
+      }], { source: "mypage", changedAt: now, reconcileReverts: true });
     }
     transaction.oncomplete = () => {
       resolve();
@@ -2709,15 +2708,16 @@ async function mypageRefreshFromStorage() {
   mypageState.storageRefreshPromise = Promise.all([
     mypageReadAllRecords(),
     mypageReadAllManualMemos(),
-    mypageReadUpdateHistory(),
   ])
-    .then(([records, memos, updateHistory]) => {
+    .then(([records, memos]) => {
       mypageApplyRecords(records);
       mypageApplyManualMemos(memos);
+      return mypageReadUpdateHistory(records);
+    })
+    .then((updateHistory) => {
       mypageApplyUpdateHistory(updateHistory);
       mypageRender();
-    })
-    .catch((error) => {
+    })    .catch((error) => {
       mypageSetMessage(error.message || "記録を読み込めませんでした。");
     })
     .finally(() => {
