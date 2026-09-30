@@ -116,7 +116,7 @@
       if (!/^\d+$/.test(chartId)) continue;
       const beforeStatus = normalizeStatus(change.beforeStatus);
       const afterStatus = normalizeStatus(change.afterStatus);
-      if ((statusRanks[afterStatus] ?? 0) <= (statusRanks[beforeStatus] ?? 0)) continue;
+      if (beforeStatus === afterStatus) continue;
       const changedAt = getValidChangedAt(change.changedAt, defaultChangedAt);
       const snapshot = change.snapshot ?? snapshots.get(chartId) ?? {};
       store.add({
@@ -146,82 +146,6 @@
     });
   }
 
-  function seedFromRecords(database, records, snapshots = new Map()) {
-    if (!database || !database.objectStoreNames.contains(storeName)) {
-      return Promise.resolve([]);
-    }
-
-    const cutoffKey = getRetentionCutoffKey(new Date());
-    const candidates = (Array.isArray(records) ? records : [])
-      .map((record) => {
-        const chartId = String(record?.chartId ?? "").trim();
-        const status = normalizeStatus(record?.status);
-        const timestamp = record?.updatedAt ?? record?.updatedat ?? record?.updated_at;
-        const changedAt = getValidChangedAt(timestamp, null);
-        if (
-          !/^\d+$/.test(chartId) ||
-          (statusRanks[status] ?? 0) < statusRanks.assisted ||
-          !changedAt
-        ) {
-          return null;
-        }
-        const cycleKey = getCycleKey(changedAt);
-        if (cycleKey < cutoffKey) {
-          return null;
-        }
-        const snapshot = snapshots instanceof Map ? snapshots.get(chartId) : undefined;
-        return {
-          chartId,
-          beforeStatus: "unregistered",
-          afterStatus: status,
-          changedAt: changedAt.toISOString(),
-          snapshot: snapshot ?? {},
-        };
-      })
-      .filter(Boolean);
-
-    if (!candidates.length) {
-      return Promise.resolve([]);
-    }
-
-    return readEvents(database).then((events) => {
-      const latestByChartId = new Map();
-      for (const event of events) {
-        const chartId = String(event?.chartId ?? "").trim();
-        const changedAt = new Date(event?.changedAt).getTime();
-        if (!chartId || !Number.isFinite(changedAt)) {
-          continue;
-        }
-        const previous = latestByChartId.get(chartId);
-        if (!previous || changedAt > previous.changedAt) {
-          latestByChartId.set(chartId, { changedAt });
-        }
-      }
-
-      const changes = candidates.filter((candidate) => {
-        const previous = latestByChartId.get(candidate.chartId);
-        return (
-          !previous ||
-          new Date(candidate.changedAt).getTime() > previous.changedAt
-        );
-      });
-      if (!changes.length) {
-        return [];
-      }
-
-      return new Promise((resolve, reject) => {
-        const transaction = database.transaction(storeName, "readwrite");
-        appendToTransaction(transaction, changes, { source: "legacy-updatedAt" });
-        transaction.oncomplete = () => resolve(changes);
-        transaction.onerror = () => reject(
-          transaction.error ?? new Error("Failed to seed legacy update history."),
-        );
-        transaction.onabort = () => reject(
-          transaction.error ?? new Error("Failed to seed legacy update history."),
-        );
-      });
-    });
-  }
   function cleanup(database, date = new Date()) {
     return new Promise((resolve, reject) => {
       const cutoffKey = getRetentionCutoffKey(date);
@@ -231,7 +155,8 @@
       request.onsuccess = () => {
         const cursor = request.result;
         if (!cursor) return;
-        if (String(cursor.value?.cycleKey ?? "") < cutoffKey) cursor.delete();
+        const isLegacySeed = cursor.value?.source === "legacy-updatedAt";
+        if (isLegacySeed || String(cursor.value?.cycleKey ?? "") < cutoffKey) cursor.delete();
         cursor.continue();
       };
       transaction.oncomplete = resolve;
@@ -257,7 +182,6 @@
     ensureStore,
     appendToTransaction,
     readEvents,
-    seedFromRecords,
     cleanup,
     getCycleKey,
     getRetentionCutoffKey,

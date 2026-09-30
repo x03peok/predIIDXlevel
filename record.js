@@ -193,24 +193,48 @@ function recordWriteStatuses(statuses, options = {}) {
     const transaction = recordState.db.transaction(stores, "readwrite");
     const store = transaction.objectStore(recordStoreName);
     const updatedAt = new Date().toISOString();
-    const changes = entries.map(([chartId, status]) => ({
-      chartId: String(chartId),
-      beforeStatus: beforeStatuses?.get(String(chartId))
-        ?? recordState.records.get(String(chartId))?.status
-        ?? "unregistered",
-      afterStatus: status,
-      snapshot: recordGetHistorySnapshot(chartId),
-    }));
+    const changes = entries.map(([chartId, status]) => {
+      const normalizedChartId = String(chartId);
+      const existingRecord = recordState.records.get(normalizedChartId);
+      const beforeStatus = beforeStatuses?.get(normalizedChartId)
+        ?? existingRecord?.status
+        ?? "unregistered";
+      const afterStatus = String(status ?? "").trim().toLowerCase();
+      return {
+        chartId: normalizedChartId,
+        beforeStatus,
+        afterStatus,
+        changed: beforeStatus !== afterStatus,
+        existingRecord,
+        snapshot: recordGetHistorySnapshot(normalizedChartId),
+      };
+    });
+    const changedEntries = changes.filter((change) => change.changed);
     try {
-      for (const [chartId, status] of entries) {
-        if (status === "unregistered") {
-          store.delete(String(chartId));
-        } else {
-          store.put({ chartId: String(chartId), status, updatedAt });
+      for (const change of changes) {
+        if (!change.changed && change.existingRecord) {
+          continue;
         }
+        if (change.afterStatus === "unregistered") {
+          store.delete(change.chartId);
+          continue;
+        }
+        const nextRecord = {
+          ...(change.existingRecord ?? {}),
+          chartId: change.chartId,
+          status: change.afterStatus,
+        };
+        if (change.changed || !change.existingRecord) {
+          nextRecord.updatedAt = updatedAt;
+        }
+        store.put(nextRecord);
       }
       if (hasHistory) {
-        window.cpiUpdateHistory.appendToTransaction(transaction, changes, { source, changedAt: updatedAt });
+        window.cpiUpdateHistory.appendToTransaction(
+          transaction,
+          changedEntries,
+          { source, changedAt: updatedAt },
+        );
       }
     } catch (error) {
       reject(error);
@@ -218,9 +242,9 @@ function recordWriteStatuses(statuses, options = {}) {
     }
     transaction.oncomplete = () => {
       resolve();
-      for (const [chartId, status] of entries) {
+      for (const change of changedEntries) {
         window.dispatchEvent(new CustomEvent("cpi:status-changed", {
-          detail: { source: "record", chartId: String(chartId), status },
+          detail: { source: "record", chartId: change.chartId, status: change.afterStatus },
         }));
       }
     };
@@ -372,8 +396,22 @@ async function recordHandleCsvImport() {
       source: "csv-import",
       beforeStatuses: previousStatuses,
     });
-    const updatedAt = new Date().toISOString();
-    for (const [chartId, status] of result.updates) recordState.records.set(chartId, { chartId, status, updatedAt });
+    for (const [chartId, status] of result.updates) {
+      const previousRecord = recordState.records.get(chartId);
+      if (previousRecord?.status === status) {
+        continue;
+      }
+      if (status === "unregistered") {
+        recordState.records.delete(chartId);
+      } else {
+        recordState.records.set(chartId, {
+          ...(previousRecord ?? {}),
+          chartId,
+          status,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }
     recordRender();
     let message = result.updates.size.toLocaleString() + "譜面を登録しました。";
     if (result.unmatched) message += " 対応しない譜面 " + result.unmatched.toLocaleString() + "件は変更していません。";
@@ -387,10 +425,15 @@ async function recordHandleCsvImport() {
           beforeStatuses: result.updates,
         });
         for (const [chartId, status] of previousStatuses) {
+          const currentRecord = recordState.records.get(chartId);
+          if (currentRecord?.status === status) {
+            continue;
+          }
           if (status === "unregistered") {
             recordState.records.delete(chartId);
           } else {
             recordState.records.set(chartId, {
+              ...(currentRecord ?? {}),
               chartId,
               status,
               updatedAt: new Date().toISOString(),
