@@ -9,6 +9,10 @@ const chartState = {
   chartId: "",
   manualMemo: false,
   manualMemoBusy: false,
+  predRows: null,
+  predRow: null,
+  predNumericScales: null,
+  predHistogramResizeTimer: null,
 };
 
 const chartDifficultyNames = {
@@ -244,11 +248,21 @@ function toFiniteChartNumber(value) {
   return Number.isFinite(numeric) ? numeric : null;
 }
 
-function getChartPredPosition(row, rows, mode = "normal") {
+const chartHistogramFineStepWidth = 520;
+
+function getChartHistogramBinStep() {
+  const predBlock = document.querySelector(".chart-detail__pred-block");
+  const width = predBlock?.getBoundingClientRect().width ?? 0;
+  return width >= chartHistogramFineStepWidth ? 0.05 : 0.1;
+}
+
+function getChartPredPosition(row, rows, mode = "normal", binStep = 0.1) {
   const targetPred = toFiniteChartNumber(getChartPredValue(row, mode));
   if (targetPred === null) {
     return null;
   }
+
+  const binScale = Math.round(1 / binStep);
 
   const levelPreds = rows
     .filter((item) => item.original_level === row.original_level)
@@ -261,15 +275,15 @@ function getChartPredPosition(row, rows, mode = "normal") {
 
   const counts = new Map();
   levelPreds.forEach((value) => {
-    const bin = Math.round(value * 10) / 10;
+    const bin = Math.round(value * binScale) / binScale;
     counts.set(bin, (counts.get(bin) ?? 0) + 1);
   });
 
-  const minBin = Math.floor(Math.min(...levelPreds) * 10);
-  const maxBin = Math.ceil(Math.max(...levelPreds) * 10);
+  const minBin = Math.floor(Math.min(...levelPreds) * binScale);
+  const maxBin = Math.ceil(Math.max(...levelPreds) * binScale);
   const histogram = [];
   for (let bin = minBin; bin <= maxBin; bin += 1) {
-    const value = bin / 10;
+    const value = bin / binScale;
     histogram.push({ value, count: counts.get(value) ?? 0 });
   }
 
@@ -278,10 +292,10 @@ function getChartPredPosition(row, rows, mode = "normal") {
   ) / 10;
   return {
     targetPred,
-    targetBin: Math.round(targetPred * 10) / 10,
+    targetBin: Math.round(targetPred * binScale) / binScale,
     percentile,
-    min: minBin / 10,
-    max: maxBin / 10,
+    min: minBin / binScale,
+    max: maxBin / binScale,
     maxCount: Math.max(...histogram.map((item) => item.count)),
     histogram,
   };
@@ -379,6 +393,30 @@ function renderChartPredPosition(predPositions, row, numericScales) {
   container.hidden = !hasVisiblePosition;
 }
 
+function getChartPredPositionsForCurrentWidth(row, rows) {
+  const histogramBinStep = getChartHistogramBinStep();
+  return Object.fromEntries(Object.keys(chartPredModes).map((mode) => [mode, getChartPredPosition(row, rows, mode, histogramBinStep)]));
+}
+
+function renderChartPredHistogramsForCurrentWidth() {
+  const { predRow, predRows, predNumericScales } = chartState;
+  if (!predRow || !predRows || !predNumericScales) {
+    return null;
+  }
+  const predPositions = getChartPredPositionsForCurrentWidth(predRow, predRows);
+  renderChartPredPosition(predPositions, predRow, predNumericScales);
+  return predPositions;
+}
+
+function scheduleChartPredHistogramResize() {
+  if (chartState.predHistogramResizeTimer !== null) {
+    window.clearTimeout(chartState.predHistogramResizeTimer);
+  }
+  chartState.predHistogramResizeTimer = window.setTimeout(() => {
+    chartState.predHistogramResizeTimer = null;
+    renderChartPredHistogramsForCurrentWidth();
+  }, 100);
+}
 function formatChartBpm(minValue, maxValue) {
   const min = String(minValue ?? "").trim();
   const max = String(maxValue ?? "").trim();
@@ -674,6 +712,11 @@ function renderChart() {
       return;
     }
 
+    const chartDetailElement = document.getElementById("chartDetail");
+    if (chartDetailElement) {
+      chartDetailElement.hidden = false;
+    }
+
     const difficulty = String(row.difficulty ?? "").trim().toUpperCase();
     chartState.chartId = chartId;
     const manualMemoButton = document.getElementById("chartManualMemoButton");
@@ -691,10 +734,18 @@ function renderChart() {
     const chartLevelElement = document.getElementById("chartLevel");
     chartLevelElement.textContent = "☆" + row.original_level;
     setChartNumericColor(chartLevelElement, row.original_level, numericScale);
-    const predPositions = Object.fromEntries(Object.keys(chartPredModes).map((mode) => [mode, getChartPredPosition(row, rows, mode)]));
+
+
+
+
+
     const numericScales = Object.fromEntries(Object.keys(chartPredModes).map((mode) => [mode, getChartNumericScale(rows, mode)]));
+    chartState.predRows = rows;
+    chartState.predRow = row;
+    chartState.predNumericScales = numericScales;
+    const predPositions = renderChartPredHistogramsForCurrentWidth();
     const predPosition = predPositions.normal;
-    renderChartPredPosition(predPositions, row, numericScales);
+
     document.getElementById("chartFeatures").innerHTML = renderChartFeatureChips(row, true);
     document.getElementById("chartBpm").textContent = formatChartBpm(row.bpm_min, row.bpm_max);
     const textageOnePlayerUrl = row.url || window.__TEXTAGE_URLS__?.[normalizeChartId(row.chart_id)] || "";
@@ -757,4 +808,5 @@ function renderChart() {
   }
 }
 
+window.addEventListener("resize", scheduleChartPredHistogramResize, { passive: true });
 document.addEventListener("DOMContentLoaded", renderChart);

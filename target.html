@@ -20,14 +20,15 @@
   <link rel="stylesheet" href="styles.css?v=20260916-2">
   <link rel="stylesheet" href="menu.css?v=20260904-2">
   <link rel="stylesheet" href="target.css?v=20260926-7">
-  <link rel="stylesheet" href="daily-target.css?v=20260922-2">
+  <link rel="stylesheet" href="daily-target.css?v=20261001-3">
   <script src="menu.js?v=20260925-1" defer></script>
   <script src="data.js?v=20260920-1" defer></script>
+  <script src="share-payload.js?v=20261001-1" defer></script>
   <script src="status-toast.js?v=20260908-1" defer></script>
   <script src="update-history.js?v=20260930-12" defer></script>
   <script src="target.js?v=20260930-3" defer></script>
   <script src="target-tabs.js?v=20260922-4" defer></script>
-  <script src="daily-target.js?v=20260930-4" defer></script>
+  <script src="daily-target.js?v=20261001-3" defer></script>
   <link rel="icon" type="image/jpeg" href="site-icon.jpg">
   <link rel="apple-touch-icon" href="site-icon.jpg">
   <meta property="og:image" content="https://cpi-next.com/site-icon.jpg?v=20260904-2">
@@ -209,7 +210,7 @@
               <p id="dailyTargetProgress" class="daily-target-count"></p>
             </div>
                       <div class="daily-target-locked-actions">
-            <button id="dailyTargetShare" class="daily-target-share-button" type="button">Xで共有</button>
+            <a id="dailyTargetShare" class="daily-target-share-button" href="#" target="_blank" rel="noopener noreferrer">Xで共有</a>
           </div>
           </div>
           <p class="daily-target-note">確定時のランプを基準に、今日の目標達成状況を表示しています。日付変更後ページ再読み込みで挑戦は終了します。</p>
@@ -458,14 +459,14 @@
     <div class="daily-target-confirm-notice__panel" role="dialog" aria-modal="true" aria-labelledby="dailyTargetConfirmNoticeTitle">
       <button id="dailyTargetConfirmNoticeClose" class="daily-target-confirm-notice__close" type="button" aria-label="閉じる">×</button>
       <h2 id="dailyTargetConfirmNoticeTitle">今日の10曲を確定しました</h2>
-      <button id="dailyTargetConfirmNoticeShare" class="daily-target-share-button" type="button">Xで共有</button>
+      <a id="dailyTargetConfirmNoticeShare" class="daily-target-share-button" href="#" target="_blank" rel="noopener noreferrer">Xで共有</a>
     </div>
   </div>
   <div id="dailyTargetCompletionNotice" class="daily-target-confirm-notice daily-target-completion-notice" role="presentation" hidden>
     <div class="daily-target-confirm-notice__panel" role="dialog" aria-modal="true" aria-labelledby="dailyTargetCompletionNoticeTitle">
       <button id="dailyTargetCompletionNoticeClose" class="daily-target-confirm-notice__close" type="button" aria-label="閉じる">×</button>
       <h2 id="dailyTargetCompletionNoticeTitle">今日の目標を全て達成しました！</h2>
-      <button id="dailyTargetCompletionNoticeShare" class="daily-target-share-button" type="button">Xで共有</button>
+      <a id="dailyTargetCompletionNoticeShare" class="daily-target-share-button" href="#" target="_blank" rel="noopener noreferrer">Xで共有</a>
     </div>
   </div>
     <button id="targetScrollTopButton" class="scroll-top-button" type="button" aria-label="ページ上部へ戻る" hidden>↑</button>

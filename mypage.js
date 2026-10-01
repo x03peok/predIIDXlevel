@@ -1372,7 +1372,51 @@ function mypageGetPublicUrl() {
   return "https://cpi-next.com/mypage.html?utm_source=x&utm_medium=share&utm_campaign=mypage_result";
 }
 
-function mypageBuildShareText(result, scores, lampResults = {}) {
+function mypageBuildOverviewShareUrl(result, scores, lampResults = {}) {
+  const featureCodes = {
+    "BPM変化": "b",
+    "チャージノート": "c",
+    "ラスト難": "l",
+    "皿複合": "s",
+    "単鍵ラッシュ": "k",
+    "同時押し": "d",
+    "物量": "m",
+    "連皿": "r",
+    "連打": "j",
+  };
+  const featurePayload = {};
+  for (const score of Array.isArray(scores) ? scores : []) {
+    const code = featureCodes[score?.name];
+    const value = Number(score?.score);
+    if (code && Number.isFinite(value)) {
+      featurePayload[code] = Math.round(value * 100) / 100;
+    }
+  }
+  const bestClear = mypageGetHighPredCandidates()[0] ?? null;
+  const bestPayload = bestClear
+    ? {
+      i: String(bestClear.row?.chart_id ?? ""),
+      s: String(bestClear.status ?? ""),
+      p: Number.isFinite(bestClear.pred) ? Math.round(bestClear.pred * 100) / 100 : null,
+    }
+    : null;
+  const payload = {
+    p: {
+      o: String(result?.range ?? "ー"),
+      e: String(lampResults.easy?.range ?? "ー"),
+      n: String(lampResults.normal?.range ?? "ー"),
+      h: String(lampResults.hard?.range ?? "ー"),
+    },
+    f: featurePayload,
+    b: bestPayload,
+  };
+  try {
+    return window.cpiSharePayload?.buildUrl?.("overview", payload) ?? mypageGetPublicUrl();
+  } catch (_error) {
+    return mypageGetPublicUrl();
+  }
+}
+function mypageBuildShareText(result, scores, lampResults = {}, shareUrl = mypageBuildOverviewShareUrl(result, scores, lampResults)) {
   const tendencies = mypageGetFeatureShareTendencies(scores);
   const bestClear = mypageGetHighPredCandidates()[0] ?? null;
   const lines = [
@@ -1412,7 +1456,7 @@ function mypageBuildShareText(result, scores, lampResults = {}) {
     );
   }
 
-  lines.push("", mypageGetPublicUrl().replace("https://", "").replace("http://", ""));
+  lines.push("", shareUrl.replace("https://", "").replace("http://", ""));
   return lines.join("\n");
 }
 function mypageUpdateShare(shareText) {
@@ -1988,7 +2032,44 @@ function mypageGetHistoryShareMarker(status) {
           : "";
 }
 
-function mypageBuildUpdateHistoryShareText(dateLabel, events, bestClearUpdateEvent) {
+function mypageBuildHistoryShareUrl(dateKey, events, bestClearUpdateEvent) {
+  const statusCodes = { assisted: "a", easy: "e", clear: "c", hard: "h" };
+  const counts = {};
+  for (const event of Array.isArray(events) ? events : []) {
+    const code = statusCodes[String(event?.afterStatus ?? "").trim().toLowerCase()];
+    if (code) counts[code] = (counts[code] ?? 0) + 1;
+  }
+  const bestEvent = (Array.isArray(events) ? events : []).slice().sort(mypageCompareUpdateHistoryEvents)[0] ?? null;
+  const bestPayload = bestEvent
+    ? {
+      i: String(bestEvent.chartId ?? ""),
+      b: String(bestEvent.beforeStatus ?? "").trim().toLowerCase(),
+      s: String(bestEvent.afterStatus ?? "").trim().toLowerCase(),
+      p: (() => {
+        const pred = mypageGetHistoryEventPred(bestEvent);
+        return pred === null ? null : Math.round(pred * 100) / 100;
+      })(),
+    }
+    : null;
+  const payload = {
+    d: String(dateKey ?? ""),
+    c: counts,
+    b: bestPayload,
+    u: bestEvent !== null && bestEvent === bestClearUpdateEvent ? 1 : 0,
+  };
+  try {
+    return window.cpiSharePayload?.buildUrl?.("history", payload)
+      ?? "https://cpi-next.com/mypage.html?utm_source=x&utm_medium=share&utm_campaign=mypage_history";
+  } catch (_error) {
+    return "https://cpi-next.com/mypage.html?utm_source=x&utm_medium=share&utm_campaign=mypage_history";
+  }
+}
+function mypageBuildUpdateHistoryShareText(
+  dateLabel,
+  events,
+  bestClearUpdateEvent,
+  shareUrl = mypageBuildHistoryShareUrl("", events, bestClearUpdateEvent),
+) {
   const summaryCounts = new Map();
   for (const event of events) {
     const status = String(event?.afterStatus ?? "").trim().toLowerCase();
@@ -2021,7 +2102,7 @@ function mypageBuildUpdateHistoryShareText(dateLabel, events, bestClearUpdateEve
 
   lines.push(
     "",
-    "cpi-next.com/mypage.html?utm_source=x&utm_medium=share&utm_campaign=mypage_history",
+    shareUrl.replace("https://", "").replace("http://", ""),
   );
   return lines.join("\n");
 }
@@ -2081,9 +2162,10 @@ function mypageRenderUpdateHistoryDay(dateKey, events, visibleEvents, isOpen, be
   const shareButton = document.createElement("a");
   shareButton.className = "mypage-share__button mypage-history__share-button";
   shareButton.textContent = "Xで共有";
+  const historyShareUrl = mypageBuildHistoryShareUrl(dateKey, events, bestClearUpdateEvent);
   shareButton.href = "https://x.com/intent/tweet?"
     + new URLSearchParams({
-      text: mypageBuildUpdateHistoryShareText(dateLabel, events, bestClearUpdateEvent),
+      text: mypageBuildUpdateHistoryShareText(dateLabel, events, bestClearUpdateEvent, historyShareUrl),
     }).toString();
   shareButton.target = "_blank";
   shareButton.rel = "noopener noreferrer";

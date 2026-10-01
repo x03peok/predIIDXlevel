@@ -1139,6 +1139,7 @@ function dailyRenderLocked() {
   if (!dailyState.today) {
     dailyElements.selection.hidden = false;
     dailyElements.locked.hidden = true;
+    dailyUpdateShareLinks();
     dailyRenderCandidateTable();
     return;
   }
@@ -1169,6 +1170,7 @@ function dailyRenderLocked() {
   dailyElements.lockedBody.innerHTML = renderedRows.map(({ entry, row }) => row
     ? dailyRenderLockedRow(entry, row)
     : dailyRenderMissingLockedRow(entry)).join("");
+  dailyUpdateShareLinks();
   if (completed && dailyState.completionNoticeShownDate !== dailyState.today.date) {
     dailyState.completionNoticeShownDate = dailyState.today.date;
     dailyOpenCompletionNotice();
@@ -1181,6 +1183,7 @@ function dailyRender() {
   else {
     dailyElements.selection.hidden = false;
     dailyElements.locked.hidden = true;
+    dailyUpdateShareLinks();
     dailyRenderCandidateTable();
   }
   requestAnimationFrame(() => {
@@ -1585,22 +1588,35 @@ function dailyHandleGoalChange(event) {
   }
 }
 
-function dailyDeleteToday() {
+function dailyDeleteToday(date = dailyState.today?.date) {
   return new Promise((resolve, reject) => {
+    if (!date) {
+      reject(new Error("今日の10曲が見つかりませんでした。"));
+      return;
+    }
     const transaction = dailyState.database.transaction(dailyTargetsStoreName, "readwrite");
-    transaction.objectStore(dailyTargetsStoreName).delete(dailyState.today.date);
+    transaction.objectStore(dailyTargetsStoreName).delete(date);
     transaction.oncomplete = resolve;
     transaction.onerror = () => reject(transaction.error ?? new Error("今日の10曲を削除できませんでした。"));
     transaction.onabort = () => reject(transaction.error ?? new Error("今日の10曲を削除できませんでした。"));
   });
 }
 
-async function dailyAbandonToday() {
-  if (!dailyState.ready) return;
-  const completed = dailyElements.abandon.dataset.completed === "true";
-  if (!dailyState.today || (!completed && !window.confirm("今日の10曲への挑戦をやめますか？"))) return;
+async function dailyAbandonToday(event) {
+  event?.preventDefault();
+  if (!dailyState.ready) {
+    dailyShowError("今日の10曲を読み込み中です。少し待ってからもう一度お試しください。");
+    return;
+  }
+  if (!dailyState.today) {
+    dailyShowError("挑戦中の今日の10曲が見つかりませんでした。");
+    return;
+  }
+  const abandonButton = dailyElements.abandon;
+  const date = dailyState.today.date;
+  if (abandonButton) abandonButton.disabled = true;
   try {
-    await dailyDeleteToday();
+    await dailyDeleteToday(date);
     dailyState.today = null;
     dailyState.completionNoticeShownDate = "";
     dailyState.selected.clear();
@@ -1608,6 +1624,8 @@ async function dailyAbandonToday() {
     dailyRender();
   } catch (error) {
     dailyShowError(error instanceof Error ? error.message : "挑戦をやめられませんでした。");
+  } finally {
+    if (abandonButton) abandonButton.disabled = false;
   }
 }
 
@@ -1682,7 +1700,31 @@ async function dailyConfirmSelection() {
 }
 
 const dailyShareWeightedLimit = 275;
-const dailyShareUrl = "https://cpi-next.com/target.html?utm_source=x&utm_medium=share&utm_campaign=daily_target#daily";
+const dailyShareFallbackUrl = "https://cpi-next.com/target.html?utm_source=x&utm_medium=share&utm_campaign=daily_target#daily";
+function dailyBuildSharePayload() {
+  const entries = Array.isArray(dailyState.today?.charts) ? dailyState.today.charts : [];
+  return {
+    d: String(dailyState.today?.date ?? dailyGetDateKey()),
+    i: entries.map((entry) => {
+      const chartId = String(entry?.chartId ?? "").trim();
+      const targetStatus = String(entry?.targetStatus ?? "").trim().toLowerCase();
+      const currentStatus = dailyGetStatus(chartId);
+      return {
+        i: chartId,
+        g: targetStatus,
+        a: dailyGetStatusRank(currentStatus) >= dailyGetStatusRank(targetStatus) ? 1 : 0,
+      };
+    }),
+  };
+}
+function dailyBuildShareUrl() {
+  try {
+    return window.cpiSharePayload?.buildUrl?.("daily", dailyBuildSharePayload())
+      ?? dailyShareFallbackUrl;
+  } catch (_error) {
+    return dailyShareFallbackUrl;
+  }
+}
 const dailyShareUrlLength = 23;
 const dailyShareWeightedRanges = [
   [0x0000, 0x10ff],
@@ -1719,13 +1761,13 @@ function dailyGetShareLength(value) {
     .reduce((total, character) => total + dailyGetShareCharacterLength(character), 0);
 }
 
-function dailyGetShareLengthForLimit(value) {
+function dailyGetShareLengthForLimit(value, shareUrl = dailyShareFallbackUrl) {
   const text = String(value ?? "");
-  const urlIndex = text.indexOf(dailyShareUrl);
+  const urlIndex = text.indexOf(shareUrl);
   if (urlIndex < 0) return dailyGetShareLength(text);
   return dailyGetShareLength(text.slice(0, urlIndex))
     + dailyShareUrlLength
-    + dailyGetShareLength(text.slice(urlIndex + dailyShareUrl.length));
+    + dailyGetShareLength(text.slice(urlIndex + shareUrl.length));
 }
 
 function dailyShortenShareTitleToLength(title, maxLength) {
@@ -1797,7 +1839,7 @@ function dailyFitShareTitlesToLength(lines, availableLength) {
   }
 }
 
-function dailyBuildShareText({ includeAchievementMarkers = true } = {}) {
+function dailyBuildShareText({ includeAchievementMarkers = true, shareUrl = dailyBuildShareUrl() } = {}) {
   const entries = Array.isArray(dailyState.today?.charts) ? dailyState.today.charts : [];
   let achieved = 0;
   let missingCount = 0;
@@ -1828,13 +1870,13 @@ function dailyBuildShareText({ includeAchievementMarkers = true } = {}) {
     "",
     ...lines.map((line) => line.prefix + line.title + line.suffix),
     "",
-    dailyShareUrl,
+    shareUrl,
     "",
     "#CPINext",
   ].join("\n");
 
   const fullText = buildText();
-  if (dailyGetShareLengthForLimit(fullText) <= dailyShareWeightedLimit || lines.length === 0) {
+  if (dailyGetShareLengthForLimit(fullText, shareUrl) <= dailyShareWeightedLimit || lines.length === 0) {
     return fullText;
   }
   const fixedText = [
@@ -1843,11 +1885,11 @@ function dailyBuildShareText({ includeAchievementMarkers = true } = {}) {
     "",
     ...lines.map((line) => line.prefix + line.suffix),
     "",
-    dailyShareUrl,
+    shareUrl,
     "",
     "#CPINext",
   ].join("\n");
-  const availableTitleLength = Math.max(0, dailyShareWeightedLimit - dailyGetShareLengthForLimit(fixedText));
+  const availableTitleLength = Math.max(0, dailyShareWeightedLimit - dailyGetShareLengthForLimit(fixedText, shareUrl));
   dailyFitShareTitlesToLength(lines, availableTitleLength);
   return buildText();
 }
@@ -1865,10 +1907,24 @@ function dailyFormatShareTitle(title) {
     .replaceAll("D.C.fish", "D.C. fish");
 }
 
-function dailyShare(options = {}) {
-  if (!dailyState.ready) return;
-  const url = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(dailyBuildShareText(options));
-  window.open(url, "_blank", "noopener,noreferrer");
+function dailyBuildShareIntentUrl(options = {}) {
+  const shareUrl = dailyBuildShareUrl();
+  const text = dailyBuildShareText({ ...options, shareUrl });
+  return "https://x.com/intent/tweet?text=" + encodeURIComponent(text);
+}
+
+function dailyUpdateShareLinks() {
+  const hasToday = dailyState.ready && Boolean(dailyState.today);
+  const shareHref = hasToday ? dailyBuildShareIntentUrl() : "#";
+  const confirmShareHref = hasToday
+    ? dailyBuildShareIntentUrl({ includeAchievementMarkers: false })
+    : "#";
+  if (dailyElements.share) dailyElements.share.href = shareHref;
+  if (dailyElements.confirmNoticeShare) dailyElements.confirmNoticeShare.href = confirmShareHref;
+  if (dailyElements.completionNoticeShare) dailyElements.completionNoticeShare.href = shareHref;
+}
+
+function dailyTrackShareClick() {
   if (typeof window.cpiAnalytics?.track === "function") window.cpiAnalytics.track("share_click", { share_type: "x", share_context: "daily_target" });
 }
 
@@ -1907,17 +1963,17 @@ function dailyBindEvents() {
   dailyElements.manualAutoFillButton.addEventListener("click", dailyAutoFillFromManualMemos);
   dailyElements.confirmButton.addEventListener("click", dailyConfirmSelection);
   dailyElements.confirmNoticeClose.addEventListener("click", dailyCloseConfirmNotice);
-  dailyElements.confirmNoticeShare.addEventListener("click", () => dailyShare({ includeAchievementMarkers: false }));
+  dailyElements.confirmNoticeShare.addEventListener("click", dailyTrackShareClick);
   dailyElements.confirmNotice.addEventListener("click", dailyHandleConfirmNoticeBackdropClick);
   dailyElements.completionNoticeClose.addEventListener("click", dailyCloseCompletionNotice);
-  dailyElements.completionNoticeShare.addEventListener("click", dailyShare);
+  dailyElements.completionNoticeShare.addEventListener("click", dailyTrackShareClick);
   dailyElements.completionNotice.addEventListener("click", dailyHandleCompletionNoticeBackdropClick);
   dailyElements.resetButton.addEventListener("click", dailyResetSelection);
   dailyElements.loadMore.addEventListener("click", () => {
     dailyState.visibleLimit += dailyPageSize;
     dailyRenderCandidateTable();
   });
-  dailyElements.share.addEventListener("click", dailyShare);
+  dailyElements.share.addEventListener("click", dailyTrackShareClick);
   dailyElements.abandon.addEventListener("click", dailyAbandonToday);
   window.addEventListener("cpi:status-changed", (event) => {
     if (event.detail?.source === "daily-target") return;

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>共有結果｜CPI:Next</title>
+  <meta name="description" content="CPI:Nextで共有された結果を表示します。">
+  <link rel="canonical" href="https://cpi-next.com/share.html">
+  <link rel="icon" type="image/jpeg" href="site-icon.jpg">
+  <link rel="stylesheet" href="styles.css?v=20260916-2">
+  <link rel="stylesheet" href="mypage.css?v=20260930-9">
+  <link rel="stylesheet" href="share.css?v=20261001-26">
+  <script defer src="data.js?v=20260920-1"></script>
+  <script defer src="share-payload.js?v=20261001-1"></script>
+  <script defer src="share.js?v=20261001-26"></script>
+</head>
+<body>
+  <main class="app share-page">
+    <header class="masthead share-page__header">
+      <div class="masthead__bar">
+        <h1 id="sharePageTitle">CPI:Next マイページ</h1>
+      </div>
+    </header>
+
+    <p id="shareMessage" class="share-muted" role="alert" hidden></p>
+    <div id="shareContent" class="panel mypage-panel share-page__content"></div>
+    <section id="shareCta" class="share-cta" hidden>
+      <h2 id="shareCtaTitle" class="share-cta__title">あなたのIIDXもCPI:Nextで記録・分析</h2>
+      <p id="shareCtaDescription" class="share-cta__description"></p>
+      <p class="share-cta__benefits"><span>ログイン不要</span><span>手動・CSV入力対応</span></p>
+      <a class="share-cta__start" href="record.html">CPI:Nextをはじめる</a>
+      <p class="share-cta__storage">クリア状況はこのブラウザ内に保存されます。</p>
+      <div class="share-cta__browser-note">
+        <p>※アプリ内ブラウザや普段使用していないブラウザで開いている場合は、通常使用するブラウザで開き直してください。</p>
+        <button id="shareCtaCopy" class="share-cta__copy" type="button">CPI:NextのURLをコピー</button>
+        <span id="shareCtaCopyMessage" class="share-cta__copy-message" role="status" hidden></span>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
