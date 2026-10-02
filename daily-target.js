@@ -1,7 +1,7 @@
 "use strict";
 
 const dailyDatabaseName = "cpi-next-clear-status";
-const dailyDatabaseVersion = 5;
+
 const dailyStatusStoreName = "chart-statuses";
 const dailyTargetsStoreName = "daily-targets";
 const dailyUpdateHistoryStoreName = "status-update-events";
@@ -40,9 +40,9 @@ function dailyGetPredModeForGoal(goal) {
   if (goal === "hard") return "hard";
   return "normal";
 }
-const dailyFeatureDeltaLambda = 10;
-const dailyFeatureDeltaIterations = 50;
-const dailyFeatureDeltaTolerance = 0.00001;
+
+
+
 const dailyDifficultyOrder = ["N", "H", "A", "L"];
 const dailyDifficultyLabels = {
   N: "[N] NORMAL",
@@ -806,129 +806,9 @@ function dailySigmoid(value) {
   return exponential / (1 + exponential);
 }
 
-function dailyGetPredObservations(mode = "normal") {
-  const observations = [];
-  const modes = mode === "overall"
-    ? Object.keys(dailyPredModes)
-    : [dailyPredModes[mode] ? mode : "normal"];
-  dailyState.records.forEach((record, chartId) => {
-    const row = dailyState.rowsById.get(String(chartId));
-    if (!row) {
-      return;
-    }
-    const status = String(record?.status ?? "").toLowerCase();
-    modes.forEach((predMode) => {
-      const definition = dailyPredModes[predMode];
-      const outcomes = dailyPredModeOutcomes[predMode];
-      const pred = dailyGetNumber(row[definition.key]);
-      const outcome = outcomes.clear.has(status)
-        ? 1
-        : outcomes.notClear.has(status)
-          ? 0
-          : null;
-      if (pred !== null && outcome !== null) {
-        observations.push({ row, pred, outcome, mode: predMode });
-      }
-    });
-  });
-  return observations;
-}
-function dailyGetModelBounds(mode, observations) {
-  const keys = mode === "overall"
-    ? Object.values(dailyPredModes).map((definition) => definition.key)
-    : [dailyPredModes[mode]?.key ?? dailyPredModes.normal.key];
-  const values = dailyState.rows
-    .flatMap((row) => keys.map((key) => dailyGetNumber(row[key])))
-    .filter((value) => value !== null);
-  const observedValues = observations.map((observation) => observation.pred).filter(Number.isFinite);
-  const fallbackValues = values.length > 0 ? values : observedValues;
-  return {
-    min: fallbackValues.length > 0 ? Math.min(...fallbackValues) : 0,
-    max: fallbackValues.length > 0 ? Math.max(...fallbackValues) : 0,
-  };
-}
-function dailyFitBaseModel(observations, mode = "normal") {
-  const observedChartCount = new Set(observations.map((observation) => String(observation.row?.chartId ?? "").trim())).size;
-  const clearObservations = observations.filter((observation) => observation.outcome === 1);
-  const notClearObservations = observations.filter((observation) => observation.outcome === 0);
-  if (observedChartCount < 5 || clearObservations.length === 0 || notClearObservations.length === 0) {
-    return null;
-  }
 
-  const center = observations.reduce((total, observation) => total + observation.pred, 0) / observations.length;
-  const variance = observations.reduce((total, observation) => total + (observation.pred - center) ** 2, 0) / observations.length;
-  const scale = Math.max(Math.sqrt(variance), 0.25);
-  const clearAverage = clearObservations.reduce((total, observation) => total + observation.pred, 0) / clearObservations.length;
-  const notClearAverage = notClearObservations.reduce((total, observation) => total + observation.pred, 0) / notClearObservations.length;
-  if (clearAverage > notClearAverage) {
-    return null;
-  }
 
-  const clearRate = Math.min(0.95, Math.max(0.05, clearObservations.length / observations.length));
-  let intercept = Math.log(clearRate / (1 - clearRate));
-  let slope = -1;
-  const regularization = 0.03;
 
-  for (let iteration = 0; iteration < 80; iteration += 1) {
-    let gradientIntercept = 0;
-    let gradientSlope = regularization * slope;
-    let hessianIntercept = 0;
-    let hessianCross = 0;
-    let hessianSlope = regularization;
-
-    observations.forEach((observation) => {
-      const normalizedPred = (observation.pred - center) / scale;
-      const probability = dailySigmoid(intercept + slope * normalizedPred);
-      const weight = Math.max(probability * (1 - probability), 0.00001);
-      const residual = probability - observation.outcome;
-      gradientIntercept += residual;
-      gradientSlope += residual * normalizedPred;
-      hessianIntercept += weight;
-      hessianCross += weight * normalizedPred;
-      hessianSlope += weight * normalizedPred * normalizedPred;
-    });
-
-    const determinant = hessianIntercept * hessianSlope - hessianCross * hessianCross;
-    if (!Number.isFinite(determinant) || determinant <= 0) {
-      return null;
-    }
-    const stepIntercept = (hessianSlope * gradientIntercept - hessianCross * gradientSlope) / determinant;
-    const stepSlope = (-hessianCross * gradientIntercept + hessianIntercept * gradientSlope) / determinant;
-    if (!Number.isFinite(stepIntercept) || !Number.isFinite(stepSlope)) {
-      return null;
-    }
-    intercept = Math.max(-30, Math.min(30, intercept - stepIntercept));
-    slope = Math.max(-30, Math.min(30, slope - stepSlope));
-    if (Math.max(Math.abs(stepIntercept), Math.abs(stepSlope)) < 0.00001) {
-      break;
-    }
-  }
-
-  const fittedSlope = slope;
-  slope = Math.min(-0.05, slope);
-  const threshold = center + (-intercept / slope) * scale;
-  const bounds = dailyGetModelBounds(mode, observations);
-  const range = bounds.max - bounds.min;
-  const predAt60 = center + (Math.log(0.6 / 0.4) - intercept) / slope * scale;
-  const predAt40 = center + (Math.log(0.4 / 0.6) - intercept) / slope * scale;
-  const rangeValues = [predAt60, predAt40];
-  const hasValidRange = rangeValues.every(Number.isFinite);
-  const rangeWidth = hasValidRange ? Math.abs(predAt40 - predAt60) : Infinity;
-  if (
-    !Number.isFinite(intercept)
-    || !Number.isFinite(slope)
-    || fittedSlope >= 0
-    || !Number.isFinite(threshold)
-    || range <= 0
-    || !hasValidRange
-    || rangeWidth >= range
-    || threshold <= bounds.min
-    || threshold >= bounds.max
-  ) {
-    return null;
-  }
-  return { intercept, slope, center, scale };
-}
 
 
 
@@ -941,79 +821,15 @@ function dailyGetFeatureVector(row) {
   return vector;
 }
 
-function dailySolveLinearSystem(matrix, values) {
-  const size = values.length;
-  const augmented = matrix.map((row, index) => [...row, values[index]]);
-  for (let column = 0; column < size; column += 1) {
-    let pivotRow = column;
-    for (let row = column + 1; row < size; row += 1) {
-      if (Math.abs(augmented[row][column]) > Math.abs(augmented[pivotRow][column])) pivotRow = row;
-    }
-    if (Math.abs(augmented[pivotRow][column]) < 0.0000000001) return null;
-    [augmented[column], augmented[pivotRow]] = [augmented[pivotRow], augmented[column]];
-    const pivot = augmented[column][column];
-    for (let index = column; index <= size; index += 1) augmented[column][index] /= pivot;
-    for (let row = 0; row < size; row += 1) {
-      if (row === column) continue;
-      const factor = augmented[row][column];
-      if (factor === 0) continue;
-      for (let index = column; index <= size; index += 1) augmented[row][index] -= factor * augmented[column][index];
-    }
-  }
-  return augmented.map((row) => row[size]);
-}
 
-function dailyFitFeatureDeltas(observations, model) {
-  const deltas = new Array(dailyFeatureNames.length).fill(0);
-  if (!model) return deltas;
-  const samples = observations.map((observation) => ({
-    pred: observation.pred,
-    outcome: observation.outcome,
-    vector: dailyGetFeatureVector(observation.row),
-  })).filter((sample) => sample.vector.some((value) => value > 0));
-  if (samples.length === 0) return deltas;
-  const modelDerivativePerPred = model.slope / model.scale;
-  for (let iteration = 0; iteration < dailyFeatureDeltaIterations; iteration += 1) {
-    const gradient = new Array(dailyFeatureNames.length).fill(0);
-    const hessian = Array.from({ length: dailyFeatureNames.length }, () => new Array(dailyFeatureNames.length).fill(0));
-    samples.forEach((sample) => {
-      const adjustment = sample.vector.reduce((total, strength, index) => total + deltas[index] * strength, 0);
-      const normalizedPred = (sample.pred + adjustment - model.center) / model.scale;
-      const probability = dailySigmoid(model.intercept + model.slope * normalizedPred);
-      const residual = probability - sample.outcome;
-      const curvature = Math.max(probability * (1 - probability), 0.00001);
-      sample.vector.forEach((leftStrength, leftIndex) => {
-        gradient[leftIndex] += residual * modelDerivativePerPred * leftStrength;
-        sample.vector.forEach((rightStrength, rightIndex) => {
-          hessian[leftIndex][rightIndex] += curvature * modelDerivativePerPred * modelDerivativePerPred * leftStrength * rightStrength;
-        });
-      });
-    });
-    for (let index = 0; index < dailyFeatureNames.length; index += 1) {
-      gradient[index] += 2 * dailyFeatureDeltaLambda * deltas[index];
-      hessian[index][index] += 2 * dailyFeatureDeltaLambda;
-    }
-    const step = dailySolveLinearSystem(hessian, gradient);
-    if (!step) break;
-    let largestStep = 0;
-    for (let index = 0; index < deltas.length; index += 1) {
-      const next = deltas[index] - step[index];
-      if (!Number.isFinite(next)) return new Array(dailyFeatureNames.length).fill(0);
-      deltas[index] = next;
-      largestStep = Math.max(largestStep, Math.abs(step[index]));
-    }
-    if (largestStep < dailyFeatureDeltaTolerance) break;
-  }
-  return deltas;
-}
+
+
 
 function dailyGetAdjustedPred(row, mode = "normal") {
+  const sharedRow = targetState.rowsByChartId.get(String(row.chartId));
   const raw = dailyGetPredValue(row, mode);
-  if (mode !== "normal") {
-    const vector = dailyGetFeatureVector(row);
-    return raw + vector.reduce((total, strength, index) => total + dailyState.deltas[index] * strength, 0);
-  }
-  return dailyState.adjustedPredById.get(String(row.chartId)) ?? raw;
+  if (!sharedRow) return raw;
+  return raw + targetGetFeatureVector(sharedRow).reduce((sum, strength, index) => sum + strength * dailyState.deltas[index], 0);
 }
 
 
@@ -1025,18 +841,11 @@ function dailyFormatPredDifference(value) {
 }
 
 function dailyRecalculateModel() {
-  const overallObservations = dailyGetPredObservations("overall");
-  dailyState.model = dailyFitBaseModel(overallObservations, "overall");
-  dailyState.modelsByMode = Object.fromEntries(
-    Object.keys(dailyPredModes).map((mode) => [mode, dailyFitBaseModel(dailyGetPredObservations(mode), mode)]),
-  );
-  dailyState.deltas = dailyFitFeatureDeltas(overallObservations, dailyState.model);
-  dailyState.adjustedPredById = new Map();
-  dailyState.rows.forEach((row) => {
-    const vector = dailyGetFeatureVector(row);
-    const adjustedPred = row.pred + vector.reduce((total, strength, index) => total + dailyState.deltas[index] * strength, 0);
-    dailyState.adjustedPredById.set(String(row.chartId), adjustedPred);
-  });
+  const result = targetGetAnalysis(dailyState.records);
+  dailyState.model = result.model;
+  dailyState.modelsByMode = result.modelsByMode;
+  dailyState.deltas = result.deltas;
+  dailyState.adjustedPredById = result.adjustedPredById;
   dailySetAdjustedPredBounds();
 }
 
@@ -1330,14 +1139,20 @@ function dailySetsEqual(left, right) {
   return true;
 }
 
+let dailyRefreshAgain = false;
 async function dailyRefreshPersistedState() {
   if (!dailyState.ready || !dailyState.database) return;
-  if (dailyState.refreshPromise) return dailyState.refreshPromise;
-  dailyState.refreshPromise = Promise.all([
+  if (dailyState.refreshPromise) { dailyRefreshAgain = true; return dailyState.refreshPromise; }
+  dailyRefreshAgain = false;
+  dailyState.refreshPromise = dailyOpenDatabase().then(database => {
+    dailyState.database = database;
+    return Promise.all([
     dailyReadRecords(),
     dailyReadManualMemos(),
     dailyReadToday(dailyGetDateKey()),
-  ]).then(([records, manualMemos, today]) => {
+    ]);
+  }).then(([records, manualMemos, today]) => {
+    if (dailyRefreshAgain) return;
     const nextRecords = new Map(records.map((record) => [String(record.chartId), record]));
     const nextManualMemoIds = dailyBuildManualMemoIds(manualMemos);
     const changed = dailyRecordsChanged(records)
@@ -1354,6 +1169,7 @@ async function dailyRefreshPersistedState() {
     dailyShowError(error instanceof Error ? error.message : "クリア状況を更新できませんでした。");
   }).finally(() => {
     dailyState.refreshPromise = null;
+    if (dailyRefreshAgain) void dailyRefreshPersistedState();
   });
   return dailyState.refreshPromise;
 }
@@ -1376,40 +1192,14 @@ function dailyWriteToday(record) {
   });
 }
 
-async function dailyOpenDatabase() {
-  if (typeof targetState !== "undefined" && targetState.db) {
-    return targetState.db;
-  }
-  if (typeof targetState !== "undefined") {
-    await new Promise((resolve) => {
-      if (targetState.db) {
-        resolve();
-        return;
-      }
-      const handleReady = () => resolve();
-      window.addEventListener("cpi:target-storage-ready", handleReady, { once: true });
-      window.setTimeout(resolve, 5000);
-    });
-    if (targetState.db) return targetState.db;
-  }
-  return new Promise((resolve, reject) => {
-    if (!window.indexedDB) {
-      reject(new Error("このブラウザでは今日の10曲を保存できません。"));
-      return;
-    }
-    const request = window.indexedDB.open(dailyDatabaseName, dailyDatabaseVersion);
-    request.onupgradeneeded = () => {
-      const database = request.result;
-      if (!database.objectStoreNames.contains(dailyStatusStoreName)) database.createObjectStore(dailyStatusStoreName, { keyPath: "chartId" });
-      if (!database.objectStoreNames.contains("manual-targets")) database.createObjectStore("manual-targets", { keyPath: "chartId" });
-      if (!database.objectStoreNames.contains(dailyTargetsStoreName)) database.createObjectStore(dailyTargetsStoreName, { keyPath: "date" });
-      window.cpiUpdateHistory?.ensureStore(database);
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("ローカル保存を開けませんでした。"));
-    request.onblocked = () => reject(new Error("別のページがローカル保存を使用中です。ページを閉じてから再読み込みしてください。"));
-  });
+function dailyOpenDatabase() {
+  return window.cpiStorage.open();
 }
+window.addEventListener("cpi:storage-versionchange", () => {
+  if (dailyState.database) {
+    dailyOpenDatabase().then(database => { dailyState.database = database; }).catch(error => console.warn(error));
+  }
+});
 
 function dailyGetDateKey(date = new Date()) {
   const values = [date.getFullYear(), date.getMonth() + 1, date.getDate()];
@@ -1994,6 +1784,7 @@ function dailyBindEvents() {
   document.addEventListener("visibilitychange", refreshOnReturn);
   window.addEventListener("focus", refreshOnReturn);
   window.addEventListener("pageshow", refreshOnReturn);
+  window.addEventListener("cpi:storage-changed", () => { void dailyRefreshPersistedState(); });
   window.addEventListener("scroll", () => {
     if (dailyElements.scrollTop) dailyElements.scrollTop.hidden = window.scrollY < 360;
   }, { passive: true });

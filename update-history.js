@@ -144,54 +144,9 @@
       }
     };
 
-    if (options.reconcileReverts !== true || !normalizedChanges.length) {
-      addEvents();
-      return;
-    }
-
-    const inverseByChartId = new Map(
-      normalizedChanges.map((change) => [change.chartId, change]),
-    );
-    const latestInverse = new Map();
-    const request = store.openCursor();
-    request.onsuccess = () => {
-      const cursor = request.result;
-      if (cursor) {
-        const event = cursor.value ?? {};
-        const change = inverseByChartId.get(String(event.chartId ?? "").trim());
-        const isInverse = change
-          && normalizeStatus(event.beforeStatus) === change.afterStatus
-          && normalizeStatus(event.afterStatus) === change.beforeStatus;
-        if (isInverse) {
-          const eventTime = new Date(event.changedAt).getTime();
-          const previous = latestInverse.get(change.chartId);
-          if (
-            !previous
-            || (Number.isFinite(eventTime) && eventTime > previous.eventTime)
-            || (eventTime === previous.eventTime && Number(event.id) > Number(previous.id))
-          ) {
-            latestInverse.set(change.chartId, {
-              id: event.id,
-              eventTime,
-            });
-          }
-        }
-        cursor.continue();
-        return;
-      }
-
-      for (const inverse of latestInverse.values()) {
-        store.delete(inverse.id);
-      }
-      addEvents();
-    };
-    request.onerror = () => {
-      try {
-        transaction.abort();
-      } catch {
-        // The transaction may already be aborting.
-      }
-    };
+    // Preserve all transitions; daily aggregation handles reverts without
+    // deleting earlier days or changing the original daily baseline.
+    addEvents();
   }
   function readEvents(database, cycleKey = null) {
     return new Promise((resolve, reject) => {

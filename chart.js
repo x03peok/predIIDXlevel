@@ -1,5 +1,5 @@
 const chartDatabaseName = "cpi-next-clear-status";
-const chartDatabaseVersion = 5;
+
 const chartStatusStoreName = "chart-statuses";
 const chartManualMemoStoreName = "manual-targets";
 const chartDailyTargetsStoreName = "daily-targets";
@@ -535,29 +535,13 @@ function setTextageLink(element, url) {
 }
 
 function chartOpenDatabase() {
-  return new Promise((resolve, reject) => {
-    if (!window.indexedDB) {
-      reject(new Error("ローカル保存を利用できません。"));
-      return;
-    }
-    const request = window.indexedDB.open(chartDatabaseName, chartDatabaseVersion);
-    request.onupgradeneeded = () => {
-      const database = request.result;
-      if (!database.objectStoreNames.contains(chartStatusStoreName)) {
-        database.createObjectStore(chartStatusStoreName, { keyPath: "chartId" });
-      }
-      if (!database.objectStoreNames.contains(chartManualMemoStoreName)) {
-        database.createObjectStore(chartManualMemoStoreName, { keyPath: "chartId" });
-      }
-      if (!database.objectStoreNames.contains(chartDailyTargetsStoreName)) {
-        database.createObjectStore(chartDailyTargetsStoreName, { keyPath: "date" });
-      }
-      window.cpiUpdateHistory?.ensureStore(database);
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("ローカル保存を開けませんでした。"));
-  });
+  return window.cpiStorage.open();
 }
+window.addEventListener("cpi:storage-versionchange", () => {
+  if (chartState.db) {
+    chartOpenDatabase().then(database => { chartState.db = database; }).catch(error => console.warn(error));
+  }
+});
 
 function chartReadManualMemo(chartId) {
   return new Promise((resolve, reject) => {

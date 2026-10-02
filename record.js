@@ -525,30 +525,13 @@ function recordLoadRows() {
 
 
 function recordOpenDatabase() {
-  return new Promise((resolve, reject) => {
-    if (!window.indexedDB) {
-      reject(new Error("このブラウザではローカル保存を利用できません。"));
-      return;
-    }
-
-    const request = window.indexedDB.open(recordDbName, recordDbVersion);
-    request.onupgradeneeded = () => {
-      const database = request.result;
-      if (!database.objectStoreNames.contains(recordStoreName)) {
-        database.createObjectStore(recordStoreName, { keyPath: "chartId" });
-      }
-      if (!database.objectStoreNames.contains(recordManualMemoStoreName)) {
-        database.createObjectStore(recordManualMemoStoreName, { keyPath: "chartId" });
-      }
-      if (!database.objectStoreNames.contains(recordDailyTargetsStoreName)) {
-        database.createObjectStore(recordDailyTargetsStoreName, { keyPath: "date" });
-      }
-      window.cpiUpdateHistory?.ensureStore(database);
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("ローカル保存を開けませんでした。"));
-  });
+  return window.cpiStorage.open();
 }
+window.addEventListener("cpi:storage-versionchange", () => {
+  if (recordState.db) {
+    recordOpenDatabase().then(database => { recordState.db = database; }).catch(error => console.warn(error));
+  }
+});
 
 function recordReadAll() {
   return new Promise((resolve, reject) => {

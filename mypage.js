@@ -1,7 +1,7 @@
 "use strict";
 
 const mypageDatabaseName = "cpi-next-clear-status";
-const mypageDatabaseVersion = 5;
+
 const mypageStoreName = "chart-statuses";
 const mypageManualMemoStoreName = "manual-targets";
 const mypageDailyTargetsStoreName = "daily-targets";
@@ -2520,6 +2520,7 @@ function mypageBindEvents() {
     void mypageRefreshFromStorage();
   };
   window.addEventListener("cpi:status-changed", refreshFromStorage);
+  window.addEventListener("cpi:storage-changed", refreshFromStorage);
   window.addEventListener("pageshow", refreshFromStorage);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
@@ -2543,29 +2544,13 @@ function mypageLoadRows() {
 }
 
 function mypageOpenDatabase() {
-  return new Promise((resolve, reject) => {
-    if (!window.indexedDB) {
-      reject(new Error("このブラウザではローカル保存を利用できません。"));
-      return;
-    }
-    const request = window.indexedDB.open(mypageDatabaseName, mypageDatabaseVersion);
-    request.onupgradeneeded = () => {
-      const database = request.result;
-      if (!database.objectStoreNames.contains(mypageStoreName)) {
-        database.createObjectStore(mypageStoreName, { keyPath: "chartId" });
-      }
-      if (!database.objectStoreNames.contains(mypageManualMemoStoreName)) {
-        database.createObjectStore(mypageManualMemoStoreName, { keyPath: "chartId" });
-      }
-      if (!database.objectStoreNames.contains(mypageDailyTargetsStoreName)) {
-        database.createObjectStore(mypageDailyTargetsStoreName, { keyPath: "date" });
-      }
-      window.cpiUpdateHistory?.ensureStore(database);
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("ローカル保存を開けませんでした。"));
-  });
+  return window.cpiStorage.open();
 }
+window.addEventListener("cpi:storage-versionchange", () => {
+  if (mypageState.db) {
+    mypageOpenDatabase().then(database => { mypageState.db = database; }).catch(error => console.warn(error));
+  }
+});
 
 function mypageReadAllRecords() {
   return new Promise((resolve, reject) => {
@@ -2787,10 +2772,13 @@ async function mypageRefreshFromStorage() {
   if (mypageState.storageRefreshPromise) {
     return mypageState.storageRefreshPromise;
   }
-  mypageState.storageRefreshPromise = Promise.all([
+  mypageState.storageRefreshPromise = mypageOpenDatabase().then(database => {
+    mypageState.db = database;
+    return Promise.all([
     mypageReadAllRecords(),
     mypageReadAllManualMemos(),
-  ])
+    ]);
+  })
     .then(([records, memos]) => {
       mypageApplyRecords(records);
       mypageApplyManualMemos(memos);
@@ -2890,4 +2878,3 @@ async function mypageInitialize() {
 }
 
 document.addEventListener("DOMContentLoaded", mypageInitialize);
-

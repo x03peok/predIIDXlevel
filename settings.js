@@ -1,13 +1,13 @@
 "use strict";
 
 const settingsDatabaseName = "cpi-next-clear-status";
-const settingsDatabaseVersion = 5;
+
 const settingsStoreName = "chart-statuses";
 const settingsManualMemoStoreName = "manual-targets";
 const settingsDailyTargetsStoreName = "daily-targets";
 const settingsUpdateHistoryStoreName = "status-update-events";
 const settingsBackupFormat = "cpi-next-clear-status-backup";
-const settingsBackupVersion = 2;
+const settingsBackupVersion = 3;
 const settingsMaxBackupBytes = 10 * 1024 * 1024;
 const settingsMaxRecords = 100000;
 const settingsStatusValues = new Set([
@@ -59,30 +59,13 @@ function settingsSetMessage(message, isError = false) {
 }
 
 function settingsOpenDatabase() {
-  return new Promise((resolve, reject) => {
-    if (!window.indexedDB) {
-      reject(new Error("このブラウザではローカル保存を利用できません。"));
-      return;
-    }
-
-    const request = window.indexedDB.open(settingsDatabaseName, settingsDatabaseVersion);
-    request.onupgradeneeded = () => {
-      const database = request.result;
-      if (!database.objectStoreNames.contains(settingsStoreName)) {
-        database.createObjectStore(settingsStoreName, { keyPath: "chartId" });
-      }
-      if (!database.objectStoreNames.contains(settingsManualMemoStoreName)) {
-        database.createObjectStore(settingsManualMemoStoreName, { keyPath: "chartId" });
-      }
-      if (!database.objectStoreNames.contains(settingsDailyTargetsStoreName)) {
-        database.createObjectStore(settingsDailyTargetsStoreName, { keyPath: "date" });
-      }
-      window.cpiUpdateHistory?.ensureStore(database);
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("ローカル保存を開けませんでした。"));
-  });
+  return window.cpiStorage.open();
 }
+window.addEventListener("cpi:storage-versionchange", () => {
+  if (settingsDatabase) {
+    settingsOpenDatabase().then(database => { settingsDatabase = database; }).catch(error => console.warn(error));
+  }
+});
 
 function settingsReadAll() {
   return new Promise((resolve, reject) => {
@@ -130,6 +113,7 @@ function settingsGetValidRecords(records) {
       chartId: String(record.chartId).trim(),
       status: record.status,
       updatedAt: settingsGetRecordUpdatedAt(record),
+      ...(record.historyBackfillExcluded === true ? { historyBackfillExcluded: true } : {}),
     }));
 }
 
@@ -177,7 +161,7 @@ function settingsBuildStatusChanges(beforeRecords, afterRecords, options = {}) {
   }).filter((change) => change.beforeStatus !== change.afterStatus);
 }
 
-function settingsWriteAll(records, manualMemos, historyChanges = [], historySource = "settings") {
+function settingsWriteAll(records, manualMemos, historyChanges = [], historySource = "settings", snapshot = null) {
   return new Promise((resolve, reject) => {
     if (!settingsDatabase) {
       reject(new Error("ローカル保存を開けませんでした。"));
@@ -191,6 +175,10 @@ function settingsWriteAll(records, manualMemos, historyChanges = [], historySour
     const stores = hasHistory
       ? [settingsStoreName, settingsManualMemoStoreName, settingsUpdateHistoryStoreName]
       : [settingsStoreName, settingsManualMemoStoreName];
+    if (snapshot) {
+      if (!stores.includes(settingsUpdateHistoryStoreName)) stores.push(settingsUpdateHistoryStoreName);
+      stores.push(settingsDailyTargetsStoreName);
+    }
     const transaction = settingsDatabase.transaction(stores, "readwrite");
     const store = transaction.objectStore(settingsStoreName);
     const manualMemoStore = transaction.objectStore(settingsManualMemoStoreName);
@@ -206,7 +194,13 @@ function settingsWriteAll(records, manualMemos, historyChanges = [], historySour
         manualMemoStore.put(memo);
       }
     }
-    if (hasHistory) {
+    if (snapshot) {
+      for (const [name, values] of [[settingsUpdateHistoryStoreName, snapshot.updateHistory], [settingsDailyTargetsStoreName, snapshot.dailyTargets]]) {
+        const target = transaction.objectStore(name);
+        target.clear();
+        for (const value of values) target.put(value);
+      }
+    } else if (hasHistory) {
       window.cpiUpdateHistory.appendToTransaction(transaction, historyChanges, { source: historySource });
     }
     transaction.oncomplete = resolve;
@@ -576,7 +570,7 @@ function settingsResetTargetSettings() {
 function settingsValidateBackup(payload) {
   if (!payload || typeof payload !== "object"
     || payload.format !== settingsBackupFormat
-    || ![1, settingsBackupVersion].includes(payload.version)
+    || ![1, 2, settingsBackupVersion].includes(payload.version)
     || !Array.isArray(payload.records)) {
     throw new Error("対応していないバックアップ形式です。");
   }
@@ -601,6 +595,7 @@ function settingsValidateBackup(payload) {
       chartId,
       status: record.status,
       updatedAt: settingsGetRecordUpdatedAt(record),
+      ...(record.historyBackfillExcluded === true ? { historyBackfillExcluded: true } : {}),
     };
   });
 
@@ -626,7 +621,8 @@ function settingsValidateBackup(payload) {
     };
   });
 
-  return { records, manualMemos, version: payload.version };
+  const extra = payload.version >= 3 ? window.cpiBackupData.validateExtra(payload) : {};
+  return { records, manualMemos, version: payload.version, ...extra };
 }
 async function settingsHandleExport() {
   if (settingsBusy) {
@@ -635,16 +631,22 @@ async function settingsHandleExport() {
 
   settingsSetBusy(true);
   try {
-    const records = settingsGetValidRecords(await settingsReadAll());
-    const manualMemos = settingsGetValidManualMemos(await settingsReadAllManualMemos());
+    settingsDatabase = await settingsOpenDatabase();
+    const snapshot = await window.cpiBackupData.readSnapshot(settingsDatabase);
+    const records = settingsGetValidRecords(snapshot.records);
+    const manualMemos = settingsGetValidManualMemos(snapshot.manualMemos);
     const payload = {
       format: settingsBackupFormat,
       version: settingsBackupVersion,
       exportedAt: new Date().toISOString(),
       records,
       manualMemos,
+      updateHistory: snapshot.updateHistory,
+      dailyTargets: snapshot.dailyTargets,
     };
+    settingsValidateBackup(payload);
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    if (blob.size > settingsMaxBackupBytes) throw new Error("バックアップが上限の10MBを超えています。エクスポートを中止しました。");
     const downloadUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -687,7 +689,9 @@ async function settingsHandleImport(event) {
     return;
   }
 
-  const importConfirmation = backup.version >= 2
+  const importConfirmation = backup.version >= 3
+    ? "現在のクリアランプ記録、手動メモ、今日の10曲、更新履歴を、このバックアップで置き換えます。よろしいですか？"
+    : backup.version >= 2
     ? "現在のクリアランプ記録と手動メモを、このバックアップで置き換えます。よろしいですか？"
     : "現在のクリアランプ記録を、このバックアップで置き換えます。手動メモは保持されます。";
   if (!window.confirm(importConfirmation)) {
@@ -696,13 +700,16 @@ async function settingsHandleImport(event) {
 
   settingsSetBusy(true);
   try {
-    const previousRecords = settingsGetValidRecords(await settingsReadAll());
-    const previousManualMemos = settingsGetValidManualMemos(await settingsReadAllManualMemos());
+    settingsDatabase = await settingsOpenDatabase();
+    const previousSnapshot = await window.cpiBackupData.readSnapshot(settingsDatabase);
+    const previousRecords = settingsGetValidRecords(previousSnapshot.records);
+    const previousManualMemos = settingsGetValidManualMemos(previousSnapshot.manualMemos);
     await settingsWriteAll(
       backup.records,
       backup.version >= 2 ? backup.manualMemos : undefined,
       settingsBuildStatusChanges(previousRecords, backup.records),
       "backup-import",
+      backup.version >= 3 ? backup : null,
     );
     settingsUpdateCount(backup.records);
     settingsSetMessage("データをインポートしました。");
@@ -715,6 +722,7 @@ async function settingsHandleImport(event) {
             previousManualMemos,
             settingsBuildStatusChanges(backup.records, previousRecords, { useUpdatedAt: false }),
             "backup-undo",
+            previousSnapshot,
           );
           settingsUpdateCount(previousRecords);
           settingsSetMessage("インポートを元に戻しました。");
