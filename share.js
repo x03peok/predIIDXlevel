@@ -784,7 +784,10 @@ function shareCopyStartUrl() {
     ? navigator.clipboard.writeText(shareStartUrl)
     : Promise.resolve().then(copyFallback);
   Promise.resolve(copyPromise)
-    .then(() => showResult("コピーしました。普段使っているブラウザのアドレス欄に貼り付けてください。"))
+    .then(() => {
+      showResult("コピーしました。普段使っているブラウザのアドレス欄に貼り付けてください。");
+      window.cpiAnalytics?.track("share_url_copy", { destination: "record" });
+    })
     .catch(() => showResult("コピーできませんでした。URLを手動でコピーしてください。"));
 }
 
@@ -911,8 +914,10 @@ function shareRender() {
   const message = document.getElementById("shareMessage");
   const content = document.getElementById("shareContent");
   const pageTitle = document.getElementById("sharePageTitle");
+  let shareType;
   try {
     const decoded = window.cpiSharePayload.decodeUrl();
+    shareType = decoded.type;
     content.replaceChildren();
     if (decoded.type === "overview") {
       document.title = "共有されたマイページ概要｜CPI:Next";
@@ -935,7 +940,10 @@ function shareRender() {
     if (cta) cta.hidden = true;
     message.hidden = false;
     message.textContent = "この共有URLは無効か、内容が壊れています。";
+    window.cpiAnalytics?.reportShare(shareType, shareType ? "error" : "invalid");
+    return;
   }
+  window.cpiAnalytics?.reportShare(shareType, "valid");
 }
 
 window.addEventListener("resize", scheduleShareHistoryHistogramResize, { passive: true });

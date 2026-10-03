@@ -1,6 +1,35 @@
 (function initializeCpiAnalytics() {
   "use strict";
 
+  // Do not collect local previews or filesystem paths.
+  if (window.location.protocol !== "https:" || !["cpi-next.com", "www.cpi-next.com"].includes(window.location.hostname)) {
+    window.cpiAnalytics = { track() {}, reportShare() {} };
+    return;
+  }
+
+  function analyticsUrl(value) {
+    if (!value) return "";
+    try {
+      const url = new URL(value);
+      if (!["https:", "http:"].includes(url.protocol)) return "";
+      const type = url.pathname.endsWith("/share.html") ? url.searchParams.get("t") : null;
+      url.username = "";
+      url.password = "";
+      url.search = "";
+      url.hash = "";
+      if (["o", "h", "d"].includes(type)) url.searchParams.set("t", type);
+      return url.href;
+    } catch {
+      return "";
+    }
+  }
+
+  const pageContext = {
+    page_location: analyticsUrl(window.location.href),
+    page_referrer: analyticsUrl(document.referrer),
+  };
+  let shareContext = {};
+  let shareReported = false;
   const measurementId = "G-M0BX4638PS";
   const dataLayer = window.dataLayer = window.dataLayer || [];
   window.gtag = window.gtag || function gtag() {
@@ -8,7 +37,8 @@
   };
 
   window.gtag("js", new Date());
-  window.gtag("config", measurementId, { send_page_view: false });
+  window.gtag("set", pageContext);
+  window.gtag("config", measurementId, { send_page_view: false, ...pageContext });
 
   if (!document.querySelector("script[data-cpi-google-tag]")) {
     const script = document.createElement("script");
@@ -27,16 +57,37 @@
       return;
     }
 
-    const cleanParams = { page_type: getPageType() };
+    const cleanParams = { page_type: getPageType(), ...shareContext };
     for (const [key, value] of Object.entries(params)) {
       if (value === undefined || value === null || value === "") {
         continue;
       }
+      if (key === "page_location" || key === "page_referrer") continue;
       cleanParams[key] = typeof value === "string" && value.length > 100
         ? value.slice(0, 100)
         : value;
     }
+    Object.assign(cleanParams, pageContext);
     window.gtag("event", name, cleanParams);
+  }
+
+  function reportShare(type, status) {
+    if (shareReported) return;
+    shareReported = true;
+    shareContext = {
+      share_type: ["overview", "history", "daily"].includes(type) ? type : "unknown",
+      share_status: ["valid", "invalid", "error"].includes(status) ? status : "error",
+    };
+    track("page_view", { page_title: document.title, page_path: window.location.pathname });
+    const cta = document.getElementById("shareCta");
+    if (status !== "valid" || !cta || cta.hidden || typeof IntersectionObserver !== "function") return;
+    // A whole CTA can be taller than a mobile viewport; observe its heading instead.
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some(entry => entry.isIntersecting)) return;
+      observer.disconnect();
+      track("share_cta_view");
+    });
+    observer.observe(document.getElementById("shareCtaTitle") || cta);
   }
 
   function getChartIdFromLink(link) {
@@ -61,13 +112,13 @@
     return questionIndex === undefined ? undefined : Number(questionIndex) + 1;
   }
 
-  window.cpiAnalytics = { track };
+  window.cpiAnalytics = { track, reportShare };
 
   document.addEventListener("DOMContentLoaded", () => {
     window.setTimeout(() => {
+      if (getPageType() === "share") return;
       track("page_view", {
         page_title: document.title,
-        page_location: window.location.href,
         page_path: window.location.pathname,
       });
     }, 0);
@@ -93,7 +144,13 @@
       return;
     }
 
-    if (target.matches(".chart-link, .record-title-link")) {
+    if (target.matches(".share-cta__start")) {
+      track("share_cta_click", { destination: "record" });
+      return;
+    }
+
+    if (target.matches(".chart-link, .record-title-link, .share-chart__link")
+      || (getPageType() === "share" && target.matches(".mypage-history__title"))) {
       track("chart_open", {
         chart_id: getChartIdFromLink(target),
         link_location: getPageType(),
