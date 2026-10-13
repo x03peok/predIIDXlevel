@@ -219,7 +219,9 @@ function createPage(template, row) {
 }
 
 const template = fs.readFileSync(templatePath, "utf8");
-const rows = loadRows();
+const requestedIds = process.argv.find(argument => argument.startsWith("--ids="));
+const selectedIds = requestedIds ? new Set(requestedIds.slice(6).split(",")) : null;
+const rows = loadRows().filter(row => !selectedIds || selectedIds.has(String(row.chart_id)));
 fs.mkdirSync(outputDir, { recursive: true });
 for (const row of rows) {
   const chartId = String(row.chart_id).trim();
