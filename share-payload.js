@@ -6,6 +6,7 @@
 (function initializeCpiSharePayload() {
   const version = 1;
   const typeCodes = Object.freeze({ overview: "o", history: "h", daily: "d" });
+  const typePages = Object.freeze({ overview: "share-overview.html", history: "share-history.html", daily: "share-daily.html" });
   const typeNames = Object.freeze({ o: "overview", h: "history", d: "daily" });
   const allowedTypes = new Set(Object.keys(typeCodes));
   const maxPayloadLength = 12000;
@@ -69,7 +70,7 @@
     const data = encodePayload(payload);
     if (data.length > maxPayloadLength) throw new Error("Share payload is too large.");
     const checksum = hash(typeCode + "." + version + "." + data);
-    return "https://cpi-next.com/share.html?t=" + typeCode
+    return "https://cpi-next.com/" + typePages[type] + "?t=" + typeCode
       + "&v=" + version
       + "&d=" + data
       + "&h=" + checksum;

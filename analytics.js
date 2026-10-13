@@ -12,7 +12,7 @@
     try {
       const url = new URL(value);
       if (!["https:", "http:"].includes(url.protocol)) return "";
-      const type = url.pathname.endsWith("/share.html") ? url.searchParams.get("t") : null;
+      const type = /\/share(?:-(?:overview|history|daily))?\.html$/.test(url.pathname) ? url.searchParams.get("t") : null;
       url.username = "";
       url.password = "";
       url.search = "";
