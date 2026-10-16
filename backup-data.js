@@ -6,6 +6,7 @@
     "manual-targets": "manualMemos",
     "daily-targets": "dailyTargets",
     "status-update-events": "updateHistory",
+    "chart-option-memos": "optionMemos",
   };
   const statuses = new Set(["unregistered", "unowned", "no-play", "failed", "assisted", "easy", "clear", "hard"]);
   const goals = new Set(["easy", "clear", "hard"]);
@@ -54,7 +55,8 @@
       });
       return { date: day.date, lockedAt: timestamp(day.lockedAt), charts };
     });
-    return { updateHistory, dailyTargets };
+    const optionMemos = payload.version >= 4 ? window.cpiChartOptions.validateRecords(payload.optionMemos) : undefined;
+    return { updateHistory, dailyTargets, ...(optionMemos ? { optionMemos } : {}) };
   }
   function readSnapshot(database) {
     return new Promise((resolve, reject) => {

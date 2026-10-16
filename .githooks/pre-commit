@@ -1,0 +1,2 @@
+#!/bin/sh
+exec node generate_public_data.js --staged

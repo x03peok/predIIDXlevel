@@ -32,7 +32,7 @@ const dailyPredModeOutcomes = {
 };
 
 function dailyGetPredValue(row, mode = "normal") {
-  return row[dailyPredModes[mode]?.key ?? dailyPredModes.normal.key] ?? row.pred;
+  return row[dailyPredModes[mode]?.key ?? dailyPredModes.normal.key] ?? null;
 }
 
 function dailyGetPredModeForGoal(goal) {
@@ -67,7 +67,6 @@ const dailyStatuses = [
   { value: "hard", label: "HARD以上" },
 ];
 const dailyStatusValues = new Set(dailyStatuses.map(({ value }) => value));
-const dailyRecommendationLockedStatusValues = new Set(["hard"]);
 const dailyStatusRank = {
   unregistered: 0,
   unowned: 0,
@@ -83,15 +82,6 @@ const dailyGoalStatuses = [
   { value: "clear", label: "CLEAR" },
   { value: "hard", label: "HARD以上" },
 ];
-const dailyRecommendationSettingsKey = "cpi-next-target-recommendation-statuses";
-const dailyRecommendationLevelValues = [8, 9, 10, 11, 12];
-const dailyDefaultRecommendationSettings = {
-  probabilityMin: 40,
-  probabilityMax: 60,
-  levels: [...dailyRecommendationLevelValues],
-  statuses: dailyStatuses.filter(({ value }) => !["unowned", "hard"].includes(value)).map(({ value }) => value),
-  targetGoals: dailyGoalStatuses.map(({ value }) => value),
-};
 const dailyEntityDecoder = document.createElement("textarea");
 
 const dailyState = {
@@ -560,55 +550,16 @@ function dailyGetDefaultGoal(status) {
 }
 
 function dailyGetDefaultRecommendationSettings() {
-  return {
-    probabilityMin: dailyDefaultRecommendationSettings.probabilityMin,
-    probabilityMax: dailyDefaultRecommendationSettings.probabilityMax,
-    levels: [...dailyDefaultRecommendationSettings.levels],
-    statuses: [...dailyDefaultRecommendationSettings.statuses],
-    targetGoals: [...dailyDefaultRecommendationSettings.targetGoals],
-  };
-}
-
-function dailyNormalizeRecommendationProbability(value, fallback) {
-  const numeric = Number(value);
-  return Number.isInteger(numeric) ? Math.min(100, Math.max(0, numeric)) : fallback;
+  return targetGetDefaultRecommendationSettings();
 }
 
 function dailyReadRecommendationSettings() {
-  const fallback = dailyGetDefaultRecommendationSettings();
-  try {
-    const parsed = JSON.parse(window.localStorage?.getItem(dailyRecommendationSettingsKey) ?? "null");
-    if (Array.isArray(parsed)) {
-      return { ...fallback, statuses: [...new Set(parsed.filter((value) => dailyStatusValues.has(value) && !dailyRecommendationLockedStatusValues.has(value)))] };
-    }
-    if (!parsed || typeof parsed !== "object") return fallback;
-    let probabilityMin = dailyNormalizeRecommendationProbability(parsed.probabilityMin, fallback.probabilityMin);
-    let probabilityMax = dailyNormalizeRecommendationProbability(parsed.probabilityMax, fallback.probabilityMax);
-    if (probabilityMin > probabilityMax) [probabilityMin, probabilityMax] = [probabilityMax, probabilityMin];
-    const levels = Array.isArray(parsed.levels)
-      ? [...new Set(parsed.levels.map((value) => Number(value)).filter((value) => dailyRecommendationLevelValues.includes(value)))]
-      : [...fallback.levels];
-    const statuses = Array.isArray(parsed.statuses)
-      ? [...new Set(parsed.statuses.filter((value) => dailyStatusValues.has(value) && !dailyRecommendationLockedStatusValues.has(value)))]
-      : [...fallback.statuses];
-    const targetGoals = Array.isArray(parsed.targetGoals)
-      ? [...new Set(parsed.targetGoals.filter((value) => dailyGoalStatuses.some((goal) => goal.value === value)))]
-      : [...fallback.targetGoals];
-    return { probabilityMin, probabilityMax, levels, statuses, targetGoals };
-  } catch {
-    return fallback;
-  }
+  return targetReadRecommendationSettings();
 }
 
 function dailyGetExpectedClearProbability(row, mode = "normal") {
-  const modeModel = dailyState.modelsByMode[mode] ?? null;
-  const model = modeModel ?? dailyState.model;
-  if (!model) {
-    return null;
-  }
-  const adjustedPred = dailyGetAdjustedPred(row, mode);
-  const normalizedPred = (adjustedPred - model.center) / model.scale;
-  return dailySigmoid(model.intercept + model.slope * normalizedPred);
+  const model = window.cpiPrediction.modelForMode(dailyState.modelsByMode, dailyState.model, mode);
+  return window.cpiPrediction.probability(model, dailyGetAdjustedPred(row, mode));
 }
 
 
@@ -622,29 +573,20 @@ function dailyShuffleRows(rows) {
 }
 
 function dailyGetAutoFillCandidates() {
-  const settings = dailyReadRecommendationSettings();
-  dailyState.recommendationSettings = settings;
-  let sharedCandidateIds = null;
-  if (typeof targetGetAutoCandidateDetails === "function"
-    && typeof targetState !== "undefined"
-    && targetState.model) {
-    sharedCandidateIds = new Set(
-      targetGetAutoCandidateDetails().map(({ row }) => String(row.chart_id)),
-    );
+  if (typeof targetSyncRecommendationSettings === "function") targetSyncRecommendationSettings();
+  dailyState.recommendationSettings = dailyReadRecommendationSettings();
+  if (typeof targetGetAutoCandidateDetails !== "function"
+    || typeof targetState === "undefined"
+    || !targetState.model) {
+    return [];
   }
-  return dailyState.rows.filter((row) => {
-    if (dailyState.selected.has(String(row.chartId))) return false;
-    const status = dailyGetStatus(row.chartId);
-    if (dailyRecommendationLockedStatusValues.has(status) || !settings.statuses.includes(status) || !settings.levels.includes(row.level)) return false;
-    if (dailyGetGoalOptions(status).length === 0) return false;
-    const goal = dailyGetDefaultGoal(status);
-    if (!goal || !settings.targetGoals.includes(goal)) return false;
-    if (sharedCandidateIds) return sharedCandidateIds.has(String(row.chartId));
-    const probability = dailyGetExpectedClearProbability(row, dailyGetPredModeForGoal(goal));
-    if (probability === null) return false;
-    const probabilityPercent = probability * 100;
-    return probabilityPercent >= (settings.probabilityMin ?? 40)
-      && probabilityPercent <= (settings.probabilityMax ?? 60);
+  return targetGetAutoCandidateDetails().flatMap(({ row: targetRow, goal }) => {
+    const chartId = String(targetRow.chart_id);
+    const row = dailyState.rowsById.get(chartId);
+    if (!row || dailyState.selected.has(chartId)) return [];
+    const options = dailyGetManualGoalOptions(dailyGetStatus(chartId));
+    if (!options.some(({ value }) => value === goal)) return [];
+    return [{ row, goal }];
   });
 }
 
@@ -797,39 +739,11 @@ function dailyRenderLockedRow(entry, row) {
 
 
 
-function dailySigmoid(value) {
-  if (value >= 0) {
-    const exponential = Math.exp(-value);
-    return 1 / (1 + exponential);
-  }
-  const exponential = Math.exp(value);
-  return exponential / (1 + exponential);
-}
-
-
-
-
-
-
-
-function dailyGetFeatureVector(row) {
-  const vector = new Array(dailyFeatureNames.length).fill(0);
-  dailyGetFeatureDetails(row).forEach((feature) => {
-    const index = dailyFeatureNames.indexOf(feature.name);
-    if (index >= 0) vector[index] += feature.plusCount >= 2 ? 2 : feature.plusCount === 1 ? 1.5 : 1;
-  });
-  return vector;
-}
-
-
-
-
-
 function dailyGetAdjustedPred(row, mode = "normal") {
   const sharedRow = targetState.rowsByChartId.get(String(row.chartId));
   const raw = dailyGetPredValue(row, mode);
-  if (!sharedRow) return raw;
-  return raw + targetGetFeatureVector(sharedRow).reduce((sum, strength, index) => sum + strength * dailyState.deltas[index], 0);
+  const vector = sharedRow ? targetGetFeatureVector(sharedRow) : [];
+  return window.cpiPrediction.adjustPred(raw, vector, dailyState.deltas);
 }
 
 
@@ -850,7 +764,7 @@ function dailyRecalculateModel() {
 }
 
 function dailySetAdjustedPredBounds() {
-  const values = Array.from(dailyState.adjustedPredById.values()).filter(Number.isFinite);
+  const values = dailyState.rows.flatMap(row => Object.keys(dailyPredModes).map(mode => dailyGetAdjustedPred(row, mode))).filter(Number.isFinite);
   const nextMin = values.length > 0 ? Math.min(...values) : 0;
   const nextMax = values.length > 0 ? Math.max(...values) : 999;
   const isDefault = dailyState.adjustedPredMinFilter === dailyState.adjustedPredDataMin
@@ -886,9 +800,12 @@ function dailyGetFilteredRows() {
     const bpmMax = dailyGetNumber(row.bpmMax);
     if (bpmMin !== null && bpmMin < dailyState.bpmMinFilter) return false;
     if (bpmMax !== null && bpmMax > dailyState.bpmMaxFilter) return false;
-    if (row.pred < dailyState.predMinFilter || row.pred > dailyState.predMaxFilter) return false;
-    const adjustedPred = dailyGetAdjustedPred(row);
-    if (adjustedPred < dailyState.adjustedPredMinFilter || adjustedPred > dailyState.adjustedPredMaxFilter) return false;
+    const goal = dailyState.selected.get(String(row.chartId)) ?? dailyGetCandidateGoal(row, status);
+    const mode = dailyGetPredModeForGoal(goal);
+    const rawPred = dailyGetPredValue(row, mode);
+    if (!Number.isFinite(rawPred) || rawPred < dailyState.predMinFilter || rawPred > dailyState.predMaxFilter) return false;
+    const adjustedPred = dailyGetAdjustedPred(row, mode);
+    if (!Number.isFinite(adjustedPred) || adjustedPred < dailyState.adjustedPredMinFilter || adjustedPred > dailyState.adjustedPredMaxFilter) return false;
     return true;
   });
 }
@@ -1240,16 +1157,20 @@ function dailyAutoFillSelection() {
     dailyShowError("有効な登録譜面が不足しているため、自動選択できません。");
     return;
   }
-  const selectedRows = dailyShuffleRows(dailyGetAutoFillCandidates()).slice(0, remaining);
-  if (selectedRows.length === 0) {
+  const candidates = dailyShuffleRows(dailyGetAutoFillCandidates());
+  let added = 0;
+  for (const { row, goal } of candidates) {
+    const chartId = String(row.chartId);
+    // A chart can qualify for multiple goals, but occupies only one daily slot.
+    if (dailyState.selected.has(chartId)) continue;
+    dailyState.selected.set(chartId, goal);
+    added += 1;
+    if (added >= remaining) break;
+  }
+  if (added === 0) {
     dailyShowError("自動リコメンド設定に合う譜面がありません。");
     return;
   }
-  selectedRows.forEach((row) => {
-    const status = dailyGetStatus(row.chartId);
-    const goal = dailyGetDefaultGoal(status);
-    if (goal) dailyState.selected.set(String(row.chartId), goal);
-  });
   dailyShowError("");
   dailyRenderCandidateTable();
 }
@@ -1265,7 +1186,7 @@ function dailyAutoFillFromManualMemos() {
     const chartId = String(row.chartId);
     if (!dailyState.manualMemoIds.has(chartId) || dailyState.selected.has(chartId)) return false;
     const status = dailyGetStatus(row.chartId);
-    return dailyGetStatusRank(status) < dailyGetStatusRank("hard") && dailyGetGoalOptions(status).length > 0;
+    return dailyGetStatusRank(status) < dailyGetStatusRank("hard") && dailyGetCandidateGoal(row, status) !== null;
   })).slice(0, remaining);
   if (candidates.length === 0) {
     dailyShowError("手動メモに、選択可能な譜面がありません。");
@@ -1273,7 +1194,7 @@ function dailyAutoFillFromManualMemos() {
   }
   candidates.forEach((row) => {
     const status = dailyGetStatus(row.chartId);
-    const goal = dailyGetDefaultGoal(status);
+    const goal = dailyGetCandidateGoal(row, status);
     if (goal) dailyState.selected.set(String(row.chartId), goal);
   });
   dailyShowError("");
@@ -1847,7 +1768,7 @@ async function dailyInitialize() {
     if (typeof bundledCsv !== "string" || bundledCsv.length === 0) throw new Error("譜面データを読み込めませんでした。");
     dailyState.rows = dailyNormalizeRows(dailyParseCsv(bundledCsv));
     dailyState.rowsById = new Map(dailyState.rows.map((row) => [row.chartId, row]));
-    const predValues = dailyState.rows.map((row) => row.pred).filter(Number.isFinite);
+    const predValues = dailyState.rows.flatMap(row => Object.keys(dailyPredModes).map(mode => dailyGetPredValue(row, mode))).filter(Number.isFinite);
     dailyState.predDataMin = predValues.length > 0 ? Math.min(...predValues) : 0;
     dailyState.predDataMax = predValues.length > 0 ? Math.max(...predValues) : 999;
     dailyState.predMinFilter = dailyState.predDataMin;

@@ -9,6 +9,9 @@ const chartState = {
   chartId: "",
   manualMemo: false,
   manualMemoBusy: false,
+  optionMemos: new Set(),
+  optionMemoReady: false,
+  optionMemoBusy: false,
   predRows: null,
   predRow: null,
   predNumericScales: null,
@@ -552,6 +555,72 @@ function chartReadManualMemo(chartId) {
   });
 }
 
+function chartSetOptionMemoMessage(message) {
+  const element = document.getElementById("chartOptionMemoMessage");
+  if (!element) return;
+  element.textContent = message;
+  element.hidden = !message;
+}
+
+function chartUpdateOptionMemoButtons() {
+  document.querySelectorAll("#chartOptionMemos [data-chart-option]").forEach(button => {
+    button.setAttribute("aria-pressed", String(chartState.optionMemos.has(button.dataset.chartOption)));
+    button.disabled = !chartState.optionMemoReady || chartState.optionMemoBusy;
+  });
+}
+
+async function chartLoadOptionMemoState() {
+  if (!chartState.chartId || !window.cpiChartOptions || chartState.optionMemoBusy) return;
+  try {
+    chartState.db = await chartOpenDatabase();
+    const options = await window.cpiChartOptions.read(chartState.db, chartState.chartId);
+    if (chartState.optionMemoBusy) return;
+    chartState.optionMemos = new Set(options);
+    chartState.optionMemoReady = true;
+    chartSetOptionMemoMessage("");
+  } catch (error) {
+    chartState.optionMemoReady = false;
+    chartSetOptionMemoMessage(error.message || "オプションメモを読み込めませんでした。");
+  }
+  chartUpdateOptionMemoButtons();
+}
+
+async function chartHandleOptionMemo(event) {
+  const button = event.target.closest?.("[data-chart-option]");
+  if (!button || !chartState.optionMemoReady || chartState.optionMemoBusy) return;
+  chartState.optionMemoBusy = true;
+  chartUpdateOptionMemoButtons();
+  try {
+    chartState.db = await chartOpenDatabase();
+    const options = await window.cpiChartOptions.toggle(chartState.db, chartState.chartId, button.dataset.chartOption);
+    chartState.optionMemos = new Set(options);
+    chartSetOptionMemoMessage("");
+  } catch (error) {
+    chartSetOptionMemoMessage(error.message || "オプションメモを保存できませんでした。");
+  } finally {
+    chartState.optionMemoBusy = false;
+    chartUpdateOptionMemoButtons();
+  }
+}
+
+function chartInitializeOptionMemos() {
+  const container = document.getElementById("chartOptionMemos");
+  if (!container) return;
+  if (!window.cpiChartOptions) {
+    chartSetOptionMemoMessage("オプションメモを読み込めませんでした。再読み込みしてください。");
+    return;
+  }
+  container.innerHTML = window.cpiChartOptions.definitions.map(({ value, label }) =>
+    '<button type="button" class="chart-option-chip" data-chart-option="' + value + '" aria-pressed="false" disabled>' + escapeChartHtml(label) + '</button>'
+  ).join("");
+  if (!container.dataset.bound) {
+    container.dataset.bound = "true";
+    container.addEventListener("click", chartHandleOptionMemo);
+  }
+  chartUpdateOptionMemoButtons();
+  void chartLoadOptionMemoState();
+}
+
 function chartWriteManualMemo(chartId, registered) {
   return new Promise((resolve, reject) => {
     if (!chartState.db) {
@@ -731,6 +800,7 @@ function renderChart() {
     const predPosition = predPositions.normal;
 
     document.getElementById("chartFeatures").innerHTML = renderChartFeatureChips(row, true);
+    chartInitializeOptionMemos();
     document.getElementById("chartBpm").textContent = formatChartBpm(row.bpm_min, row.bpm_max);
     const textageOnePlayerUrl = row.url || window.__TEXTAGE_URLS__?.[normalizeChartId(row.chart_id)] || "";
     setTextageLink(document.getElementById("textage1pLink"), textageOnePlayerUrl);
@@ -793,4 +863,10 @@ function renderChart() {
 }
 
 window.addEventListener("resize", scheduleChartPredHistogramResize, { passive: true });
+window.addEventListener("cpi:storage-changed", chartLoadOptionMemoState);
+window.addEventListener("pageshow", chartLoadOptionMemoState);
+window.addEventListener("focus", chartLoadOptionMemoState);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") void chartLoadOptionMemoState();
+});
 document.addEventListener("DOMContentLoaded", renderChart);

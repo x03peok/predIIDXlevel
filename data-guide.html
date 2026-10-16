@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>開発者用データ連携利用案内｜CPI:Next</title>
+  <link rel="icon" type="image/jpeg" href="site-icon.jpg">
+  <link rel="stylesheet" href="styles.css?v=20260916-4">
+  <link rel="stylesheet" href="data-guide.css?v=2">
+  <script defer src="data-guide.js?v=1"></script>
+</head>
+<body>
+  <main class="app data-guide">
+    <header class="masthead">
+      <a class="data-guide__brand" href="index.html">CPI:Next</a>
+      <h1>開発者用データ連携利用案内</h1>
+    </header>
+
+    <nav class="data-guide__nav" aria-label="このページの目次">
+      <a href="#terms-title"><span>01</span> 利用条件</a>
+      <a href="#download-title"><span>02</span> データの取得</a>
+      <a href="#schema-title"><span>03</span> データ仕様</a>
+      <a href="#versions-title"><span>04</span> バージョン管理</a>
+    </nav>
+
+    <section class="panel data-guide__section" aria-labelledby="terms-title">
+      <h2 id="terms-title">利用条件</h2>
+      <p class="data-guide__terms"><strong>商用利用禁止・再配布禁止</strong></p>
+      <h3>利用できる範囲・出典表記</h3>
+      <ul>
+        <li>非商用のサービス・ツールでの画面表示および分析に利用できます。</li>
+        <li>有料サービス、広告収益を伴うサービス、販売促進などの商用目的では利用できません。</li>
+        <li>JSONの転載、ミラー公開、APIなどを介した第三者への再提供は禁止します。加工したデータの再配布も含みます。</li>
+        <li>利用する画面またはクレジット欄に「難易度データ：CPI:Next」と、<a href="https://cpi-next.com/">CPI:Next</a>へのリンクを掲載してください。</li>
+        <li>PredやFeatureを加工して表示する場合は、その旨を明記してください。</li>
+      </ul>
+      <div class="data-guide__note">
+        <h3>データの性質・免責</h3>
+        <p>PredとFeatureは独自の推定・分析によるもので、公式の難易度評価ではありません。正確性・完全性・継続提供は保証しません。利用により生じた損害について責任を負いかねます。</p>
+      </div>
+      <h3>お問い合わせ</h3>
+      <p>この案内は、運営者へ直接お問い合わせいただいた方にお伝えしています。</p>
+      <p><a href="https://x.com/cpi_next" rel="noreferrer">X @cpi_next</a><br>cpi.next.iidx[at]gmail.com</p>
+    </section>
+
+    <section class="panel data-guide__section" aria-labelledby="download-title">
+      <h2 id="download-title">データの取得</h2>
+      <div class="data-guide__downloads">
+        <a href="data/v1/latest.json">最新版JSON</a>
+        <a href="data/v1/manifest.json">バージョン一覧JSON</a>
+      </div>
+      <p id="dataVersionStatus" class="data-guide__status" role="status">バージョンを確認しています。</p>
+      <p>対象は現在サイトに掲載しているSP譜面です。ユーザーのクリアランプや個人データは含みません。</p>
+      <h3>JavaScriptでの取得例</h3>
+      <pre><code>const response = await fetch(
+  "https://cpi-next.com/data/v1/latest.json",
+  { cache: "no-cache" }
+);
+if (!response.ok) throw new Error("データを取得できませんでした");
+const data = await response.json();
+console.log(data.dataVersion, data.charts);</code></pre>
+      <div class="data-guide__note">
+        <h3>取得時のお願い</h3>
+        <p>認証不要の静的ファイルです。APIキーやJSONPは使用しません。ブラウザからは通常のGETで取得してください。変更確認にはバージョン一覧を利用し、全データを取得するのは初回・更新時に限ってください。</p>
+      </div>
+    </section>
+
+    <section class="panel data-guide__section" aria-labelledby="schema-title">
+      <h2 id="schema-title">データ仕様</h2>
+      <p>UTF-8のJSONです。オブジェクトや配列の並び順に依存せず、IDと項目名で参照してください。</p>
+      <h3>ファイル全体</h3>
+      <div class="data-guide__table-wrap"><table>
+        <thead><tr><th>項目</th><th>意味</th></tr></thead>
+        <tbody>
+          <tr><td><code>schemaVersion</code></td><td>データ形式の版。現在は数値の <code>1</code>。</td></tr>
+          <tr><td><code>dataVersion</code></td><td>内容の版。作成日（JST）と内容のSHA-256先頭12桁。</td></tr>
+          <tr><td><code>updatedAt</code></td><td>そのデータ版を初めて生成した日時。ISO 8601・UTC。</td></tr>
+          <tr><td><code>chartCount</code></td><td><code>charts</code>に含まれる譜面数。</td></tr>
+          <tr><td><code>documentation</code></td><td>この利用案内のURL。</td></tr>
+          <tr><td><code>usage</code></td><td>商用利用・再配布の可否と、出典表記の必要性。詳しい条件は本ページを参照。</td></tr>
+          <tr><td><code>featureDefinitions</code></td><td>Featureの固定IDと日本語名の対応表。</td></tr>
+          <tr><td><code>charts</code></td><td>譜面オブジェクトの配列。</td></tr>
+        </tbody>
+      </table></div>
+      <h3>譜面ごとの項目</h3>
+      <pre><code>{
+  "id": "1",
+  "title": "ADAMANT",
+  "difficulty": "ANOTHER",
+  "level": 11,
+  "pred": { "easy": 11.87, "normal": 12.09, "hard": 12.47 },
+  "features": [
+    { "id": "charge_note", "strength": 1 },
+    { "id": "scratch_complex", "strength": 1 }
+  ]
+}</code></pre>
+      <ul>
+        <li><code>id</code>：既存の譜面ページと共通のchartId。文字列です。別譜面への再利用はしません。</li>
+        <li><code>title</code>：曲名。</li>
+        <li><code>difficulty</code>：<code>NORMAL</code> / <code>HYPER</code> / <code>ANOTHER</code> / <code>LEGGENDARIA</code>。</li>
+        <li><code>level</code>：公式レベル。</li>
+        <li><code>pred</code>：個人補正を含まないPred。<code>easy</code>はイージー、<code>normal</code>はノマゲ、<code>hard</code>はハード。未算出の場合は <code>null</code>。<code>0</code>や空文字へ置き換えないでください。</li>
+        <li><code>features</code>：Featureの配列。特徴なしは <code>[]</code>。強度は通常が <code>1</code>、<code>+</code>が <code>2</code>、<code>++</code>が <code>3</code>です。</li>
+      </ul>
+      <h3>Featureの対応表</h3>
+      <div class="data-guide__table-wrap"><table>
+        <thead><tr><th>固定ID</th><th>日本語名</th></tr></thead>
+        <tbody>
+          <tr><td><code>chord</code></td><td>同時押し</td></tr>
+          <tr><td><code>single_note_rush</code></td><td>単鍵ラッシュ</td></tr>
+          <tr><td><code>density</code></td><td>物量</td></tr>
+          <tr><td><code>repeated_note</code></td><td>連打</td></tr>
+          <tr><td><code>scratch_chain</code></td><td>連皿</td></tr>
+          <tr><td><code>scratch_complex</code></td><td>皿複合</td></tr>
+          <tr><td><code>charge_note</code></td><td>チャージノート</td></tr>
+          <tr><td><code>bpm_change</code></td><td>BPM変化</td></tr>
+          <tr><td><code>hard_ending</code></td><td>ラスト難</td></tr>
+        </tbody>
+      </table></div>
+      <p>Featureは、同程度のPredの譜面に比べて相対的にその特徴が強いことを示します。</p>
+    </section>
+
+    <section class="panel data-guide__section" aria-labelledby="versions-title">
+      <h2 id="versions-title">バージョン管理</h2>
+      <p><code>latest.json</code>は最新版です。結果を再現したい場合は、下記の固定版URLを利用し、使用した <code>dataVersion</code>を記録してください。</p>
+      <p>同じ内容の再生成では、版と日時は変わりません。データが過去と同じ内容へ戻った場合は、既存の同内容の版を再利用します。過去版の中身は書き換えません。</p>
+      <p>形式の互換性を壊す変更では <code>v2</code>のように提供先を分けます。譜面の追加・削除、Pred・Featureの修正はv1内のデータ更新です。利用側では欠損値と削除されたIDも考慮してください。</p>
+      <p>バージョン一覧の <code>latest</code>が最新の <code>dataVersion</code>です。各版の <code>url</code>は一覧JSONからの相対パス、<code>sha256</code>はファイル全体の検証用ハッシュ、<code>contentSha256</code>は日時などを除いた内容の識別用ハッシュです。ハッシュは改ざんを防ぐ署名ではありません。</p>
+      <ul id="dataVersionList" class="data-guide__versions"></ul>
+      <noscript><p>各版の取得先は<a href="data/v1/manifest.json">バージョン一覧JSON</a>で確認できます。</p></noscript>
+    </section>
+  </main>
+</body>
+</html>

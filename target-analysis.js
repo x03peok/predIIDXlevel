@@ -1,7 +1,30 @@
 "use strict";
 
+window.cpiPrediction = Object.freeze({
+  sigmoid(value) {
+    if (value >= 0) return 1 / (1 + Math.exp(-value));
+    const exponential = Math.exp(value);
+    return exponential / (1 + exponential);
+  },
+  modelForMode(modelsByMode, overallModel, mode = "normal") {
+    return modelsByMode?.[mode] ?? overallModel ?? null;
+  },
+  adjustPred(rawPred, vector, deltas) {
+    if (!Number.isFinite(rawPred)) return null;
+    const adjusted = rawPred + vector.reduce((sum, strength, index) => sum + strength * (deltas?.[index] ?? 0), 0);
+    return Number.isFinite(adjusted) ? adjusted : null;
+  },
+  probability(model, adjustedPred) {
+    if (!model || !Number.isFinite(adjustedPred)
+      || ![model.intercept, model.slope, model.center, model.scale].every(Number.isFinite)
+      || model.scale <= 0) return null;
+    return window.cpiPrediction.sigmoid(model.intercept + model.slope * (adjustedPred - model.center) / model.scale);
+  },
+});
+
 window.cpiCreateTargetAnalysis = function(options) {
-  const { rows, predModes: targetPredModes, outcomes: targetPredModeOutcomes, featureNames: targetFeatureNames, featureVector: targetGetFeatureVector, number: targetGetNumericValue, sigmoid: targetSigmoid } = options;
+  const { rows, predModes: targetPredModes, outcomes: targetPredModeOutcomes, featureNames: targetFeatureNames, featureVector: targetGetFeatureVector, number: targetGetNumericValue } = options;
+  const targetSigmoid = window.cpiPrediction.sigmoid;
   const targetFeatureDeltaLambda = 10, targetFeatureDeltaIterations = 50, targetFeatureDeltaTolerance = 0.00001;
   const targetState = { rows, rowsByChartId: new Map(rows.map(row => [String(row.chart_id), row])), records: new Map() };
   let lastKey = null, lastResult = null;
@@ -316,13 +339,16 @@ function targetFitFeatureDeltas(observations, model) {
     const key = JSON.stringify([...records].map(([id, record]) => [String(id), record.status]).sort((a,b) => a[0].localeCompare(b[0])));
     if (key === lastKey) return lastResult;
     targetState.records = records;
-    const observations = targetPreparePredObservations("overall");
+    const modes = ["overall", ...Object.keys(targetPredModes)];
+    const observationsByMode = Object.fromEntries(modes.map(mode => [mode, targetPreparePredObservations(mode)]));
+    const boundsByMode = Object.fromEntries(modes.map(mode => [mode, targetGetModelBounds(mode, observationsByMode[mode])]));
+    const observations = observationsByMode.overall;
     const model = targetFitBaseModel(observations, "overall");
-    const modelsByMode = Object.fromEntries(Object.keys(targetPredModes).map(mode => [mode, targetFitBaseModel(targetPreparePredObservations(mode), mode)]));
+    const modelsByMode = Object.fromEntries(Object.keys(targetPredModes).map(mode => [mode, targetFitBaseModel(observationsByMode[mode], mode)]));
     const deltas = targetFitFeatureDeltas(observations, model);
-    const adjustedPredById = new Map(rows.map(row => [String(row.chart_id), row.calibrated_pred_skill + targetGetFeatureVector(row).reduce((sum, strength, index) => sum + strength * deltas[index], 0)]));
+    const adjustedPredById = new Map(rows.map(row => [String(row.chart_id), window.cpiPrediction.adjustPred(targetGetNumericValue(row[targetPredModes.normal.key]), targetGetFeatureVector(row), deltas)]));
     lastKey = key;
-    lastResult = { model, modelsByMode, deltas, adjustedPredById };
+    lastResult = { model, modelsByMode, deltas, adjustedPredById, observationsByMode, boundsByMode };
     return lastResult;
   };
 };

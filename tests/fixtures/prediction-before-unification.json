@@ -1,0 +1,692 @@
+{
+  "empty": {
+    "overall": {
+      "range": "ー",
+      "message": "プレイした譜面を5件以上登録すると推定されます",
+      "usedLogistic": false,
+      "counts": {
+        "total": 0,
+        "clear": 0,
+        "notClear": 0
+      },
+      "model": null
+    },
+    "lamps": {
+      "easy": {
+        "range": "ー",
+        "message": "プレイした譜面を5件以上登録すると推定されます",
+        "usedLogistic": false,
+        "counts": {
+          "total": 0,
+          "clear": 0,
+          "notClear": 0
+        },
+        "model": null
+      },
+      "normal": {
+        "range": "ー",
+        "message": "プレイした譜面を5件以上登録すると推定されます",
+        "usedLogistic": false,
+        "counts": {
+          "total": 0,
+          "clear": 0,
+          "notClear": 0
+        },
+        "model": null
+      },
+      "hard": {
+        "range": "ー",
+        "message": "プレイした譜面を5件以上登録すると推定されます",
+        "usedLogistic": false,
+        "counts": {
+          "total": 0,
+          "clear": 0,
+          "notClear": 0
+        },
+        "model": null
+      }
+    },
+    "deltas": null,
+    "scores": [],
+    "updates": [],
+    "maxProbabilityDifference": 0
+  },
+  "four": {
+    "overall": {
+      "range": "ー",
+      "message": "プレイした譜面を5件以上登録すると推定されます",
+      "usedLogistic": false,
+      "counts": {
+        "total": 12,
+        "clear": 9,
+        "notClear": 3
+      },
+      "model": null
+    },
+    "lamps": {
+      "easy": {
+        "range": "ー",
+        "message": "プレイした譜面を5件以上登録すると推定されます",
+        "usedLogistic": false,
+        "counts": {
+          "total": 4,
+          "clear": 4,
+          "notClear": 0
+        },
+        "model": null
+      },
+      "normal": {
+        "range": "ー",
+        "message": "プレイした譜面を5件以上登録すると推定されます",
+        "usedLogistic": false,
+        "counts": {
+          "total": 4,
+          "clear": 3,
+          "notClear": 1
+        },
+        "model": null
+      },
+      "hard": {
+        "range": "ー",
+        "message": "プレイした譜面を5件以上登録すると推定されます",
+        "usedLogistic": false,
+        "counts": {
+          "total": 4,
+          "clear": 2,
+          "notClear": 2
+        },
+        "model": null
+      }
+    },
+    "deltas": null,
+    "scores": [],
+    "updates": [],
+    "maxProbabilityDifference": 0
+  },
+  "noClears": {
+    "overall": {
+      "range": "6.6未満",
+      "message": "クリア曲数不足により推定できませんでした",
+      "usedLogistic": false,
+      "counts": {
+        "total": 30,
+        "clear": 0,
+        "notClear": 30
+      },
+      "model": null
+    },
+    "lamps": {
+      "easy": {
+        "range": "6.6未満",
+        "message": "クリア曲数不足により推定できませんでした",
+        "usedLogistic": false,
+        "counts": {
+          "total": 10,
+          "clear": 0,
+          "notClear": 10
+        },
+        "model": null
+      },
+      "normal": {
+        "range": "7.0未満",
+        "message": "クリア曲数不足により推定できませんでした",
+        "usedLogistic": false,
+        "counts": {
+          "total": 10,
+          "clear": 0,
+          "notClear": 10
+        },
+        "model": null
+      },
+      "hard": {
+        "range": "7.7未満",
+        "message": "クリア曲数不足により推定できませんでした",
+        "usedLogistic": false,
+        "counts": {
+          "total": 10,
+          "clear": 0,
+          "notClear": 10
+        },
+        "model": null
+      }
+    },
+    "deltas": null,
+    "scores": [],
+    "updates": [],
+    "maxProbabilityDifference": 0
+  },
+  "allHard": {
+    "overall": {
+      "range": "14.5以上",
+      "message": "未クリア曲数不足により推定できませんでした。ノマゲ以下の未登録譜面があれば登録してください",
+      "usedLogistic": false,
+      "counts": {
+        "total": 30,
+        "clear": 30,
+        "notClear": 0
+      },
+      "model": null
+    },
+    "lamps": {
+      "easy": {
+        "range": "13.4以上",
+        "message": "未クリア曲数不足により推定できませんでした。ノマゲ以下の未登録譜面があれば登録してください",
+        "usedLogistic": false,
+        "counts": {
+          "total": 10,
+          "clear": 10,
+          "notClear": 0
+        },
+        "model": null
+      },
+      "normal": {
+        "range": "13.8以上",
+        "message": "未クリア曲数不足により推定できませんでした。ノマゲ以下の未登録譜面があれば登録してください",
+        "usedLogistic": false,
+        "counts": {
+          "total": 10,
+          "clear": 10,
+          "notClear": 0
+        },
+        "model": null
+      },
+      "hard": {
+        "range": "14.5以上",
+        "message": "未クリア曲数不足により推定できませんでした。ノマゲ以下の未登録譜面があれば登録してください",
+        "usedLogistic": false,
+        "counts": {
+          "total": 10,
+          "clear": 10,
+          "notClear": 0
+        },
+        "model": null
+      }
+    },
+    "deltas": null,
+    "scores": [],
+    "updates": [],
+    "maxProbabilityDifference": 0
+  },
+  "provisional": {
+    "overall": {
+      "range": "14.5以上",
+      "message": "未クリア曲数不足により推定できませんでした。ノマゲ以下の未登録譜面があれば登録してください",
+      "usedLogistic": false,
+      "counts": {
+        "total": 18,
+        "clear": 18,
+        "notClear": 0
+      },
+      "model": null
+    },
+    "lamps": {
+      "easy": {
+        "range": "13.4以上",
+        "message": "未クリア曲数不足により推定できませんでした。ノマゲ以下の未登録譜面があれば登録してください",
+        "usedLogistic": false,
+        "counts": {
+          "total": 6,
+          "clear": 6,
+          "notClear": 0
+        },
+        "model": null
+      },
+      "normal": {
+        "range": "13.8以上",
+        "message": "未クリア曲数不足により推定できませんでした。ノマゲ以下の未登録譜面があれば登録してください",
+        "usedLogistic": false,
+        "counts": {
+          "total": 6,
+          "clear": 6,
+          "notClear": 0
+        },
+        "model": null
+      },
+      "hard": {
+        "range": "14.5以上",
+        "message": "未クリア曲数不足により推定できませんでした。ノマゲ以下の未登録譜面があれば登録してください",
+        "usedLogistic": false,
+        "counts": {
+          "total": 6,
+          "clear": 6,
+          "notClear": 0
+        },
+        "model": null
+      }
+    },
+    "deltas": null,
+    "scores": [],
+    "updates": [],
+    "maxProbabilityDifference": 0
+  },
+  "mixed": {
+    "overall": {
+      "range": "10.2-10.4",
+      "message": "",
+      "usedLogistic": true,
+      "counts": {
+        "total": 243,
+        "clear": 115,
+        "notClear": 128
+      },
+      "model": {
+        "intercept": -0.6697248631157234,
+        "slope": -7.396253261047346,
+        "center": 10.483333333333333,
+        "scale": 2.0339343374083865
+      }
+    },
+    "lamps": {
+      "easy": {
+        "range": "10.2-10.4",
+        "message": "",
+        "usedLogistic": true,
+        "counts": {
+          "total": 81,
+          "clear": 44,
+          "notClear": 37
+        },
+        "model": {
+          "intercept": 1.0870303834104964,
+          "slope": -7.2615834379007955,
+          "center": 10,
+          "scale": 1.9873768305650208
+        }
+      },
+      "normal": {
+        "range": "10.2-10.5",
+        "message": "",
+        "usedLogistic": true,
+        "counts": {
+          "total": 81,
+          "clear": 40,
+          "notClear": 41
+        },
+        "model": {
+          "intercept": -0.13025814342265596,
+          "slope": -6.090787291884233,
+          "center": 10.4,
+          "scale": 1.9873768305650208
+        }
+      },
+      "hard": {
+        "range": "10.1-10.4",
+        "message": "",
+        "usedLogistic": true,
+        "counts": {
+          "total": 81,
+          "clear": 31,
+          "notClear": 50
+        },
+        "model": {
+          "intercept": -2.808755064934318,
+          "slope": -6.91250562940909,
+          "center": 11.05,
+          "scale": 1.987376830565021
+        }
+      }
+    },
+    "deltas": [
+      -0.03083151515870043,
+      0.03736454811171955,
+      -0.07655553305161417,
+      -0.05933209541254767,
+      -0.13355582552849649,
+      0.14783925022118444,
+      0.07227542989313343,
+      -0.0870969455028459,
+      0.11969897063010705
+    ],
+    "scores": [
+      {
+        "name": "BPM変化",
+        "score": 53.08315151587004
+      },
+      {
+        "name": "チャージノート",
+        "score": 46.26354518882805
+      },
+      {
+        "name": "ラスト難",
+        "score": 57.65555330516142
+      },
+      {
+        "name": "皿複合",
+        "score": 55.93320954125477
+      },
+      {
+        "name": "単鍵ラッシュ",
+        "score": 63.35558255284965
+      },
+      {
+        "name": "同時押し",
+        "score": 35.216074977881554
+      },
+      {
+        "name": "物量",
+        "score": 42.77245701068666
+      },
+      {
+        "name": "連皿",
+        "score": 58.70969455028459
+      },
+      {
+        "name": "連打",
+        "score": 38.030102936989294
+      }
+    ],
+    "updates": [
+      {
+        "id": "30",
+        "goal": "hard",
+        "probability": 0.8085249166321207
+      },
+      {
+        "id": "34",
+        "goal": "normal",
+        "probability": 0.7511788337780584
+      },
+      {
+        "id": "41",
+        "goal": "easy",
+        "probability": 0.7478221110836347
+      },
+      {
+        "id": "38",
+        "goal": "normal",
+        "probability": 0.6595564614204252
+      },
+      {
+        "id": "27",
+        "goal": "hard",
+        "probability": 0.5908965607382914
+      }
+    ],
+    "maxProbabilityDifference": 0
+  },
+  "noHardClears": {
+    "overall": {
+      "range": "9.0-9.7",
+      "message": "",
+      "usedLogistic": true,
+      "counts": {
+        "total": 243,
+        "clear": 84,
+        "notClear": 159
+      },
+      "model": {
+        "intercept": -1.3774545717578746,
+        "slope": -2.5273630752785867,
+        "center": 10.483333333333333,
+        "scale": 2.0339343374083865
+      }
+    },
+    "lamps": {
+      "easy": {
+        "range": "10.2-10.4",
+        "message": "",
+        "usedLogistic": true,
+        "counts": {
+          "total": 81,
+          "clear": 44,
+          "notClear": 37
+        },
+        "model": {
+          "intercept": 1.0870303834104964,
+          "slope": -7.2615834379007955,
+          "center": 10,
+          "scale": 1.9873768305650208
+        }
+      },
+      "normal": {
+        "range": "10.2-10.5",
+        "message": "",
+        "usedLogistic": true,
+        "counts": {
+          "total": 81,
+          "clear": 40,
+          "notClear": 41
+        },
+        "model": {
+          "intercept": -0.13025814342265596,
+          "slope": -6.090787291884233,
+          "center": 10.4,
+          "scale": 1.9873768305650208
+        }
+      },
+      "hard": {
+        "range": "7.7未満",
+        "message": "クリア曲数不足により推定できませんでした",
+        "usedLogistic": false,
+        "counts": {
+          "total": 81,
+          "clear": 0,
+          "notClear": 81
+        },
+        "model": null
+      }
+    },
+    "deltas": [
+      -0.029567962702636254,
+      0.022817115234763017,
+      -0.09910091393649531,
+      -0.03343948679540281,
+      -0.07868099850127556,
+      0.10032983501044461,
+      0.05907080761100467,
+      -0.06818825039131256,
+      -0.046623324049241396
+    ],
+    "scores": [
+      {
+        "name": "BPM変化",
+        "score": 52.956796270263624
+      },
+      {
+        "name": "チャージノート",
+        "score": 47.718288476523696
+      },
+      {
+        "name": "ラスト難",
+        "score": 59.91009139364953
+      },
+      {
+        "name": "皿複合",
+        "score": 53.34394867954028
+      },
+      {
+        "name": "単鍵ラッシュ",
+        "score": 57.86809985012756
+      },
+      {
+        "name": "同時押し",
+        "score": 39.96701649895554
+      },
+      {
+        "name": "物量",
+        "score": 44.09291923889953
+      },
+      {
+        "name": "連皿",
+        "score": 56.818825039131255
+      },
+      {
+        "name": "連打",
+        "score": 54.66233240492414
+      }
+    ],
+    "updates": [
+      {
+        "id": "3",
+        "goal": "hard",
+        "probability": 0.9068742133951595
+      },
+      {
+        "id": "1",
+        "goal": "hard",
+        "probability": 0.8950354102218259
+      },
+      {
+        "id": "2",
+        "goal": "hard",
+        "probability": 0.8845909408782493
+      },
+      {
+        "id": "4",
+        "goal": "hard",
+        "probability": 0.8511006567221697
+      },
+      {
+        "id": "5",
+        "goal": "hard",
+        "probability": 0.8482262980824813
+      }
+    ],
+    "maxProbabilityDifference": 0
+  },
+  "invalidIds": {
+    "overall": {
+      "range": "10.2-10.4",
+      "message": "",
+      "usedLogistic": true,
+      "counts": {
+        "total": 243,
+        "clear": 115,
+        "notClear": 128
+      },
+      "model": {
+        "intercept": -0.6697248631157234,
+        "slope": -7.396253261047346,
+        "center": 10.483333333333333,
+        "scale": 2.0339343374083865
+      }
+    },
+    "lamps": {
+      "easy": {
+        "range": "10.2-10.4",
+        "message": "",
+        "usedLogistic": true,
+        "counts": {
+          "total": 81,
+          "clear": 44,
+          "notClear": 37
+        },
+        "model": {
+          "intercept": 1.0870303834104964,
+          "slope": -7.2615834379007955,
+          "center": 10,
+          "scale": 1.9873768305650208
+        }
+      },
+      "normal": {
+        "range": "10.2-10.5",
+        "message": "",
+        "usedLogistic": true,
+        "counts": {
+          "total": 81,
+          "clear": 40,
+          "notClear": 41
+        },
+        "model": {
+          "intercept": -0.13025814342265596,
+          "slope": -6.090787291884233,
+          "center": 10.4,
+          "scale": 1.9873768305650208
+        }
+      },
+      "hard": {
+        "range": "10.1-10.4",
+        "message": "",
+        "usedLogistic": true,
+        "counts": {
+          "total": 81,
+          "clear": 31,
+          "notClear": 50
+        },
+        "model": {
+          "intercept": -2.808755064934318,
+          "slope": -6.91250562940909,
+          "center": 11.05,
+          "scale": 1.987376830565021
+        }
+      }
+    },
+    "deltas": [
+      -0.03083151515870043,
+      0.03736454811171955,
+      -0.07655553305161417,
+      -0.05933209541254767,
+      -0.13355582552849649,
+      0.14783925022118444,
+      0.07227542989313343,
+      -0.0870969455028459,
+      0.11969897063010705
+    ],
+    "scores": [
+      {
+        "name": "BPM変化",
+        "score": 53.08315151587004
+      },
+      {
+        "name": "チャージノート",
+        "score": 46.26354518882805
+      },
+      {
+        "name": "ラスト難",
+        "score": 57.65555330516142
+      },
+      {
+        "name": "皿複合",
+        "score": 55.93320954125477
+      },
+      {
+        "name": "単鍵ラッシュ",
+        "score": 63.35558255284965
+      },
+      {
+        "name": "同時押し",
+        "score": 35.216074977881554
+      },
+      {
+        "name": "物量",
+        "score": 42.77245701068666
+      },
+      {
+        "name": "連皿",
+        "score": 58.70969455028459
+      },
+      {
+        "name": "連打",
+        "score": 38.030102936989294
+      }
+    ],
+    "updates": [
+      {
+        "id": "30",
+        "goal": "hard",
+        "probability": 0.8085249166321207
+      },
+      {
+        "id": "34",
+        "goal": "normal",
+        "probability": 0.7511788337780584
+      },
+      {
+        "id": "41",
+        "goal": "easy",
+        "probability": 0.7478221110836347
+      },
+      {
+        "id": "38",
+        "goal": "normal",
+        "probability": 0.6595564614204252
+      },
+      {
+        "id": "27",
+        "goal": "hard",
+        "probability": 0.5908965607382914
+      }
+    ],
+    "maxProbabilityDifference": 0
+  }
+}

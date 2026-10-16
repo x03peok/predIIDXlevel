@@ -2,7 +2,7 @@
 
 (() => {
   const name = "cpi-next-clear-status";
-  const stores = ["chart-statuses", "manual-targets", "daily-targets", "status-update-events"];
+  const stores = ["chart-statuses", "manual-targets", "daily-targets", "status-update-events", "chart-option-memos"];
   let opening = null;
   let channel = null;
   try {
@@ -15,7 +15,7 @@
     const transact = database.transaction.bind(database);
     database.transaction = (...args) => {
       const transaction = transact(...args);
-      if (transaction.mode === "readwrite" && ["chart-statuses", "manual-targets", "daily-targets"].some(name => transaction.objectStoreNames.contains(name))) {
+      if (transaction.mode === "readwrite" && ["chart-statuses", "manual-targets", "daily-targets", "chart-option-memos"].some(name => transaction.objectStoreNames.contains(name))) {
         transaction.addEventListener("complete", () => {
           try { channel?.postMessage("changed"); } catch { /* Optional notification. */ }
         });

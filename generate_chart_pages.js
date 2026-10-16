@@ -92,7 +92,7 @@ function decodeHtmlEntities(value) {
     if (lowerToken.startsWith("#")) {
       return String.fromCodePoint(Number.parseInt(lowerToken.slice(1), 10));
     }
-    return namedEntities[lowerToken] ?? match;
+    return namedEntities[token] ?? namedEntities[lowerToken] ?? match;
   });
 }
 
@@ -131,9 +131,9 @@ function replaceOnce(source, search, replacement, label) {
   return source.slice(0, firstIndex) + replacement + source.slice(firstIndex + search.length);
 }
 
-function loadRows() {
+function loadRows(sourcePath = dataPath, sourceText = fs.readFileSync(sourcePath, "utf8")) {
   const context = { window: {} };
-  vm.runInNewContext(fs.readFileSync(dataPath, "utf8"), context, { filename: dataPath });
+  vm.runInNewContext(sourceText, context, { filename: sourcePath, timeout: 5000 });
   const csvText = context.window.__CSV_BUNDLE__;
   if (typeof csvText !== "string") {
     throw new Error("data.js does not contain the CSV bundle.");
@@ -208,6 +208,7 @@ function createPage(template, row) {
   page = page.replace('src="data.js?', 'src="../data.js?');
   page = page.replace('src="chart-similar-data.js?', 'src="../chart-similar-data.js?');
   page = page.replace('src="chart.js?', 'src="../chart.js?');
+  page = page.replace('src="chart-options.js?', 'src="../chart-options.js?');
   page = page.replace('src="storage.js?', 'src="../storage.js?');
   page = page.replace('src="update-history.js?', 'src="../update-history.js?');
   page = page.replace('data-href="pred.html"', 'data-href="../pred.html"');
@@ -218,13 +219,18 @@ function createPage(template, row) {
   return page;
 }
 
-const template = fs.readFileSync(templatePath, "utf8");
-const requestedIds = process.argv.find(argument => argument.startsWith("--ids="));
-const selectedIds = requestedIds ? new Set(requestedIds.slice(6).split(",")) : null;
-const rows = loadRows().filter(row => !selectedIds || selectedIds.has(String(row.chart_id)));
-fs.mkdirSync(outputDir, { recursive: true });
-for (const row of rows) {
-  const chartId = String(row.chart_id).trim();
-  fs.writeFileSync(path.join(outputDir, `${chartId}.html`), createPage(template, row), "utf8");
+module.exports = { loadRows, normalizeTitle };
+
+if (require.main === module) {
+  require("./generate_public_data.js").generatePublicData(rootDir);
+  const template = fs.readFileSync(templatePath, "utf8");
+  const requestedIds = process.argv.find(argument => argument.startsWith("--ids="));
+  const selectedIds = requestedIds ? new Set(requestedIds.slice(6).split(",")) : null;
+  const rows = loadRows().filter(row => !selectedIds || selectedIds.has(String(row.chart_id)));
+  fs.mkdirSync(outputDir, { recursive: true });
+  for (const row of rows) {
+    const chartId = String(row.chart_id).trim();
+    fs.writeFileSync(path.join(outputDir, `${chartId}.html`), createPage(template, row), "utf8");
+  }
+  console.log(`Generated ${rows.length} chart pages in ${path.relative(rootDir, outputDir)}.`);
 }
-console.log(`Generated ${rows.length} chart pages in ${path.relative(rootDir, outputDir)}.`);

@@ -19,9 +19,6 @@ const mypageFeatureNames = [
   "連皿",
   "連打",
 ];
-const mypageFeatureDeltaLambda = 10;
-const mypageFeatureDeltaIterations = 50;
-const mypageFeatureDeltaTolerance = 0.00001;
 const mypageFeatureDescriptions = {
   "BPM変化": "激しいBPM変化と、変化周辺の難しい配置が特徴です。",
   "チャージノート": "CN/HCN/BSS/HBSS/MSSと、同時に来る難しい配置が特徴です。",
@@ -842,39 +839,10 @@ function mypageUpdateTableOverflowState() {
   shell.classList.toggle("is-overflowing", shell.scrollWidth > shell.clientWidth);
 }
 
-function mypageSigmoid(value) {
-  if (value >= 0) {
-    return 1 / (1 + Math.exp(-value));
-  }
-  const exponential = Math.exp(value);
-  return exponential / (1 + exponential);
-}
-
 function mypageFormatPredRange(lower, upper) {
   const lowerText = mypageFormatPredValue(lower);
   const upperText = mypageFormatPredValue(upper);
   return lowerText === upperText ? lowerText : lowerText + "-" + upperText;
-}
-
-function mypageGetPredObservations(mode = "normal") {
-  const observations = [];
-  const modes = mode === "overall" ? Object.values(mypagePredModes) : [mypagePredModes[mode] ?? mypagePredModes.normal];
-  for (const [chartId, record] of mypageState.records) {
-    const row = mypageState.rowsByChartId.get(String(chartId));
-    const status = String(record?.status ?? "").toLowerCase();
-    for (const modeDefinition of modes) {
-      const pred = mypageGetNumericValue(row?.[modeDefinition.key]);
-      const outcome = modeDefinition.clear.has(status)
-        ? 1
-        : modeDefinition.notClear.has(status)
-          ? 0
-          : null;
-      if (row && pred !== null && outcome !== null) {
-        observations.push({ row, pred, outcome, mode: modeDefinition.key });
-      }
-    }
-  }
-  return observations;
 }
 
 function mypageBuildPredInsufficientResult(observations, counts, message) {
@@ -929,157 +897,8 @@ function mypageGetPredBounds(mode = "normal") {
   };
 }
 
-function mypageGetPredModeNameFromKey(modeKey) {
-  const entry = Object.entries(mypagePredModes)
-    .find(([, definition]) => definition.key === modeKey);
-  return entry?.[0] ?? "normal";
-}
-
-function mypageApplyCalculationClearRules(observations, modelsByMode = new Map()) {
-  const highestClearPredByMode = new Map();
-  observations.forEach((observation) => {
-    if (observation.outcome !== 1) {
-      return;
-    }
-    const modeKey = observation.mode ?? mypagePredModes.normal.key;
-    const highest = highestClearPredByMode.get(modeKey);
-    if (!Number.isFinite(highest) || observation.pred > highest) {
-      highestClearPredByMode.set(modeKey, observation.pred);
-    }
-  });
-
-  return observations.map((observation) => {
-    const modeKey = observation.mode ?? mypagePredModes.normal.key;
-    const highestClearPred = highestClearPredByMode.get(modeKey);
-    let outcome = observation.outcome;
-    if (outcome === 0
-      && Number.isFinite(highestClearPred)
-      && observation.pred < highestClearPred - 2) {
-      outcome = 1;
-    }
-    const model = modelsByMode.get(modeKey);
-    if (outcome === 0 && model) {
-      const normalizedPred = (observation.pred - model.center) / model.scale;
-      const probability = mypageSigmoid(model.intercept + model.slope * normalizedPred);
-      if (probability >= 0.95) {
-        outcome = 1;
-      }
-    }
-    if (outcome === observation.outcome) {
-      return observation;
-    }
-    return { ...observation, outcome, calculationOnlyClear: true };
-  });
-}
-
-function mypageFitLogisticModel(observations, bounds) {
-  const center = observations.reduce((sum, { pred }) => sum + pred, 0) / observations.length;
-  const variance = observations.reduce((sum, { pred }) => sum + (pred - center) ** 2, 0) / observations.length;
-  const scale = Math.max(Math.sqrt(variance), 0.25);
-  const clearCount = observations.filter(({ outcome }) => outcome === 1).length;
-  const clearRate = Math.min(0.95, Math.max(0.05, clearCount / observations.length));
-  let intercept = Math.log(clearRate / (1 - clearRate));
-  let slope = -1;
-  const regularization = 0.03;
-
-  for (let iteration = 0; iteration < 80; iteration += 1) {
-    let gradientIntercept = 0;
-    let gradientSlope = regularization * slope;
-    let hessianIntercept = 0;
-    let hessianCross = 0;
-    let hessianSlope = regularization;
-
-    for (const observation of observations) {
-      const normalizedPred = (observation.pred - center) / scale;
-      const probability = mypageSigmoid(intercept + slope * normalizedPred);
-      const weight = Math.max(probability * (1 - probability), 1e-5);
-      const residual = probability - observation.outcome;
-      gradientIntercept += residual;
-      gradientSlope += residual * normalizedPred;
-      hessianIntercept += weight;
-      hessianCross += weight * normalizedPred;
-      hessianSlope += weight * normalizedPred * normalizedPred;
-    }
-
-    const determinant = hessianIntercept * hessianSlope - hessianCross ** 2;
-    if (!Number.isFinite(determinant) || determinant <= 1e-8) {
-      return null;
-    }
-    const stepIntercept = (hessianSlope * gradientIntercept - hessianCross * gradientSlope) / determinant;
-    const stepSlope = (-hessianCross * gradientIntercept + hessianIntercept * gradientSlope) / determinant;
-    if (!Number.isFinite(stepIntercept) || !Number.isFinite(stepSlope)) {
-      return null;
-    }
-    intercept = Math.max(-30, Math.min(30, intercept - stepIntercept));
-    slope = Math.max(-30, Math.min(30, slope - stepSlope));
-    if (Math.abs(stepIntercept) + Math.abs(stepSlope) < 1e-5) {
-      break;
-    }
-  }
-
-  const fittedSlope = slope;
-  slope = Math.min(-0.05, slope);
-  const threshold = center + (-intercept / slope) * scale;
-  const predAt60 = center + (Math.log(0.6 / 0.4) - intercept) / slope * scale;
-  const predAt40 = center + (Math.log(0.4 / 0.6) - intercept) / slope * scale;
-  const rangeValues = [predAt60, predAt40];
-  const hasValidRange = rangeValues.every(Number.isFinite);
-  const rangeWidth = hasValidRange ? Math.abs(predAt40 - predAt60) : Infinity;
-  const thresholdInBounds = Number.isFinite(threshold)
-    && threshold > bounds.min
-    && threshold < bounds.max;
-  if (
-    !Number.isFinite(intercept)
-    || !Number.isFinite(slope)
-    || fittedSlope >= 0
-    || !hasValidRange
-    || rangeWidth >= bounds.max - bounds.min
-    || !thresholdInBounds
-  ) {
-    return null;
-  }
-  return { intercept, slope, center, scale };
-}
-
-function mypageFitPreliminaryModels(observations) {
-  const grouped = new Map();
-  observations.forEach((observation) => {
-    const modeKey = observation.mode ?? mypagePredModes.normal.key;
-    const group = grouped.get(modeKey) ?? [];
-    group.push(observation);
-    grouped.set(modeKey, group);
-  });
-  const modelsByMode = new Map();
-  grouped.forEach((group, modeKey) => {
-    const observedChartCount = new Set(group.map(({ row }) => String(row.chart_id ?? ""))).size;
-    const clearObservations = group.filter(({ outcome }) => outcome === 1);
-    const notClearObservations = group.filter(({ outcome }) => outcome === 0);
-    if (observedChartCount < 5 || clearObservations.length === 0 || notClearObservations.length === 0) {
-      return;
-    }
-    const clearAverage = clearObservations.reduce((sum, { pred }) => sum + pred, 0) / clearObservations.length;
-    const notClearAverage = notClearObservations.reduce((sum, { pred }) => sum + pred, 0) / notClearObservations.length;
-    if (clearAverage > notClearAverage) {
-      return;
-    }
-    const mode = mypageGetPredModeNameFromKey(modeKey);
-    const model = mypageFitLogisticModel(group, mypageGetPredBounds(mode));
-    if (model) {
-      modelsByMode.set(modeKey, model);
-    }
-  });
-  return modelsByMode;
-}
-
-function mypagePreparePredObservations(mode = "normal") {
-  const rawObservations = mypageGetPredObservations(mode);
-  const thresholdedObservations = mypageApplyCalculationClearRules(rawObservations);
-  const preliminaryModels = mypageFitPreliminaryModels(thresholdedObservations);
-  return mypageApplyCalculationClearRules(rawObservations, preliminaryModels);
-}
-
-function mypageFitPredRegression(mode = "normal") {
-  const observations = mypagePreparePredObservations(mode);
+function mypageFitPredRegression(mode = "normal", analysis = mypageGetPredictionAnalysis()) {
+  const observations = analysis.observationsByMode[mode];
   const counts = {
     total: observations.length,
     clear: observations.filter(({ outcome }) => outcome === 1).length,
@@ -1094,7 +913,7 @@ function mypageFitPredRegression(mode = "normal") {
     );
   }
 
-  const bounds = mypageGetPredBounds(mode);
+  const bounds = analysis.boundsByMode[mode];
   if (counts.clear === 0) {
     return {
       range: mypageFormatPredValue(bounds.min) + "未満",
@@ -1120,17 +939,7 @@ function mypageFitPredRegression(mode = "normal") {
     };
   }
 
-  const clearPredAverage = observations
-    .filter(({ outcome }) => outcome === 1)
-    .reduce((sum, { pred }) => sum + pred, 0) / counts.clear;
-  const notClearPredAverage = observations
-    .filter(({ outcome }) => outcome === 0)
-    .reduce((sum, { pred }) => sum + pred, 0) / counts.notClear;
-  if (clearPredAverage > notClearPredAverage) {
-    return mypageBuildPredProvisionalResult(observations, counts);
-  }
-
-  const model = mypageFitLogisticModel(observations, bounds);
+  const model = mode === "overall" ? analysis.model : analysis.modelsByMode[mode];
   if (!model) {
     return mypageBuildPredProvisionalResult(observations, counts);
   }
@@ -1173,111 +982,10 @@ function mypageGetFeatureVector(row) {
   return vector;
 }
 
-function mypageSolveLinearSystem(matrix, values) {
-  const size = values.length;
-  const augmented = matrix.map((row, index) => [...row, values[index]]);
-  for (let column = 0; column < size; column += 1) {
-    let pivotRow = column;
-    for (let row = column + 1; row < size; row += 1) {
-      if (Math.abs(augmented[row][column]) > Math.abs(augmented[pivotRow][column])) {
-        pivotRow = row;
-      }
-    }
-    if (Math.abs(augmented[pivotRow][column]) < 0.0000000001) {
-      return null;
-    }
-    [augmented[column], augmented[pivotRow]] = [augmented[pivotRow], augmented[column]];
-    const pivot = augmented[column][column];
-    for (let index = column; index <= size; index += 1) {
-      augmented[column][index] /= pivot;
-    }
-    for (let row = 0; row < size; row += 1) {
-      if (row === column) {
-        continue;
-      }
-      const factor = augmented[row][column];
-      if (factor === 0) {
-        continue;
-      }
-      for (let index = column; index <= size; index += 1) {
-        augmented[row][index] -= factor * augmented[column][index];
-      }
-    }
-  }
-  return augmented.map((row) => row[size]);
-}
-
-function mypageFitFeatureDeltas(observations, model) {
-  const deltas = new Array(mypageFeatureNames.length).fill(0);
-  if (!model) {
-    return deltas;
-  }
-  const samples = observations
-    .map((observation) => ({
-      pred: observation.pred,
-      outcome: observation.outcome,
-      vector: mypageGetFeatureVector(observation.row),
-    }))
-    .filter((sample) => sample.vector.some((value) => value > 0));
-  if (samples.length === 0) {
-    return deltas;
-  }
-
-  const modelDerivativePerPred = model.slope / model.scale;
-  for (let iteration = 0; iteration < mypageFeatureDeltaIterations; iteration += 1) {
-    const gradient = new Array(mypageFeatureNames.length).fill(0);
-    const hessian = Array.from(
-      { length: mypageFeatureNames.length },
-      () => new Array(mypageFeatureNames.length).fill(0),
-    );
-
-    samples.forEach((sample) => {
-      const adjustment = sample.vector.reduce((total, strength, index) => total + deltas[index] * strength, 0);
-      const normalizedPred = (sample.pred + adjustment - model.center) / model.scale;
-      const probability = mypageSigmoid(model.intercept + model.slope * normalizedPred);
-      const residual = probability - sample.outcome;
-      const curvature = Math.max(probability * (1 - probability), 0.00001);
-      sample.vector.forEach((leftStrength, leftIndex) => {
-        gradient[leftIndex] += residual * modelDerivativePerPred * leftStrength;
-        sample.vector.forEach((rightStrength, rightIndex) => {
-          hessian[leftIndex][rightIndex] += curvature
-            * modelDerivativePerPred
-            * modelDerivativePerPred
-            * leftStrength
-            * rightStrength;
-        });
-      });
-    });
-
-    for (let index = 0; index < mypageFeatureNames.length; index += 1) {
-      gradient[index] += 2 * mypageFeatureDeltaLambda * deltas[index];
-      hessian[index][index] += 2 * mypageFeatureDeltaLambda;
-    }
-
-    const step = mypageSolveLinearSystem(hessian, gradient);
-    if (!step) {
-      break;
-    }
-    let largestStep = 0;
-    for (let index = 0; index < deltas.length; index += 1) {
-      const next = deltas[index] - step[index];
-      if (!Number.isFinite(next)) {
-        return new Array(mypageFeatureNames.length).fill(0);
-      }
-      deltas[index] = next;
-      largestStep = Math.max(largestStep, Math.abs(step[index]));
-    }
-    if (largestStep < mypageFeatureDeltaTolerance) {
-      break;
-    }
-  }
-  return deltas;
-}
-
-function mypageGetFeatureScores(observations, model, featureDeltas = null) {
+function mypageGetFeatureScores(observations, featureDeltas = null) {
   const deltas = Array.isArray(featureDeltas)
     ? featureDeltas
-    : mypageFitFeatureDeltas(observations, model);
+    : mypageGetPredictionAnalysis().deltas;
   return mypageFeatureNames.map((feature, index) => {
     const known = observations.reduce((count, observation) => count
       + (mypageGetFeatureDetails(observation.row).some((item) => item.name === feature) ? 1 : 0), 0);
@@ -1309,7 +1017,7 @@ function mypageRenderFeatureResult(predResult, precomputedScores = null) {
 
   const scores = (Array.isArray(precomputedScores)
     ? precomputedScores
-    : mypageGetFeatureScores(observations, predResult.model))
+    : mypageGetFeatureScores(observations))
     .map((score, order) => ({ ...score, order }))
     .sort((left, right) => right.score - left.score || left.order - right.order);
   const scale = [
@@ -1509,44 +1217,16 @@ function mypageGetStatusLabel(status) {
   return mypageStatuses.find(({ value }) => value === status)?.label ?? "未登録";
 }
 
-function mypageGetRecommendationModel(mode, overallResult, lampResults) {
-  const lampResult = lampResults?.[mode];
-  if (lampResult?.usedLogistic === true && lampResult.model) {
-    return lampResult.model;
-  }
-  if (overallResult?.usedLogistic === true && overallResult.model) {
-    return overallResult.model;
-  }
-  return null;
-}
-
-function mypageGetRecommendationAdjustedPred(row, mode, featureDeltas) {
+function mypageGetRecommendationAdjustedPred(row, mode) {
   const definition = mypagePredModes[mode];
   const rawPred = definition ? mypageGetNumericValue(row?.[definition.key]) : null;
-  if (rawPred === null) {
-    return null;
-  }
-  if (!Array.isArray(featureDeltas)) {
-    return rawPred;
-  }
-  const adjustment = mypageGetFeatureVector(row)
-    .reduce((total, strength, index) => total + (featureDeltas[index] ?? 0) * strength, 0);
-  return rawPred + adjustment;
+  return window.cpiPrediction.adjustPred(rawPred, mypageGetFeatureVector(row), mypageGetPredictionAnalysis().deltas);
 }
 
-function mypageGetRecommendationProbability(row, mode, overallResult, lampResults, featureDeltas) {
-  const model = mypageGetRecommendationModel(mode, overallResult, lampResults);
-  const adjustedPred = mypageGetRecommendationAdjustedPred(row, mode, featureDeltas);
-  if (!model || adjustedPred === null
-    || !Number.isFinite(model.intercept)
-    || !Number.isFinite(model.slope)
-    || !Number.isFinite(model.center)
-    || !Number.isFinite(model.scale)
-    || model.scale <= 0) {
-    return null;
-  }
-  const normalizedPred = (adjustedPred - model.center) / model.scale;
-  return mypageSigmoid(model.intercept + model.slope * normalizedPred);
+function mypageGetRecommendationProbability(row, mode) {
+  const analysis = mypageGetPredictionAnalysis();
+  const model = window.cpiPrediction.modelForMode(analysis.modelsByMode, analysis.model, mode);
+  return window.cpiPrediction.probability(model, mypageGetRecommendationAdjustedPred(row, mode));
 }
 
 function mypageGetHighPredCandidates() {
@@ -1561,7 +1241,7 @@ function mypageGetHighPredCandidates() {
     .sort((left, right) => right.pred - left.pred || left.row.__order - right.row.__order);
 }
 
-function mypageGetUpdateTargetCandidates(overallResult, lampResults, featureDeltas) {
+function mypageGetUpdateTargetCandidates(overallResult) {
   if (overallResult?.usedLogistic !== true) {
     return [];
   }
@@ -1573,14 +1253,8 @@ function mypageGetUpdateTargetCandidates(overallResult, lampResults, featureDelt
       if (!target) {
         return null;
       }
-      const probability = mypageGetRecommendationProbability(
-        row,
-        target.mode,
-        overallResult,
-        lampResults,
-        featureDeltas,
-      );
-      const adjustedPred = mypageGetRecommendationAdjustedPred(row, target.mode, featureDeltas);
+      const probability = mypageGetRecommendationProbability(row, target.mode);
+      const adjustedPred = mypageGetRecommendationAdjustedPred(row, target.mode);
       return probability === null || adjustedPred === null
         ? null
         : { row, status, target, probability, adjustedPred };
@@ -1672,31 +1346,49 @@ function mypageRenderUpdateTargetCard(candidate) {
   ].join("");
 }
 
+let mypagePredictionEngine = null;
+let mypagePredictionRows = null;
+let mypagePredictionRecords = null;
+let mypagePredictionResult = null;
+function mypageGetPredictionAnalysis() {
+  if (!mypagePredictionEngine || mypagePredictionRows !== mypageState.rows) {
+    mypagePredictionRows = mypageState.rows;
+    mypagePredictionResult = null;
+    mypagePredictionEngine = window.cpiCreateTargetAnalysis({
+      rows: mypageState.rows, predModes: mypagePredModes, outcomes: mypagePredModes,
+      featureNames: mypageFeatureNames, featureVector: mypageGetFeatureVector, number: mypageGetNumericValue,
+    });
+  }
+  if (!mypagePredictionResult || mypagePredictionRecords !== mypageState.records) {
+    mypagePredictionRecords = mypageState.records;
+    mypagePredictionResult = mypagePredictionEngine(mypageState.records);
+  }
+  return mypagePredictionResult;
+}
+
 function mypageInvalidateAnalysis() {
   mypageState.analysisDirty = true;
+  mypagePredictionResult = null;
 }
 
 function mypageBuildAnalysis() {
-  const overallResult = mypageFitPredRegression("overall");
+  const prediction = mypageGetPredictionAnalysis();
+  const overallResult = mypageFitPredRegression("overall", prediction);
   const lampResults = {};
   for (const mode of Object.keys(mypagePredModes)) {
-    lampResults[mode] = mypageFitPredRegression(mode);
+    lampResults[mode] = mypageFitPredRegression(mode, prediction);
   }
   const featureDeltas = overallResult.usedLogistic === true
     && Array.isArray(overallResult.observations)
-    ? mypageFitFeatureDeltas(overallResult.observations, overallResult.model)
+    ? prediction.deltas
     : null;
   const featureScores = overallResult.usedLogistic === true
     && Array.isArray(overallResult.observations)
     && overallResult.observations.length >= 5
-    ? mypageGetFeatureScores(overallResult.observations, overallResult.model, featureDeltas)
+    ? mypageGetFeatureScores(overallResult.observations, featureDeltas)
     : [];
   const highPredCandidates = mypageGetHighPredCandidates();
-  const updateTargetCandidates = mypageGetUpdateTargetCandidates(
-    overallResult,
-    lampResults,
-    featureDeltas,
-  );
+  const updateTargetCandidates = mypageGetUpdateTargetCandidates(overallResult);
   const updateTargetQualityMessage = mypageGetUpdateTargetQualityMessage(updateTargetCandidates);
   return {
     overallResult,

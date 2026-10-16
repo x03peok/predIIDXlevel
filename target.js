@@ -42,7 +42,7 @@ const targetPredModeOutcomes = {
   },
 };
 function targetGetPredValue(row, mode = "normal") {
-  return row[targetPredModes[mode]?.key ?? targetPredModes.normal.key] ?? row.calibrated_pred_skill;
+  return row[targetPredModes[mode]?.key ?? targetPredModes.normal.key] ?? null;
 }
 
 function targetGetPredModeForGoal(goal) {
@@ -693,11 +693,13 @@ function targetMatchesFilters(row) {
   if (bpmMax !== null && bpmMax > targetState.bpmMaxFilter) {
     return false;
   }
-  if (row.calibrated_pred_skill < targetState.predMinFilter || row.calibrated_pred_skill > targetState.predMaxFilter) {
+  const predMode = targetGetPredModeForGoal(targetGoal);
+  const rawPred = targetGetPredValue(row, predMode);
+  if (!Number.isFinite(rawPred) || rawPred < targetState.predMinFilter || rawPred > targetState.predMaxFilter) {
     return false;
   }
-  const adjustedPred = targetGetAdjustedPred(row);
-  if (adjustedPred < targetState.adjustedPredMinFilter || adjustedPred > targetState.adjustedPredMaxFilter) {
+  const adjustedPred = targetGetAdjustedPred(row, predMode);
+  if (!Number.isFinite(adjustedPred) || adjustedPred < targetState.adjustedPredMinFilter || adjustedPred > targetState.adjustedPredMaxFilter) {
     return false;
   }
   return true;
@@ -1139,6 +1141,7 @@ function targetRenderRecommendationCard(row, candidate) {
     + '</article>';
 }
 function targetGenerateAutoRecommendations() {
+  targetSyncRecommendationSettings();
   const candidates = targetGetAutoCandidateDetails();
   const count = targetNormalizeRecommendationCount(targetState.recommendationSettings.count);
   const selected = targetShuffleRows(candidates)
@@ -1231,15 +1234,6 @@ function targetSetSort(key) {
   }
   targetState.visibleLimit = targetPageSize;
   targetRender();
-}
-
-function targetSigmoid(value) {
-  if (value >= 0) {
-    const exponential = Math.exp(-value);
-    return 1 / (1 + exponential);
-  }
-  const exponential = Math.exp(value);
-  return exponential / (1 + exponential);
 }
 
 function targetStatusOptions(selected) {
@@ -1693,6 +1687,7 @@ function targetCommitRecommendationCount() {
   targetUpdateRecommendationInputs();
 }
 function targetOpenRecommendationSettings() {
+  if (targetSyncRecommendationSettings()) targetRender();
   targetRecommendationDraft = targetCloneRecommendationSettings(targetState.recommendationSettings);
   targetRenderRecommendationSettings();
   targetElements.autoSettingsOverlay.hidden = false;
@@ -1720,6 +1715,7 @@ function targetSaveRecommendationSettings() {
     return;
   }
   try {
+    window.localStorage?.setItem(targetEmptyTargetGoalsConfirmedKey, draft.targetGoals.length === 0 ? "1" : "0");
     window.localStorage?.setItem(targetRecommendationSettingsKey, JSON.stringify(draft));
     targetState.recommendationSettings = targetCloneRecommendationSettings(draft);
     targetRecommendationDraft = targetCloneRecommendationSettings(draft);
@@ -1777,19 +1773,12 @@ function targetGetFeatureVector(row) {
 
 
 function targetGetAdjustedPred(row, mode = "normal") {
-  const raw = targetGetPredValue(row, mode);
-  if (mode !== "normal") {
-    const vector = targetGetFeatureVector(row);
-    return raw + vector.reduce((total, strength, index) => total + targetState.deltas[index] * strength, 0);
-  }
-  const stored = targetState.adjustedPredById.get(String(row.chart_id));
-  return stored ?? raw;
+  return window.cpiPrediction.adjustPred(targetGetPredValue(row, mode), targetGetFeatureVector(row), targetState.deltas);
 }
 
 
 function targetGetRecommendationModel(mode = "normal") {
-  const modeModel = targetState.modelsByMode[mode] ?? null;
-  return modeModel ?? targetState.model;
+  return window.cpiPrediction.modelForMode(targetState.modelsByMode, targetState.model, mode);
 }
 
 function targetGetRecommendationAppropriatePred(mode = "normal") {
@@ -1807,20 +1796,18 @@ function targetGetRecommendationAppropriatePred(mode = "normal") {
 
 function targetGetExpectedClearProbability(row, mode = "normal", adjustedPredOverride = null) {
   const model = targetGetRecommendationModel(mode);
-  if (!model) {
-    return null;
-  }
   const adjustedPred = adjustedPredOverride ?? targetGetAdjustedPred(row, mode);
-  const normalizedPred = (adjustedPred - model.center) / model.scale;
-  return targetSigmoid(model.intercept + model.slope * normalizedPred);
+  return window.cpiPrediction.probability(model, adjustedPred);
 }
 let targetAnalysisEngine = null;
+let targetAnalysisRows = null;
 function targetGetAnalysis(records) {
-  if (!targetAnalysisEngine) {
+  if (!targetAnalysisEngine || targetAnalysisRows !== targetState.rows) {
+    targetAnalysisRows = targetState.rows;
     targetAnalysisEngine = window.cpiCreateTargetAnalysis({
       rows: targetState.rows, predModes: targetPredModes, outcomes: targetPredModeOutcomes,
       featureNames: targetFeatureNames, featureVector: targetGetFeatureVector,
-      number: targetGetNumericValue, sigmoid: targetSigmoid,
+      number: targetGetNumericValue,
     });
   }
   return targetAnalysisEngine(records);
@@ -1831,13 +1818,8 @@ function targetRecalculateModel() {
   targetState.rows.forEach((row) => {
     const adjustedPred = targetState.adjustedPredById.get(String(row.chart_id));
     targetState.adjustedPredById.set(String(row.chart_id), adjustedPred);
-    if (targetState.model) {
-      const normalizedPred = (adjustedPred - targetState.model.center) / targetState.model.scale;
-      targetState.expectedProbabilityById.set(
-        String(row.chart_id),
-        targetSigmoid(targetState.model.intercept + targetState.model.slope * normalizedPred),
-      );
-    }
+    const probability = window.cpiPrediction.probability(targetState.model, adjustedPred);
+    if (probability !== null) targetState.expectedProbabilityById.set(String(row.chart_id), probability);
   });
   targetSetAdjustedPredBounds();
 }
@@ -1986,6 +1968,20 @@ function targetApplyManualMemos(memos) {
   );
 }
 
+function targetSyncRecommendationSettings() {
+  const next = targetReadRecommendationSettings();
+  if (JSON.stringify(next) === JSON.stringify(targetState.recommendationSettings)) return false;
+  targetState.recommendationSettings = next;
+  targetState.autoRecommendationsInitialized = false;
+  // A settings change in another tab must not discard an open, unsaved draft.
+  if (targetElements.autoSettingsOverlay?.hidden !== false) {
+    targetRecommendationDraft = targetCloneRecommendationSettings(next);
+    targetRenderRecommendationSettings();
+  }
+  window.dispatchEvent(new Event("cpi:recommendation-settings-changed"));
+  return true;
+}
+
 let targetRefreshPromise = null;
 let targetRefreshAgain = false;
 let targetStorageReady = false;
@@ -1999,12 +1995,13 @@ async function targetRefreshFromExternalDataChange() {
       const records = await targetReadAllRecords();
       const memos = await targetReadAllManualMemos();
       if (targetRefreshAgain) continue;
+      const settingsChanged = targetSyncRecommendationSettings();
       const changed = records.length !== targetState.records.size || records.some(record => targetState.records.get(String(record.chartId))?.status !== record.status);
       const memoIds = new Set(memos.map(memo => String(memo.chartId)));
       const memosChanged = memoIds.size !== targetState.manualMemoIds.size || [...memoIds].some(id => !targetState.manualMemoIds.has(id));
       targetApplyRecords(records);
       targetApplyManualMemos(memos);
-      if (changed || memosChanged) {
+      if (changed || memosChanged || settingsChanged) {
         if (changed) targetRecalculateModel();
         targetUpdateAvailability();
         targetRender();
@@ -2019,6 +2016,11 @@ window.addEventListener("cpi:manual-memo-changed", targetRefreshFromExternalData
 window.addEventListener("cpi:storage-changed", targetRefreshFromExternalDataChange);
 window.addEventListener("pageshow", targetRefreshFromExternalDataChange);
 window.addEventListener("focus", targetRefreshFromExternalDataChange);
+window.addEventListener("storage", event => {
+  if (event.key === null || [targetRecommendationSettingsKey, targetEmptyTargetGoalsConfirmedKey].includes(event.key)) {
+    void targetRefreshFromExternalDataChange();
+  }
+});
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") targetRefreshFromExternalDataChange();
 });
@@ -2414,7 +2416,7 @@ function targetBindEvents() {
   window.addEventListener("resize", targetUpdateTableOverflow);
 }
 function targetSetPredBounds() {
-  const values = targetState.rows.map((row) => row.calibrated_pred_skill).filter(Number.isFinite);
+  const values = targetState.rows.flatMap(row => Object.keys(targetPredModes).map(mode => targetGetPredValue(row, mode))).filter(Number.isFinite);
   targetState.predDataMin = values.length > 0 ? Math.min(...values) : 0;
   targetState.predDataMax = values.length > 0 ? Math.max(...values) : 999;
   targetState.predMinFilter = targetState.predDataMin;
@@ -2429,7 +2431,7 @@ function targetSetPredBounds() {
 }
 
 function targetSetAdjustedPredBounds() {
-  const values = Array.from(targetState.adjustedPredById.values()).filter(Number.isFinite);
+  const values = targetState.rows.flatMap(row => Object.keys(targetPredModes).map(mode => targetGetAdjustedPred(row, mode))).filter(Number.isFinite);
   const nextMin = values.length > 0 ? Math.min(...values) : 0;
   const nextMax = values.length > 0 ? Math.max(...values) : 999;
   const isDefault = targetState.adjustedPredMinFilter === targetState.adjustedPredDataMin

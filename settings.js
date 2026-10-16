@@ -6,8 +6,9 @@ const settingsStoreName = "chart-statuses";
 const settingsManualMemoStoreName = "manual-targets";
 const settingsDailyTargetsStoreName = "daily-targets";
 const settingsUpdateHistoryStoreName = "status-update-events";
+const settingsOptionMemoStoreName = "chart-option-memos";
 const settingsBackupFormat = "cpi-next-clear-status-backup";
-const settingsBackupVersion = 3;
+const settingsBackupVersion = 4;
 const settingsMaxBackupBytes = 10 * 1024 * 1024;
 const settingsMaxRecords = 100000;
 const settingsStatusValues = new Set([
@@ -178,6 +179,7 @@ function settingsWriteAll(records, manualMemos, historyChanges = [], historySour
     if (snapshot) {
       if (!stores.includes(settingsUpdateHistoryStoreName)) stores.push(settingsUpdateHistoryStoreName);
       stores.push(settingsDailyTargetsStoreName);
+      if (Array.isArray(snapshot.optionMemos)) stores.push(settingsOptionMemoStoreName);
     }
     const transaction = settingsDatabase.transaction(stores, "readwrite");
     const store = transaction.objectStore(settingsStoreName);
@@ -195,7 +197,9 @@ function settingsWriteAll(records, manualMemos, historyChanges = [], historySour
       }
     }
     if (snapshot) {
-      for (const [name, values] of [[settingsUpdateHistoryStoreName, snapshot.updateHistory], [settingsDailyTargetsStoreName, snapshot.dailyTargets]]) {
+      const snapshotStores = [[settingsUpdateHistoryStoreName, snapshot.updateHistory], [settingsDailyTargetsStoreName, snapshot.dailyTargets]];
+      if (Array.isArray(snapshot.optionMemos)) snapshotStores.push([settingsOptionMemoStoreName, snapshot.optionMemos]);
+      for (const [name, values] of snapshotStores) {
         const target = transaction.objectStore(name);
         target.clear();
         for (const value of values) target.put(value);
@@ -570,7 +574,7 @@ function settingsResetTargetSettings() {
 function settingsValidateBackup(payload) {
   if (!payload || typeof payload !== "object"
     || payload.format !== settingsBackupFormat
-    || ![1, 2, settingsBackupVersion].includes(payload.version)
+    || ![1, 2, 3, settingsBackupVersion].includes(payload.version)
     || !Array.isArray(payload.records)) {
     throw new Error("対応していないバックアップ形式です。");
   }
@@ -643,6 +647,7 @@ async function settingsHandleExport() {
       manualMemos,
       updateHistory: snapshot.updateHistory,
       dailyTargets: snapshot.dailyTargets,
+      optionMemos: snapshot.optionMemos,
     };
     settingsValidateBackup(payload);
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -689,7 +694,9 @@ async function settingsHandleImport(event) {
     return;
   }
 
-  const importConfirmation = backup.version >= 3
+  const importConfirmation = backup.version >= 4
+    ? "現在のクリアランプ記録、手動メモ、今日の10曲、更新履歴、オプションメモを、このバックアップで置き換えます。よろしいですか？"
+    : backup.version >= 3
     ? "現在のクリアランプ記録、手動メモ、今日の10曲、更新履歴を、このバックアップで置き換えます。よろしいですか？"
     : backup.version >= 2
     ? "現在のクリアランプ記録と手動メモを、このバックアップで置き換えます。よろしいですか？"
@@ -743,7 +750,7 @@ async function settingsHandleImport(event) {
 }
 
 async function settingsHandleReset() {
-  if (settingsBusy || !window.confirm("保存されているクリアランプ記録、今日の10曲、更新履歴を削除します。手動メモは保持されます。よろしいですか？")) {
+  if (settingsBusy || !window.confirm("保存されているクリアランプ記録、今日の10曲、更新履歴を削除します。手動メモ・オプションメモは保持されます。よろしいですか？")) {
     return;
   }
 
