@@ -595,6 +595,10 @@ async function chartHandleOptionMemo(event) {
     const options = await window.cpiChartOptions.toggle(chartState.db, chartState.chartId, button.dataset.chartOption);
     chartState.optionMemos = new Set(options);
     chartSetOptionMemoMessage("");
+    window.cpiAnalytics?.track("chart_option_memo_change", {
+      option: button.dataset.chartOption,
+      action: options.includes(button.dataset.chartOption) ? "add" : "remove",
+    });
   } catch (error) {
     chartSetOptionMemoMessage(error.message || "オプションメモを保存できませんでした。");
   } finally {
