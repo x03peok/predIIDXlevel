@@ -568,7 +568,7 @@
   font-size: 0.85rem;
 }
 
-body[data-page="daily-target"] .daily-target-table tbody td.chart-title-cell {
+.daily-target-table tbody td.chart-title-cell {
   overflow: visible;
   white-space: normal;
   word-break: break-word;
@@ -576,7 +576,7 @@ body[data-page="daily-target"] .daily-target-table tbody td.chart-title-cell {
   text-align: center;
 }
 
-body[data-page="daily-target"] .daily-target-table tbody td.chart-title-cell .chart-link {
+.daily-target-table tbody td.chart-title-cell .chart-link {
   display: inline-block;
   width: auto;
   max-width: 100%;

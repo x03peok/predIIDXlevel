@@ -312,6 +312,7 @@ function shareRenderFeatureChips(parent, row) {
       wrapper.append(chip);
     });
   }
+  parent.append(wrapper);
   return wrapper;
 }
 

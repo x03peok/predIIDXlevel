@@ -1893,9 +1893,8 @@
 }
 
 .mypage-history__song-chip {
-  display: inline-flex;
+  display: inline-block;
   max-width: 100%;
-  align-items: baseline;
   padding: 3px 7px;
   border-radius: 8px;
   overflow-wrap: anywhere;

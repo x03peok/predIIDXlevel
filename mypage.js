@@ -1896,8 +1896,12 @@ function mypageRenderUpdateHistoryDay(dateKey, events, visibleEvents, isOpen, be
   return details;
 }
 function mypageGetHistoryDifficulty(event) {
+  const row = mypageState.rowsByChartId.get(String(event?.chartId ?? "").trim());
+  const currentLabel = mypageDifficultyLabels[String(row?.difficulty ?? "").trim().toUpperCase()];
+  if (currentLabel) return currentLabel;
   const value = String(event?.difficulty ?? "").trim().toUpperCase();
-  return mypageDifficultyLabels[value] ?? value;
+  const label = mypageDifficultyLabels[value] ?? value.replace(/^\[|\]$/g, "");
+  return label;
 }
 
 function mypageGetHistoryStatusLabel(status) {
@@ -1923,8 +1927,9 @@ function mypageRenderUpdateHistoryEvent(event, showBestClearUpdate = false) {
   const songLine = document.createElement("div");
   songLine.className = "mypage-history__song-line";
 
-  const difficultyValue = String(event?.difficulty ?? "").trim().toUpperCase();
   const difficultyLabel = mypageGetHistoryDifficulty(event);
+  const difficultyValue = Object.keys(mypageDifficultyLabels)
+    .find((value) => mypageDifficultyLabels[value] === difficultyLabel);
   const songChip = document.createElement("span");
   songChip.className = "mypage-history__song-chip " + (mypageDifficultyClasses[difficultyValue] ?? "");
 
@@ -1942,8 +1947,8 @@ function mypageRenderUpdateHistoryEvent(event, showBestClearUpdate = false) {
   if (difficultyLabel) {
     const difficulty = document.createElement("span");
     difficulty.className = "mypage-history__difficulty";
-    difficulty.textContent = " [" + difficultyLabel + "]";
-    songChip.append(difficulty);
+    difficulty.textContent = "[" + difficultyLabel + "]";
+    songChip.append(document.createTextNode(" "), difficulty);
   }
   songLine.append(songChip);
 
