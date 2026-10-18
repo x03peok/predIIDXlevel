@@ -405,6 +405,7 @@ async function recordHandleCsvImport() {
       source: "csv-import",
       beforeStatuses: previousStatuses,
     });
+    window.cpiRecommendationCache?.invalidate();
     for (const [chartId, status] of result.updates) {
       const previousRecord = recordState.records.get(chartId);
       if (previousRecord?.status === status) {

@@ -290,9 +290,9 @@ function toLevelValue(value) {
 }
 
 function formatPredValue(value) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return null;
+  const numeric = getNumericValue(value);
+  if (numeric === null) {
+    return "—";
   }
 
   return (Math.round(numeric * 10) / 10).toFixed(1);
@@ -844,10 +844,8 @@ function getVisibleRows() {
   rows = rows.filter((row) => {
     const rowMin = getNumericValue(row.bpm_min);
     const rowMax = getNumericValue(row.bpm_max);
-    return rowMin !== null
-      && rowMax !== null
-      && rowMin >= state.bpmMinFilter
-      && rowMax <= state.bpmMaxFilter;
+    return (rowMin === null ? state.bpmMinFilter === 0 : rowMin >= state.bpmMinFilter)
+      && (rowMax === null ? state.bpmMaxFilter === 999 : rowMax <= state.bpmMaxFilter);
   });
 
   const levelOptions = getOrigFilterOptions();
@@ -864,9 +862,9 @@ function getVisibleRows() {
 
   rows = rows.filter((row) => {
     const predicted = getNumericValue(row.calibrated_pred_skill);
-    return predicted !== null
-      && predicted >= state.predMinFilter
-      && predicted <= state.predMaxFilter;
+    return predicted === null
+      ? state.predMinFilter === state.predDataMin && state.predMaxFilter === state.predDataMax
+      : predicted >= state.predMinFilter && predicted <= state.predMaxFilter;
   });
 
   const featureOptions = getFeatureOptions();

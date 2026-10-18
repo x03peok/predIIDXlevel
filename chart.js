@@ -168,7 +168,7 @@ function getChartPredValue(row, mode = "normal") {
 }
 function formatChartPred(value) {
   const numeric = toFiniteChartNumber(value);
-  return Number.isFinite(numeric) ? (Math.round(numeric * 100) / 100).toFixed(2) : value;
+  return Number.isFinite(numeric) ? (Math.round(numeric * 100) / 100).toFixed(2) : "—";
 }
 
 function getChartNumericScale(rows, mode = "normal") {
@@ -363,9 +363,17 @@ function renderChartPredPosition(predPositions, row, numericScales) {
       return;
     }
     if (!position) {
-      positionRow.hidden = true;
-      if (valueElement) valueElement.textContent = "";
-      if (percentileElement) percentileElement.textContent = "";
+      hasVisiblePosition = true;
+      positionRow.hidden = false;
+      if (valueElement) {
+        valueElement.textContent = "—";
+        valueElement.style.removeProperty("--numeric-color");
+      }
+      if (percentileElement) percentileElement.textContent = "Pred未算出";
+      const histogram = positionRow.querySelector(".chart-pred-histogram");
+      if (histogram) histogram.hidden = true;
+      const axis = positionRow.querySelector(".chart-pred-position__axis");
+      if (axis) axis.hidden = true;
       return;
     }
 
@@ -382,6 +390,9 @@ function renderChartPredPosition(predPositions, row, numericScales) {
     if (!histogram) {
       return;
     }
+    histogram.hidden = false;
+    const axis = document.getElementById(axisId);
+    if (axis) axis.hidden = false;
     const bars = position.histogram.map((item) => {
       const height = item.count === 0 ? 0 : Math.max(4, (item.count / position.maxCount) * 100);
       const currentClass = item.value === position.targetBin ? " chart-pred-histogram__bar--current" : "";

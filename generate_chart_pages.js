@@ -113,6 +113,7 @@ function escapeHtml(value) {
 }
 
 function formatPred(value) {
+  if (value === null || value === undefined || String(value).trim() === "") return "—";
   const numeric = Number(value);
   return Number.isFinite(numeric) ? (Math.round(numeric * 100) / 100).toFixed(2) : String(value ?? "");
 }

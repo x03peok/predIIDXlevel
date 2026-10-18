@@ -27,6 +27,12 @@ test("exports stable chart IDs, decoded titles, numeric Pred and feature strengt
   }
 });
 
+test("exports all missing Pred values as null without dropping chart metadata", () => {
+  const [chart] = buildCharts([row({ easy_pred_skill: "", calibrated_pred_skill: "", hard_pred_skill: "" })]);
+  assert.equal(chart.id, "1");
+  assert.deepEqual(chart.pred, { easy: null, normal: null, hard: null });
+});
+
 test("versions are idempotent, immutable, verified and reused when reverting", () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "cpi-public-data-"));
   try {

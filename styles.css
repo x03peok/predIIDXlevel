@@ -1291,6 +1291,10 @@ body .title-lock {
   white-space: nowrap;
 }
 
+.chart-pred-position [hidden] {
+  display: none;
+}
+
 .chart-pred-histogram {
   display: flex;
   align-items: flex-end;

@@ -187,7 +187,7 @@ function dailyNormalizeRows(parsedRows) {
     const easyPred = dailyGetNumber(source.easy_pred_skill);
     const pred = dailyGetNumber(source.calibrated_pred_skill);
     const hardPred = dailyGetNumber(source.hard_pred_skill);
-    if (!/^\d+$/.test(chartId) || !title || level === null || pred === null) return null;
+    if (!/^\d+$/.test(chartId) || !title || level === null) return null;
     const features = dailyDecodeHtmlEntities(String(source.features ?? "").replace(/<[^>]*>/g, "")).trim();
     return {
       chartId,
@@ -662,7 +662,8 @@ function dailyRenderPredStack(row, adjusted = false) {
   return `<div class="daily-pred-stack">${Object.entries(dailyPredModes).map(([mode, definition]) => {
     const raw = dailyGetPredValue(row, mode);
     const value = adjusted ? dailyGetAdjustedPred(row, mode) : raw;
-    const difference = adjusted ? " (" + dailyFormatPredDifference(value - raw) + ")" : "";
+    const difference = adjusted && Number.isFinite(value) && Number.isFinite(raw)
+      ? " (" + dailyFormatPredDifference(value - raw) + ")" : "";
     return `<span class="daily-pred-stack__item"><span>${definition.label}</span><strong class="numeric-value numeric-value--pred" style="--numeric-color:${dailyGetNumericColor(value)}">${dailyEscapeHtml(dailyFormatPred(value))}</strong>${difference ? `<small>${dailyEscapeHtml(difference)}</small>` : ""}</span>`;
   }).join("")}</div>`;
 }
@@ -672,7 +673,9 @@ function dailyRenderAdjustedPredCell(row, mode = "all") {
   const raw = dailyGetPredValue(row, mode);
   const adjustedValue = dailyGetAdjustedPred(row, mode);
   const adjustedText = dailyFormatPred(adjustedValue);
-  const difference = dailyFormatPredDifference(adjustedValue - raw);
+  const difference = Number.isFinite(adjustedValue) && Number.isFinite(raw)
+    ? dailyFormatPredDifference(adjustedValue - raw) : "";
+  if (!difference) return '<td class="mono daily-pred daily-adjusted-pred">' + dailyEscapeHtml(adjustedText) + '</td>';
   return '<td class="mono daily-pred daily-adjusted-pred" style="--numeric-color:' + dailyGetNumericColor(adjustedValue) + '"><span class="daily-adjusted-pred__value">'
     + dailyEscapeHtml(adjustedText) + '</span> <span class="daily-adjusted-pred__difference">('
     + dailyEscapeHtml(difference) + ")</span></td>";
@@ -803,9 +806,13 @@ function dailyGetFilteredRows() {
     const goal = dailyState.selected.get(String(row.chartId)) ?? dailyGetCandidateGoal(row, status);
     const mode = dailyGetPredModeForGoal(goal);
     const rawPred = dailyGetPredValue(row, mode);
-    if (!Number.isFinite(rawPred) || rawPred < dailyState.predMinFilter || rawPred > dailyState.predMaxFilter) return false;
+    if (Number.isFinite(rawPred)
+      ? rawPred < dailyState.predMinFilter || rawPred > dailyState.predMaxFilter
+      : dailyState.predMinFilter !== dailyState.predDataMin || dailyState.predMaxFilter !== dailyState.predDataMax) return false;
     const adjustedPred = dailyGetAdjustedPred(row, mode);
-    if (!Number.isFinite(adjustedPred) || adjustedPred < dailyState.adjustedPredMinFilter || adjustedPred > dailyState.adjustedPredMaxFilter) return false;
+    if (Number.isFinite(adjustedPred)
+      ? adjustedPred < dailyState.adjustedPredMinFilter || adjustedPred > dailyState.adjustedPredMaxFilter
+      : dailyState.adjustedPredMinFilter !== dailyState.adjustedPredDataMin || dailyState.adjustedPredMaxFilter !== dailyState.adjustedPredDataMax) return false;
     return true;
   });
 }

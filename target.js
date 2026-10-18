@@ -305,7 +305,7 @@ function targetNormalizeRows(parsedRows) {
       const bpmMin = targetGetNumericValue(source.bpm_min);
       const bpmMax = targetGetNumericValue(source.bpm_max);
       const features = targetDecodeHtmlEntities(targetStripHtmlTags(source.features ?? "")).trim();
-      if (!/^\d+$/.test(chartId) || !title || originalLevel === null || calibratedPred === null) {
+      if (!/^\d+$/.test(chartId) || !title || originalLevel === null) {
         return null;
       }
       return {
@@ -328,7 +328,7 @@ function targetNormalizeRows(parsedRows) {
 
 function targetFormatPredValue(value) {
   const numeric = targetGetNumericValue(value);
-  return numeric === null ? "" : numeric.toFixed(1);
+  return numeric === null ? "—" : numeric.toFixed(1);
 }
 
 function targetFormatPredDifference(value) {
@@ -695,11 +695,15 @@ function targetMatchesFilters(row) {
   }
   const predMode = targetGetPredModeForGoal(targetGoal);
   const rawPred = targetGetPredValue(row, predMode);
-  if (!Number.isFinite(rawPred) || rawPred < targetState.predMinFilter || rawPred > targetState.predMaxFilter) {
+  if (Number.isFinite(rawPred)
+    ? rawPred < targetState.predMinFilter || rawPred > targetState.predMaxFilter
+    : targetState.predMinFilter !== targetState.predDataMin || targetState.predMaxFilter !== targetState.predDataMax) {
     return false;
   }
   const adjustedPred = targetGetAdjustedPred(row, predMode);
-  if (!Number.isFinite(adjustedPred) || adjustedPred < targetState.adjustedPredMinFilter || adjustedPred > targetState.adjustedPredMaxFilter) {
+  if (Number.isFinite(adjustedPred)
+    ? adjustedPred < targetState.adjustedPredMinFilter || adjustedPred > targetState.adjustedPredMaxFilter
+    : targetState.adjustedPredMinFilter !== targetState.adjustedPredDataMin || targetState.adjustedPredMaxFilter !== targetState.adjustedPredDataMax) {
     return false;
   }
   return true;
@@ -873,8 +877,9 @@ function targetRenderPredStack(row, adjusted = false, mode = null) {
   const values = entries.map(([predMode, definition]) => {
     const raw = targetGetPredValue(row, predMode);
     const value = adjusted ? targetGetAdjustedPred(row, predMode) : raw;
-    const difference = adjusted ? targetFormatPredDifference(value - raw) : "";
-    const differenceText = adjusted ? " (" + difference + ")" : "";
+    const difference = adjusted && Number.isFinite(value) && Number.isFinite(raw)
+      ? targetFormatPredDifference(value - raw) : "";
+    const differenceText = difference ? " (" + difference + ")" : "";
     const label = mode ? "" : '<span>' + definition.label + '</span>';
     return '<span class="target-pred-stack__item target-pred-stack__item--' + predMode + '">' + label + '<strong class="numeric-value numeric-value--pred"' + targetGetNumericColorStyle(value) + '>' + targetEscapeHtml(targetFormatPredValue(value)) + '</strong>' + (differenceText ? '<small>' + targetEscapeHtml(differenceText) + '</small>' : "") + '</span>';
   }).join("");
@@ -1161,6 +1166,43 @@ function targetGenerateAutoRecommendations() {
     selected.map((candidate) => [getCandidateKey(candidate), candidate]),
   );
   targetState.autoRecommendationsInitialized = true;
+  window.cpiRecommendationCache?.write(
+    targetState.recommendationSettings,
+    selected.map(candidate => ({ chartId: String(candidate.row.chart_id), goal: candidate.goal })),
+    candidates.length,
+  );
+}
+
+function targetGetRetainedRecommendationCandidate(row, goal) {
+  const predMode = targetGetPredModeForGoal(goal);
+  const rawPred = targetGetPredValue(row, predMode);
+  const adjustedPred = targetGetAdjustedPred(row, predMode);
+  const probability = targetGetExpectedClearProbability(row, predMode, adjustedPred);
+  const appropriatePred = targetGetRecommendationAppropriatePred(predMode);
+  const correctionDifference = Number.isFinite(adjustedPred) && Number.isFinite(rawPred)
+    ? adjustedPred - rawPred : null;
+  return {
+    row, goal, predMode, rawPred, adjustedPred, probability,
+    appropriateDifference: Number.isFinite(adjustedPred) && Number.isFinite(appropriatePred)
+      ? adjustedPred - appropriatePred : null,
+    correctionDifference,
+    probabilityReason: probability === null ? null : targetGetRecommendationProbabilityBand(probability * 100),
+    featureReason: correctionDifference === null ? null : targetGetRecommendationFeatureBand(correctionDifference),
+  };
+}
+
+function targetRestoreAutoRecommendations() {
+  const cache = window.cpiRecommendationCache?.read(targetState.recommendationSettings);
+  if (!cache) return false;
+  const candidates = cache.items.flatMap(({ chartId, goal }) => {
+    const row = targetState.rowsByChartId.get(chartId);
+    return row ? [targetGetRetainedRecommendationCandidate(row, goal)] : [];
+  });
+  targetState.autoRecommendationIds = candidates.map(candidate => String(candidate.row.chart_id) + "::" + candidate.goal);
+  targetState.autoRecommendationMetaById = new Map(candidates.map((candidate, index) => [targetState.autoRecommendationIds[index], candidate]));
+  targetState.autoRecommendationCandidateCount = cache.candidateCount;
+  targetState.autoRecommendationsInitialized = true;
+  return true;
 }
 
 function targetRenderAutoRecommendations() {
@@ -1169,7 +1211,7 @@ function targetRenderAutoRecommendations() {
       const candidate = targetState.autoRecommendationMetaById.get(candidateKey);
       return {
         row: candidate?.row,
-        candidate,
+        candidate: candidate?.row ? targetGetRetainedRecommendationCandidate(candidate.row, candidate.goal) : candidate,
       };
     })
     .filter(({ row, candidate }) => row && candidate);
@@ -1208,7 +1250,7 @@ function targetRenderMainTable() {
 
 function targetRender() {
   if (!targetState.autoRecommendationsInitialized && targetCanShowContent()) {
-    targetGenerateAutoRecommendations();
+    if (!targetRestoreAutoRecommendations()) targetGenerateAutoRecommendations();
   }
   targetRenderAutoRecommendations();
   targetRenderManualMemos();
@@ -1715,12 +1757,13 @@ function targetSaveRecommendationSettings() {
     return;
   }
   try {
+    const settingsChanged = JSON.stringify(draft) !== JSON.stringify(targetState.recommendationSettings);
     window.localStorage?.setItem(targetEmptyTargetGoalsConfirmedKey, draft.targetGoals.length === 0 ? "1" : "0");
     window.localStorage?.setItem(targetRecommendationSettingsKey, JSON.stringify(draft));
     targetState.recommendationSettings = targetCloneRecommendationSettings(draft);
     targetRecommendationDraft = targetCloneRecommendationSettings(draft);
     targetRenderRecommendationSettings();
-    targetState.autoRecommendationsInitialized = false;
+    if (settingsChanged) targetState.autoRecommendationsInitialized = false;
     targetRender();
     window.dispatchEvent(new Event("cpi:recommendation-settings-changed"));
     targetSetRecommendationSettingsMessage("自動リコメンド設定を保存しました。");
@@ -2001,7 +2044,7 @@ async function targetRefreshFromExternalDataChange() {
       const memosChanged = memoIds.size !== targetState.manualMemoIds.size || [...memoIds].some(id => !targetState.manualMemoIds.has(id));
       targetApplyRecords(records);
       targetApplyManualMemos(memos);
-      if (changed || memosChanged || settingsChanged) {
+      if (changed || memosChanged || settingsChanged || !targetState.autoRecommendationsInitialized) {
         if (changed) targetRecalculateModel();
         targetUpdateAvailability();
         targetRender();
@@ -2017,6 +2060,11 @@ window.addEventListener("cpi:storage-changed", targetRefreshFromExternalDataChan
 window.addEventListener("pageshow", targetRefreshFromExternalDataChange);
 window.addEventListener("focus", targetRefreshFromExternalDataChange);
 window.addEventListener("storage", event => {
+  if (event.key === window.cpiRecommendationCache?.key || event.key === null) {
+    targetState.autoRecommendationsInitialized = false;
+    void targetRefreshFromExternalDataChange();
+    return;
+  }
   if (event.key === null || [targetRecommendationSettingsKey, targetEmptyTargetGoalsConfirmedKey].includes(event.key)) {
     void targetRefreshFromExternalDataChange();
   }
@@ -2476,34 +2524,20 @@ async function targetInitialize() {
     targetPopulateFilters();
     targetRenderRecommendationSettings();
     targetBindEvents();
-    targetRecalculateModel();
-    targetUpdateAvailability();
-    targetRender();
   } catch (error) {
-     targetShowError(error instanceof Error ? error.message : "データを読み込めませんでした。");
+    window.cpiPageLoading?.fail(error instanceof Error ? error.message : "データを読み込めませんでした。");
     return;
   }
 
-  let storageError = null;
   try {
     targetState.db = await targetOpenDatabase();
     window.dispatchEvent(new Event("cpi:target-storage-ready"));
-    try {
-      targetApplyRecords(await targetReadAllRecords());
-    } catch (error) {
-      storageError = error;
-      targetState.records = new Map();
-    }
-    try {
-      targetApplyManualMemos(await targetReadAllManualMemos());
-    } catch (error) {
-      storageError = storageError ?? error;
-      targetState.manualMemoIds = new Set();
-    }
+    const [records, memos] = await Promise.all([targetReadAllRecords(), targetReadAllManualMemos()]);
+    targetApplyRecords(records);
+    targetApplyManualMemos(memos);
   } catch (error) {
-    storageError = error;
-    targetState.records = new Map();
-    targetState.manualMemoIds = new Set();
+    window.cpiPageLoading?.fail(error instanceof Error ? error.message : "記録を読み込めませんでした。");
+    return;
   }
 
   try {
@@ -2511,10 +2545,11 @@ async function targetInitialize() {
     targetUpdateAvailability();
     targetRender();
     targetStorageReady = true;
+    window.cpiPageLoading?.ready();
     targetTrackStateEvent();
   } catch (error) {
-    console.error("マイターゲットの表示更新に失敗しました。", error, storageError);
-    targetShowError(error instanceof Error ? error.message : "マイターゲットを表示できませんでした。");
+    console.error("マイターゲットの表示更新に失敗しました。", error);
+    window.cpiPageLoading?.fail(error instanceof Error ? error.message : "マイターゲットを表示できませんでした。");
   }
 }
 

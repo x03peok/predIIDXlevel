@@ -30,15 +30,17 @@
   <link rel="stylesheet" href="styles.css?v=20260916-2">
 <link rel="stylesheet" href="mypage.css?v=20261017-1">
   <link rel="stylesheet" href="menu.css?v=20260904-2">
+  <link rel="stylesheet" href="page-loading.css?v=20261018-1">
+  <script defer src="page-loading.js?v=20261018-1"></script>
   <script defer src="menu.js?v=20260925-1"></script>
   <script defer src="data.js?v=20261013-2"></script>
   <script defer src="share-payload.js?v=20261013-1"></script>
-  <script defer src="app.js?v=20260910-1"></script>
+  <script defer src="app.js?v=20261018-1"></script>
   <script defer src="status-toast.js?v=20260908-1"></script>
   <script defer src="storage.js?v=20261002-1"></script>
   <script defer src="update-history.js?v=20261002-1"></script>
   <script defer src="target-analysis.js?v=20261016-1"></script>
-  <script defer src="mypage.js?v=20261017-1"></script>
+  <script defer src="mypage.js?v=20261018-2"></script>
 </head>
 <body data-page="mypage">
   <main class="app">
@@ -68,7 +70,13 @@
     </header>
     <div class="site-release-notice" role="status">新作対応を順次実施中です</div>
 
-    <section class="view view--mypage" aria-live="polite">
+    <div id="pageLoading" class="panel page-loading" role="status" aria-live="polite">
+      <span class="page-loading__spinner" aria-hidden="true"></span>
+      <p id="pageLoadingText">データを読み込んでいます…</p>
+      <button id="pageLoadingRetry" class="page-loading__retry" type="button" hidden>再試行</button>
+    </div>
+    <noscript><p>このページを利用するにはJavaScriptを有効にしてください。</p></noscript>
+    <section id="personalPageContent" class="view view--mypage personal-page-content" aria-live="polite" aria-busy="true" hidden inert>
       <div class="panel mypage-panel">
         <div class="mypage-tabs" role="tablist" aria-label="マイページ表示切り替え">
           <button id="mypageSummaryTab" class="mypage-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="mypageSummaryPanel" data-mypage-tab="summary">概要</button>

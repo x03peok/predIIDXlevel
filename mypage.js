@@ -642,10 +642,8 @@ function mypageGetVisibleRows() {
   rows = rows.filter((row) => {
     const rowMin = mypageGetNumericValue(row.bpm_min);
     const rowMax = mypageGetNumericValue(row.bpm_max);
-    return rowMin !== null
-      && rowMax !== null
-      && rowMin >= mypageState.bpmMinFilter
-      && rowMax <= mypageState.bpmMaxFilter;
+    return (rowMin === null ? mypageState.bpmMinFilter === 0 : rowMin >= mypageState.bpmMinFilter)
+      && (rowMax === null ? mypageState.bpmMaxFilter === 999 : rowMax <= mypageState.bpmMaxFilter);
   });
 
 
@@ -2462,7 +2460,10 @@ function mypageSetMessage(message) {
   mypageElements.message.hidden = !message;
 }
 
-async function mypageRefreshFromStorage() {
+let mypageInitialLoadComplete = false;
+
+async function mypageRefreshFromStorage(options = {}) {
+  if (!options.initial && !mypageInitialLoadComplete) return;
   if (!mypageState.db) {
     return;
   }
@@ -2485,6 +2486,7 @@ async function mypageRefreshFromStorage() {
       mypageApplyUpdateHistory(updateHistory);
       mypageRender();
     })    .catch((error) => {
+      if (options.initial) throw error;
       mypageSetMessage(error.message || "記録を読み込めませんでした。");
     })
     .finally(() => {
@@ -2559,18 +2561,19 @@ async function mypageInitialize() {
     mypagePopulateFilters();
     mypageBindEvents();
     mypageSetActiveTab(new URLSearchParams(window.location.search).get("tab"));
-    mypageRender();
   } catch (error) {
-    mypageSetMessage(error.message || "マイページを初期化できませんでした。");
+    window.cpiPageLoading?.fail(error.message || "マイページを初期化できませんでした。");
     return;
   }
 
   try {
     mypageState.db = await mypageOpenDatabase();
-    await mypageRefreshFromStorage();
+    await mypageRefreshFromStorage({ initial: true });
+    mypageInitialLoadComplete = true;
+    window.cpiPageLoading?.ready();
     mypageTrackStateEvent();
   } catch (error) {
-    mypageSetMessage(error.message || "記録を読み込めませんでした。");
+    window.cpiPageLoading?.fail(error.message || "記録を読み込めませんでした。");
   }
 }
 

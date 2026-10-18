@@ -21,6 +21,8 @@
   <link rel="stylesheet" href="menu.css?v=20260904-2">
   <link rel="stylesheet" href="target.css?v=20260926-7">
   <link rel="stylesheet" href="daily-target.css?v=20261017-1">
+  <link rel="stylesheet" href="page-loading.css?v=20261018-1">
+  <script defer src="page-loading.js?v=20261018-1"></script>
   <script src="menu.js?v=20260925-1" defer></script>
   <script src="data.js?v=20261013-2" defer></script>
   <script src="share-payload.js?v=20261013-1" defer></script>
@@ -28,9 +30,10 @@
   <script defer src="storage.js?v=20261002-1"></script>
   <script src="update-history.js?v=20261002-1" defer></script>
   <script src="target-analysis.js?v=20261016-1" defer></script>
-  <script src="target.js?v=20261018-1" defer></script>
+  <script defer src="recommendation-cache.js?v=20261018-1"></script>
+  <script src="target.js?v=20261018-4" defer></script>
   <script src="target-tabs.js?v=20260922-4" defer></script>
-  <script src="daily-target.js?v=20261016-2" defer></script>
+  <script src="daily-target.js?v=20261018-1" defer></script>
   <link rel="icon" type="image/jpeg" href="site-icon.jpg">
   <link rel="apple-touch-icon" href="site-icon.jpg">
   <meta property="og:image" content="https://cpi-next.com/site-icon.jpg?v=20260904-2">
@@ -70,7 +73,13 @@
     </header>
     <div class="site-release-notice" role="status">新作対応を順次実施中です</div>
 
-    <section class="view view--main" aria-live="polite">
+    <div id="pageLoading" class="panel page-loading" role="status" aria-live="polite">
+      <span class="page-loading__spinner" aria-hidden="true"></span>
+      <p id="pageLoadingText">データを読み込んでいます…</p>
+      <button id="pageLoadingRetry" class="page-loading__retry" type="button" hidden>再試行</button>
+    </div>
+    <noscript><p>このページを利用するにはJavaScriptを有効にしてください。</p></noscript>
+    <section id="personalPageContent" class="view view--main personal-page-content" aria-live="polite" aria-busy="true" hidden inert>
       <div class="panel target-panel">
         <p id="targetInsufficientMessage" class="target-insufficient-message">
           <span id="targetInsufficientMessageText"></span> <a href="record.html">クリアランプ登録</a>
