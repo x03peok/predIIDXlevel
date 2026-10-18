@@ -1,6 +1,7 @@
 "use strict";
 
 const predSummarySortStorageKey = "cpi-next-pred-summary-sort-direction";
+const predSummarySelectionStorageKey = "cpi-next-pred-summary-selection-v1";
 let predSummarySortDirection = "asc";
 try {
   if (window.localStorage.getItem(predSummarySortStorageKey) === "desc") predSummarySortDirection = "desc";
@@ -105,6 +106,19 @@ function predSummaryRender() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  const levelInputs = [...document.querySelectorAll('input[name="predSummaryLevel"]')];
+  const lampInputs = [...document.querySelectorAll('input[name="predSummaryLamp"]')];
+  try {
+    const raw = window.localStorage.getItem(predSummarySelectionStorageKey);
+    const selection = raw && raw.length <= 512 ? JSON.parse(raw) : null;
+    if (selection?.version === 1 && Array.isArray(selection.levels)
+      && selection.levels.length <= 5
+      && selection.levels.every(level => [8, 9, 10, 11, 12].includes(level))
+      && ["easy", "normal", "hard"].includes(selection.lamp)) {
+      levelInputs.forEach(input => { input.checked = selection.levels.includes(Number(input.value)); });
+      lampInputs.forEach(input => { input.checked = input.value === selection.lamp; });
+    }
+  } catch { /* Keep the default selection when storage is unavailable or invalid. */ }
   const sortButton = document.getElementById("predSummarySort");
   const updateSortButton = () => {
     if (!sortButton) return;
@@ -122,8 +136,17 @@ document.addEventListener("DOMContentLoaded", () => {
     updateSortButton();
     predSummaryRender();
   });
-  document.querySelectorAll('input[name="predSummaryLevel"], input[name="predSummaryLamp"]').forEach(input => {
-    input.addEventListener("change", predSummaryRender);
+  [...levelInputs, ...lampInputs].forEach(input => {
+    input.addEventListener("change", () => {
+      try {
+        window.localStorage.setItem(predSummarySelectionStorageKey, JSON.stringify({
+          version: 1,
+          levels: levelInputs.filter(input => input.checked).map(input => Number(input.value)),
+          lamp: lampInputs.find(input => input.checked)?.value ?? "normal",
+        }));
+      } catch { /* Filtering still works when saving is unavailable. */ }
+      predSummaryRender();
+    });
   });
   predSummaryRender();
   const tabs = [...document.querySelectorAll(".pred-tab[role='tab']")];
