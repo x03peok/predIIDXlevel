@@ -1157,7 +1157,7 @@ function mypageBuildShareText(result, scores, lampResults = {}, shareUrl = mypag
     const predText = Number.isFinite(bestClear.pred) ? bestClear.pred.toFixed(2) : "ー";
     lines.push(
       "",
-      "ベストクリア: " + marker + " " + (bestClear.row.title ?? "") + " [" + difficulty + "]",
+      "ベストクリア: " + marker + " " + window.cpiShareText.formatTitle(bestClear.row.title) + " [" + difficulty + "]",
       "   適正Pred: " + predText,
     );
   }
@@ -1777,7 +1777,7 @@ function mypageBuildUpdateHistoryShareText(
     const status = String(bestEvent.afterStatus ?? "").trim().toLowerCase();
     const marker = mypageGetHistoryShareMarker(status);
     const difficulty = mypageGetHistoryDifficulty(bestEvent);
-    const title = String(bestEvent.title ?? "").trim() || "譜面";
+    const title = window.cpiShareText.formatTitle(bestEvent.title).trim() || "譜面";
     const titleWithDifficulty = difficulty ? title + " [" + difficulty + "]" : title;
     const pred = mypageGetHistoryEventPred(bestEvent);
     lines.push(

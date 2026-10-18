@@ -1620,9 +1620,7 @@ function dailyGetShareClearTypeEmoji(status) {
 }
 
 function dailyFormatShareTitle(title) {
-  return String(title ?? "")
-    .replaceAll("BLACK.by", "BLACK. by")
-    .replaceAll("D.C.fish", "D.C. fish");
+  return window.cpiShareText.formatTitle(title);
 }
 
 function dailyBuildShareIntentUrl(options = {}) {

@@ -836,7 +836,7 @@ function renderChart() {
       shareUrl.searchParams.set("utm_medium", "share");
       shareUrl.searchParams.set("utm_campaign", "chart_detail");
       const shareText = [
-        "☆" + (row.original_level ?? "") + " " + row.title + (shareDifficultyLabel ? " [" + shareDifficultyLabel + "]" : ""),
+        "☆" + (row.original_level ?? "") + " " + window.cpiShareText.formatTitle(row.title) + (shareDifficultyLabel ? " [" + shareDifficultyLabel + "]" : ""),
         "",
         "ノマゲPred: " + sharePred + " " + sharePercentile,
         "",

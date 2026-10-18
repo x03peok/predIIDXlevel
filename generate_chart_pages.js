@@ -210,6 +210,7 @@ function createPage(template, row) {
   page = page.replace('src="chart-similar-data.js?', 'src="../chart-similar-data.js?');
   page = page.replace('src="chart.js?', 'src="../chart.js?');
   page = page.replace('src="chart-options.js?', 'src="../chart-options.js?');
+  page = page.replace('src="share-text.js?', 'src="../share-text.js?');
   page = page.replace('src="storage.js?', 'src="../storage.js?');
   page = page.replace('src="update-history.js?', 'src="../update-history.js?');
   page = page.replace('data-href="pred.html"', 'data-href="../pred.html"');
