@@ -2,6 +2,44 @@
 
 const predSummarySortStorageKey = "cpi-next-pred-summary-sort-direction";
 const predSummarySelectionStorageKey = "cpi-next-pred-summary-selection-v1";
+const predSummarySettingsStorageKey = "cpi-next-pred-summary-settings-v1";
+const predSummaryFeatureNames = ["同時押し", "単鍵ラッシュ", "物量", "連打", "連皿", "皿複合", "チャージノート", "BPM変化", "ラスト難", "特徴なし"];
+const predSummaryDifficulties = ["N", "H", "A", "L"];
+
+function predSummaryDefaultSettings() {
+  return {
+    difficulties: [...predSummaryDifficulties],
+    features: Object.fromEntries(predSummaryFeatureNames.map(name => [name, { include: true, exclude: true }])),
+  };
+}
+
+function predSummaryReadSettings() {
+  const defaults = predSummaryDefaultSettings();
+  try {
+    const raw = window.localStorage.getItem(predSummarySettingsStorageKey);
+    const saved = raw && raw.length <= 8000 ? JSON.parse(raw) : null;
+    if (saved?.version !== 1 || !Array.isArray(saved.difficulties)
+      || saved.difficulties.length > 4 || saved.difficulties.some(value => !predSummaryDifficulties.includes(value))) return defaults;
+    defaults.difficulties = [...new Set(saved.difficulties)];
+    for (const name of predSummaryFeatureNames) {
+      for (const mode of ["include", "exclude"]) {
+        if (typeof saved.features?.[name]?.[mode] === "boolean") defaults.features[name][mode] = saved.features[name][mode];
+      }
+    }
+  } catch { /* Invalid or unavailable storage uses unrestricted filters. */ }
+  return defaults;
+}
+
+let predSummarySettings = predSummaryReadSettings();
+
+function predSummaryMatchesSettings(row) {
+  const difficulty = difficultyLabels[normalizeDifficulty(row.difficulty)];
+  if (!predSummarySettings.difficulties.includes(difficulty)) return false;
+  const features = new Set(getRowFeatures(row));
+  return predSummaryFeatureNames.every(name => (
+    predSummarySettings.features[name][features.has(name) ? "include" : "exclude"]
+  ));
+}
 let predSummarySortDirection = "asc";
 try {
   if (window.localStorage.getItem(predSummarySortStorageKey) === "desc") predSummarySortDirection = "desc";
@@ -65,7 +103,11 @@ function predSummaryRender() {
   if (!container || !message) return;
   const levels = new Set([...document.querySelectorAll('input[name="predSummaryLevel"]:checked')].map(input => Number(input.value)));
   const mode = document.querySelector('input[name="predSummaryLamp"]:checked')?.value ?? "normal";
-  const groups = predSummaryBuildGroups(state.rows, levels, mode, predSummarySortDirection);
+  const groups = predSummaryBuildGroups(state.rows.filter(predSummaryMatchesSettings), levels, mode, predSummarySortDirection);
+  const displayed = groups.reduce((total, group) => total + group.charts.length, 0);
+  const total = state.rows.filter(row => levels.has(getNumericValue(row.original_level))).length;
+  const count = document.getElementById("predSummaryCount");
+  if (count) count.textContent = displayed.toLocaleString() + "件表示 / " + total.toLocaleString() + "件中";
   const fragment = document.createDocumentFragment();
   groups.forEach(({ bin, charts }, index) => {
     const section = document.createElement("section");
@@ -105,7 +147,111 @@ function predSummaryRender() {
   message.textContent = levels.size ? "該当する譜面はありません。" : "Levelを選択してください。";
 }
 
+function predSummaryInitializeSettings() {
+  const opener = document.getElementById("predSummarySettingsButton");
+  if (!opener) return;
+  const dialog = document.createElement("dialog");
+  dialog.id = "predSummarySettings";
+  dialog.className = "pred-summary-settings";
+  dialog.setAttribute("aria-labelledby", "predSummarySettingsTitle");
+  dialog.innerHTML = '<div class="pred-summary-settings__header"><h2 id="predSummarySettingsTitle">難易度表の設定</h2>'
+    + '<button type="button" data-settings-close aria-label="設定を閉じる">×</button></div>'
+    + '<fieldset class="pred-summary-settings__features"><legend>Feature</legend><div id="predSummaryFeatureOptions"></div></fieldset>'
+    + '<fieldset class="pred-summary-settings__difficulty"><legend>難易度</legend><div id="predSummaryDifficultyOptions"></div></fieldset>'
+    + '<p id="predSummarySettingsMessage" role="status" hidden></p>'
+    + '<div class="pred-summary-settings__actions"><button type="button" data-settings-save>保存</button>'
+    + '<button type="button" data-settings-reset>デフォルトに戻す</button></div>';
+  document.body.append(dialog);
+  const difficultyContainer = dialog.querySelector("#predSummaryDifficultyOptions");
+  for (const code of predSummaryDifficulties) {
+    const label = document.createElement("label");
+    label.className = "multi-filter__option";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.dataset.predDifficulty = code;
+    label.append(input, document.createTextNode(code));
+    difficultyContainer.append(label);
+  }
+  const featureContainer = dialog.querySelector("#predSummaryFeatureOptions");
+  const allLabel = document.createElement("label");
+  allLabel.className = "multi-filter__option pred-summary-settings__all";
+  const allInput = document.createElement("input");
+  allInput.type = "checkbox";
+  allInput.dataset.predFeatureAll = "true";
+  allInput.setAttribute("aria-label", "Featureをすべて選択・解除");
+  allLabel.append(allInput, document.createTextNode("all"));
+  featureContainer.append(allLabel);
+  for (const name of predSummaryFeatureNames) {
+    const row = document.createElement("div");
+    row.className = "pred-summary-settings__feature-row multi-filter__option feature-filter__option";
+    const title = document.createElement("span");
+    title.className = "feature-filter__name";
+    title.textContent = name;
+    row.append(title);
+    for (const [mode, text] of [["include", "含む"], ["exclude", "含まない"]]) {
+      const label = document.createElement("label");
+      label.className = "feature-filter__mode";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.dataset.predFeature = name;
+      input.dataset.featureMode = mode;
+      input.setAttribute("aria-label", name + "を" + text);
+      label.append(input, document.createTextNode(text));
+      row.append(label);
+    }
+    featureContainer.append(row);
+  }
+  const featureInputs = [...dialog.querySelectorAll("input[data-pred-feature]")];
+  const syncAll = () => {
+    const selected = featureInputs.filter(input => input.checked).length;
+    allInput.checked = selected === featureInputs.length;
+    allInput.indeterminate = selected > 0 && selected < featureInputs.length;
+  };
+  allInput.addEventListener("change", () => {
+    featureInputs.forEach(input => { input.checked = allInput.checked; });
+    syncAll();
+  });
+  featureInputs.forEach(input => input.addEventListener("change", syncAll));
+  const fill = (settings) => {
+    dialog.querySelectorAll("input[data-pred-difficulty]").forEach(input => { input.checked = settings.difficulties.includes(input.dataset.predDifficulty); });
+    dialog.querySelectorAll("input[data-pred-feature]").forEach(input => { input.checked = settings.features[input.dataset.predFeature][input.dataset.featureMode]; });
+    syncAll();
+  };
+  opener.addEventListener("click", () => {
+    fill(predSummarySettings);
+    dialog.querySelector("#predSummarySettingsMessage").hidden = true;
+    dialog.showModal();
+    opener.setAttribute("aria-expanded", "true");
+  });
+  dialog.addEventListener("close", () => { opener.setAttribute("aria-expanded", "false"); });
+  dialog.querySelector("[data-settings-close]").addEventListener("click", () => dialog.close());
+  dialog.addEventListener("click", event => {
+    if (event.target !== dialog) return;
+    const rect = dialog.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
+  });
+  dialog.querySelector("[data-settings-reset]").addEventListener("click", () => fill(predSummaryDefaultSettings()));
+  dialog.querySelector("[data-settings-save]").addEventListener("click", () => {
+    const next = predSummaryDefaultSettings();
+    next.difficulties = [...dialog.querySelectorAll("input[data-pred-difficulty]:checked")].map(input => input.dataset.predDifficulty);
+    dialog.querySelectorAll("input[data-pred-feature]").forEach(input => { next.features[input.dataset.predFeature][input.dataset.featureMode] = input.checked; });
+    predSummarySettings = next;
+    try {
+      window.localStorage.setItem(predSummarySettingsStorageKey, JSON.stringify({ version: 1, ...next }));
+    } catch {
+      predSummaryRender();
+      const message = dialog.querySelector("#predSummarySettingsMessage");
+      message.textContent = "この画面には適用しましたが、ブラウザに設定を保存できませんでした。";
+      message.hidden = false;
+      return;
+    }
+    predSummaryRender();
+    dialog.close();
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+  predSummaryInitializeSettings();
   const levelInputs = [...document.querySelectorAll('input[name="predSummaryLevel"]')];
   const lampInputs = [...document.querySelectorAll('input[name="predSummaryLamp"]')];
   try {

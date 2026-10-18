@@ -30,9 +30,11 @@
   <link rel="stylesheet" href="styles.css?v=20260916-3">
   <link rel="stylesheet" href="home.css?v=20260904-18">
   <link rel="stylesheet" href="menu.css?v=20260904-2">
+  <link rel="stylesheet" href="pred-tabs.css?v=20261018-10">
   <script defer src="menu.js?v=20260925-1"></script>
   <script defer src="data.js?v=20261013-2"></script>
   <script defer src="app.js?v=20261018-1"></script>
+  <script defer src="pred-tabs.js?v=20261018-12"></script>
 </head>
 <body data-page="home">
   <main class="app">
@@ -117,6 +119,44 @@
     <section id="mainView" class="view view--main" aria-live="polite">
       <div class="panel">
         <h2 class="home-table-title">Pred難易度表</h2>
+        <div class="pred-tabs" role="tablist" aria-label="難易度表の表示切り替え">
+          <button id="predSummaryTab" class="pred-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="predSummaryPanel">難易度表</button>
+          <button id="predDetailTab" class="pred-tab" type="button" role="tab" aria-selected="false" aria-controls="predDetailPanel" tabindex="-1">詳細一覧</button>
+        </div>
+        <section id="predSummaryPanel" class="pred-tab-panel pred-tab-panel--summary" role="tabpanel" aria-labelledby="predSummaryTab">
+          <div class="pred-summary__filters">
+            <fieldset class="pred-summary__filter pred-summary__filter--level">
+              <legend>Level <span class="pred-summary__selection-hint">複数選択可</span></legend>
+              <div class="pred-summary__choices pred-summary__choices--level">
+                <label class="pred-summary__choice"><input type="checkbox" name="predSummaryLevel" value="8" checked>☆8</label>
+                <label class="pred-summary__choice"><input type="checkbox" name="predSummaryLevel" value="9">☆9</label>
+                <label class="pred-summary__choice"><input type="checkbox" name="predSummaryLevel" value="10">☆10</label>
+                <label class="pred-summary__choice"><input type="checkbox" name="predSummaryLevel" value="11">☆11</label>
+                <label class="pred-summary__choice"><input type="checkbox" name="predSummaryLevel" value="12">☆12</label>
+              </div>
+            </fieldset>
+            <fieldset class="pred-summary__filter pred-summary__filter--lamp">
+              <legend>クリアランプ <span class="pred-summary__selection-hint">1つ選択</span></legend>
+              <div class="pred-summary__choices pred-summary__choices--lamp">
+                <label class="pred-summary__choice"><input type="radio" name="predSummaryLamp" value="easy">イージー</label>
+                <label class="pred-summary__choice"><input type="radio" name="predSummaryLamp" value="normal" checked>ノマゲ</label>
+                <label class="pred-summary__choice"><input type="radio" name="predSummaryLamp" value="hard">ハード</label>
+              </div>
+            </fieldset>
+          </div>
+          <div class="pred-summary__order">
+            <div class="pred-summary__status">
+              <button id="predSummarySettingsButton" class="pred-summary__settings-button" type="button" aria-label="難易度表の設定" aria-haspopup="dialog" aria-controls="predSummarySettings" aria-expanded="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.4 3-.5 2-1.5.9-2-.6-2.6 4.4 1.5 1.4v1.8l-1.5 1.4 2.6 4.4 2-.6 1.5.9.5 2h5.2l.5-2 1.5-.9 2 .6 2.6-4.4-1.5-1.4v-1.8l1.5-1.4-2.6-4.4-2 .6-1.5-.9-.5-2Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+              <span id="predSummaryCount" class="pred-summary__count" role="status"></span>
+            </div>
+            <button id="predSummarySort" class="pred-summary__sort" type="button" aria-pressed="false" aria-label="Predの並び順を降順に切り替える">Pred 昇順↑</button>
+          </div>
+          <p id="predSummaryEmpty" class="pred-summary__empty" role="status" hidden></p>
+          <div id="predSummaryGroups" class="pred-summary__groups" aria-live="polite"></div>
+        </section>
+        <section id="predDetailPanel" class="pred-tab-panel" role="tabpanel" aria-labelledby="predDetailTab" hidden>
         <details class="filter-group">
           <summary>絞り込み</summary>
           <div class="filter-group__body">
@@ -204,6 +244,7 @@
         <div class="pagination">
           <button id="loadMoreButton" class="load-more" type="button" hidden>さらに表示</button>
         </div>
+        </section>
       </div>
     </section>
   </main>

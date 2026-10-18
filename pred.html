@@ -29,11 +29,11 @@
   <script defer src="analytics.js?v=20261013-1"></script>
   <link rel="stylesheet" href="styles.css?v=20260916-3">
   <link rel="stylesheet" href="menu.css?v=20260904-2">
-  <link rel="stylesheet" href="pred-tabs.css?v=20261018-7">
+  <link rel="stylesheet" href="pred-tabs.css?v=20261018-10">
   <script defer src="menu.js?v=20260925-1"></script>
   <script defer src="data.js?v=20261013-2"></script>
   <script defer src="app.js?v=20261018-1"></script>
-  <script defer src="pred-tabs.js?v=20261018-8"></script>
+  <script defer src="pred-tabs.js?v=20261018-12"></script>
 </head>
 <body data-page="main">
   <main class="app">
@@ -91,6 +91,12 @@
             </fieldset>
           </div>
           <div class="pred-summary__order">
+            <div class="pred-summary__status">
+              <button id="predSummarySettingsButton" class="pred-summary__settings-button" type="button" aria-label="難易度表の設定" aria-haspopup="dialog" aria-controls="predSummarySettings" aria-expanded="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.4 3-.5 2-1.5.9-2-.6-2.6 4.4 1.5 1.4v1.8l-1.5 1.4 2.6 4.4 2-.6 1.5.9.5 2h5.2l.5-2 1.5-.9 2 .6 2.6-4.4-1.5-1.4v-1.8l1.5-1.4-2.6-4.4-2 .6-1.5-.9-.5-2Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+              <span id="predSummaryCount" class="pred-summary__count" role="status"></span>
+            </div>
             <button id="predSummarySort" class="pred-summary__sort" type="button" aria-pressed="false" aria-label="Predの並び順を降順に切り替える">Pred 昇順↑</button>
           </div>
           <p id="predSummaryEmpty" class="pred-summary__empty" role="status" hidden></p>

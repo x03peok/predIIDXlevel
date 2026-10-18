@@ -24,7 +24,7 @@ const root = path.resolve(__dirname, "..");
     const page = await context.newPage();
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
-    await page.goto(base + "/pred.html");
+    await page.goto(base + "/" + (process.env.PRED_TEST_PAGE || "pred.html"));
     await page.waitForSelector("#tableBody tr", { state: "attached" });
     await page.locator("#predSummaryTab").click();
     assert.deepEqual(await page.locator('input[name="predSummaryLevel"]:checked').evaluateAll(inputs => inputs.map(input => input.value)), ["8"]);
@@ -138,6 +138,65 @@ const root = path.resolve(__dirname, "..");
     await page.reload();
     assert.deepEqual(await page.locator('input[name="predSummaryLevel"]:checked').evaluateAll(inputs => inputs.map(input => input.value)), ["8"]);
     assert.equal(await page.locator('input[name="predSummaryLamp"]:checked').inputValue(), "normal");
+    await page.locator("#predSummarySettingsButton").click();
+    assert.equal(await page.locator("#predSummarySettings").isVisible(), true);
+    assert.equal(await page.locator("#predSummarySettings input[data-pred-difficulty]").count(), 4);
+    assert.equal(await page.locator("#predSummarySettings input[data-pred-feature]").count(), 20);
+    const featureAll = page.locator('input[data-pred-feature-all]');
+    assert.equal(await featureAll.isChecked(), true);
+    await featureAll.uncheck();
+    assert.equal(await page.locator('input[data-pred-feature]:checked').count(), 0);
+    await featureAll.check();
+    assert.equal(await page.locator('input[data-pred-feature]:checked').count(), 20);
+    for (const code of ["N", "H", "L"]) await page.locator('input[data-pred-difficulty="' + code + '"]').uncheck();
+    await page.locator('input[data-pred-feature="BPM\u5909\u5316"][data-feature-mode="include"]').uncheck();
+    assert.equal(await featureAll.evaluate(input => input.indeterminate), true);
+    await page.locator("#predSummarySettings [data-settings-save]").click();
+    const verifySettings = async () => {
+      const result = await page.evaluate(() => {
+        const expected = state.rows.filter(row => Number(row.original_level) === 8
+          && normalizeDifficulty(row.difficulty) === "ANOTHER"
+          && !getRowFeatures(row).includes("BPM\u5909\u5316"));
+        return {
+          actual: [...document.querySelectorAll("#predSummaryGroups a")].map(link => link.dataset.chartId).sort(),
+          expected: expected.map(row => String(row.chart_id)).sort(),
+          count: document.getElementById("predSummaryCount").textContent,
+          expectedCount: expected.length.toLocaleString() + "\u4ef6\u8868\u793a / "
+            + state.rows.filter(row => Number(row.original_level) === 8).length.toLocaleString() + "\u4ef6\u4e2d",
+        };
+      });
+      assert.deepEqual(result.actual, result.expected);
+      assert.equal(result.count, result.expectedCount);
+    };
+    await verifySettings();
+    await page.reload();
+    await page.waitForSelector("#predSummarySettingsButton");
+    await verifySettings();
+    await page.locator("#predSummarySettingsButton").click();
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 844 });
+      assert.equal(await page.locator("#predSummarySettings").evaluate(dialog => {
+        const rect = dialog.getBoundingClientRect();
+        return rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0
+          && rect.bottom <= innerHeight && dialog.scrollWidth <= dialog.clientWidth;
+      }), true);
+    }
+    await page.locator("#predSummarySettings [data-settings-reset]").click();
+    await page.keyboard.press("Escape");
+    await verifySettings();
+    await page.locator("#predSummarySettingsButton").click();
+    await page.locator("#predSummarySettings [data-settings-reset]").click();
+    await page.locator("#predSummarySettings [data-settings-save]").click();
+    await verifyGroups([8], "normal");
+    await page.locator("#predSummarySettingsButton").click();
+    for (const code of ["N", "H", "A", "L"]) await page.locator('input[data-pred-difficulty="' + code + '"]').uncheck();
+    await page.locator("#predSummarySettings [data-settings-save]").click();
+    assert.equal(await page.locator("#predSummaryGroups a").count(), 0);
+    assert.equal(await page.locator("#predSummaryEmpty").isVisible(), true);
+    await page.locator("#predSummarySettingsButton").click();
+    await page.locator("#predSummarySettings [data-settings-reset]").click();
+    await page.locator("#predSummarySettings [data-settings-save]").click();
+    await verifyGroups([8], "normal");
     assert.deepEqual(errors, []);
     console.log("PASS: default level/lamp, multi-level selection, single lamp, truncation boundaries, title ordering, missing Pred, responsive layout and independent detail filters.");
   } finally {
