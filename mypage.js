@@ -566,6 +566,11 @@ function mypageCompareNumericValues(leftValue, rightValue) {
   return 0;
 }
 
+function mypageGetCurrentPredValue(row) {
+  const mode = mypageGetCurrentPredMode(mypageGetStatus(row));
+  return mode ? mypageGetNumericValue(row[mypagePredModes[mode].key]) : null;
+}
+
 function mypageCompareValues(left, right, key) {
   if (key === "status") {
     const leftIndex = mypageStatuses.findIndex(({ value }) => value === mypageGetStatus(left));
@@ -573,11 +578,7 @@ function mypageCompareValues(left, right, key) {
     return leftIndex - rightIndex;
   }
   if (key === "current_pred") {
-    const leftMode = mypageGetCurrentPredMode(mypageGetStatus(left));
-    const rightMode = mypageGetCurrentPredMode(mypageGetStatus(right));
-    const leftValue = leftMode ? left[mypagePredModes[leftMode].key] : null;
-    const rightValue = rightMode ? right[mypagePredModes[rightMode].key] : null;
-    return mypageCompareNumericValues(leftValue, rightValue);
+    return mypageCompareNumericValues(mypageGetCurrentPredValue(left), mypageGetCurrentPredValue(right));
   }
   if (key === "bpm") {
     const bpmKey = mypageState.sortDir === "desc" ? "bpm_max" : "bpm_min";
@@ -668,6 +669,14 @@ function mypageGetVisibleRows() {
   }
 
   return rows.slice().sort((left, right) => {
+    if (mypageState.sortKey === "current_pred") {
+      const leftMissing = mypageGetCurrentPredValue(left) === null;
+      const rightMissing = mypageGetCurrentPredValue(right) === null;
+      if (leftMissing || rightMissing) {
+        return leftMissing === rightMissing
+          ? (left.__order ?? 0) - (right.__order ?? 0) : leftMissing ? 1 : -1;
+      }
+    }
     const result = mypageCompareValues(left, right, mypageState.sortKey);
     if (result !== 0) {
       return mypageState.sortDir === "asc" ? result : -result;

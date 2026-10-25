@@ -83,7 +83,10 @@ const root = path.resolve(__dirname, "..");
     assert.deepEqual(await page.locator(".pred-summary__group").evaluateAll(groups => groups.map(group => ({
       heading: group.querySelector("h2").textContent,
       ids: [...group.querySelectorAll("a")].map(link => link.dataset.chartId),
-    }))), beforeSort.slice().reverse());
+    }))), [
+      ...beforeSort.filter(group => group.heading !== "\u672a\u7b97\u51fa").reverse(),
+      ...beforeSort.filter(group => group.heading === "\u672a\u7b97\u51fa"),
+    ]);
     await page.locator("#predSummarySort").click();
     await verifyGroups([8, 10], "normal");
     assert.deepEqual(await page.evaluate(() => {

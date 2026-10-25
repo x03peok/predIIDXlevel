@@ -221,6 +221,14 @@ function createPage(template, row) {
   return page;
 }
 
+function updateChartSitemap(rows) {
+  const sitemapPath = path.join(rootDir, "sitemap.xml");
+  const existing = fs.readFileSync(sitemapPath, "utf8");
+  const withoutCharts = existing.replace(/^[ \t]*<url><loc>https:\/\/cpi-next\.com\/chart-pages\/\d+\.html<\/loc><\/url>\r?\n/gm, "");
+  const entries = rows.map(row => `  <url><loc>${publicBaseUrl}chart-pages/${row.chart_id}.html</loc></url>`).join("\n");
+  fs.writeFileSync(sitemapPath, withoutCharts.replace("</urlset>", `${entries}\n</urlset>`), "utf8");
+}
+
 module.exports = { loadRows, normalizeTitle };
 
 if (require.main === module) {
@@ -234,5 +242,6 @@ if (require.main === module) {
     const chartId = String(row.chart_id).trim();
     fs.writeFileSync(path.join(outputDir, `${chartId}.html`), createPage(template, row), "utf8");
   }
+  if (!selectedIds) updateChartSitemap(rows);
   console.log(`Generated ${rows.length} chart pages in ${path.relative(rootDir, outputDir)}.`);
 }

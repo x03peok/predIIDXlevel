@@ -285,7 +285,9 @@ function diagnosisIsFeatureless(row) {
 }
 
 function diagnosisPredNumber(row) {
-  const value = Number(row.calibrated_pred_skill);
+  const raw = String(row.calibrated_pred_skill ?? "").trim();
+  if (!raw) return null;
+  const value = Number(raw);
   return Number.isFinite(value) ? value : null;
 }
 

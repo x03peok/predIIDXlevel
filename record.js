@@ -38,8 +38,7 @@ const recordStatuses = [
 const recordStatusValues = new Set(recordStatuses.map(({ value }) => value));
 const recordImportDifficulties = ["NORMAL", "HYPER", "ANOTHER", "LEGGENDARIA"];
 const recordImportMinimumLevel = 8;
-const recordImportIndex = window.__RECORD_IMPORT_INDEX__ ?? null;
-const recordImportCollisionTitles = new Set(recordImportIndex?.collisionTitles ?? []);
+let recordImportIndex = null;
 
 const recordState = {
   rows: [],
@@ -123,13 +122,57 @@ function recordNormalizeImportText(value) {
     .replace(/\s+/g, "")
     .toUpperCase();
 }
+function recordBuildImportIndex(rows, aliases = window.__RECORD_IMPORT_INDEX__) {
+  const separator = String.fromCharCode(0);
+  const byId = new Map(rows.map(row => [String(row.chartId), row]));
+  const entries = new Map();
+  const titleDifficulties = new Map();
+  function add(title, version, difficulty, chartId) {
+    const row = byId.get(String(chartId));
+    if (!row || row.difficulty !== difficulty || !title) return;
+    const key = [title, version, difficulty].join(separator);
+    if (!entries.has(key)) entries.set(key, new Set());
+    entries.get(key).add(String(chartId));
+    const plainKey = [title, difficulty].join(separator);
+    if (!titleDifficulties.has(plainKey)) titleDifficulties.set(plainKey, new Set());
+    titleDifficulties.get(plainKey).add(String(chartId));
+  }
+  for (const row of rows) {
+    const version = recordNormalizeImportText(row.officialVersion);
+    for (const title of new Set([row.officialTitle, row.title])) {
+      add(recordNormalizeImportText(title), version, row.difficulty, row.chartId);
+    }
+  }
+  // Keep legacy aliases, but never let them register charts removed from the dataset.
+  for (const [key, values] of Object.entries(aliases?.plain ?? {})) {
+    const [title, difficulty] = key.split(separator);
+    for (const id of Array.isArray(values) ? values : [values]) {
+      add(title, recordNormalizeImportText(byId.get(String(id))?.officialVersion), difficulty, id);
+    }
+  }
+  for (const [key, values] of Object.entries(aliases?.versioned ?? {})) {
+    const [title, version, difficulty] = key.split(separator);
+    for (const id of Array.isArray(values) ? values : [values]) add(title, version, difficulty, id);
+  }
+  const collisionTitles = new Set([...titleDifficulties]
+    .filter(([, ids]) => ids.size > 1).map(([key]) => key.split(separator)[0]));
+  const plain = Object.create(null);
+  const versioned = Object.create(null);
+  for (const [key, ids] of entries) {
+    const [title, , difficulty] = key.split(separator);
+    if (collisionTitles.has(title)) versioned[key] = [...ids];
+    else plain[[title, difficulty].join(separator)] = [...ids];
+  }
+  return { collisionTitles, plain, versioned };
+}
+
 function recordGetImportChartIds(title, version, difficulty) {
   if (!recordImportIndex) return [];
   const titleKey = recordNormalizeImportText(title);
   const difficultyKey = String(difficulty ?? "").trim().toUpperCase();
   const versionKey = recordNormalizeImportText(version);
   const separator = String.fromCharCode(0);
-  const isCollision = recordImportCollisionTitles.has(titleKey);
+  const isCollision = recordImportIndex.collisionTitles.has(titleKey);
   const key = isCollision ? [titleKey, versionKey, difficultyKey].join(separator) : [titleKey, difficultyKey].join(separator);
   const source = isCollision ? recordImportIndex.versioned : recordImportIndex.plain;
   const values = source?.[key];
@@ -518,6 +561,8 @@ function recordLoadRows() {
     return {
       chartId: get("chart_id"),
       title: recordNormalizeTitle(get("title")),
+      officialTitle: recordNormalizeTitle(get("official_title") || get("title")),
+      officialVersion: get("official_version"),
       difficulty: get("difficulty").toUpperCase(),
       level: get("original_level"),
     };
@@ -937,6 +982,7 @@ async function recordInitialize() {
 
   try {
     recordState.rows = recordLoadRows();
+    recordImportIndex = recordBuildImportIndex(recordState.rows);
     recordState.rowsByChartId = new Map(recordState.rows.map((row) => [String(row.chartId), row]));
     recordPopulateFilters();
     recordBindEvents();

@@ -726,13 +726,17 @@ function targetCompareNumeric(left, right) {
 
 function targetCompareRows(left, right) {
   let comparison = 0;
-  if (targetState.sortKey === "adjusted_pred") {
+  if (["adjusted_pred", "calibrated_pred_skill"].includes(targetState.sortKey)) {
     const leftMode = targetGetPredModeForGoal(targetGetGoal(left));
     const rightMode = targetGetPredModeForGoal(targetGetGoal(right));
-    comparison = targetCompareNumeric(
-      targetGetAdjustedPred(left, leftMode),
-      targetGetAdjustedPred(right, rightMode),
-    );
+    const getPred = targetState.sortKey === "adjusted_pred" ? targetGetAdjustedPred : targetGetPredValue;
+    const leftPred = targetGetNumericValue(getPred(left, leftMode));
+    const rightPred = targetGetNumericValue(getPred(right, rightMode));
+    if (leftPred === null || rightPred === null) {
+      return leftPred === rightPred
+        ? (left.__order ?? 0) - (right.__order ?? 0) : leftPred === null ? 1 : -1;
+    }
+    comparison = targetCompareNumeric(leftPred, rightPred);
   } else if (targetState.sortKey === "bpm") {
     const key = targetState.sortDirection === "desc" ? "bpm_max" : "bpm_min";
     comparison = targetCompareNumeric(left[key], right[key]);
@@ -740,13 +744,6 @@ function targetCompareRows(left, right) {
     const leftIndex = targetStatuses.findIndex(({ value }) => value === targetGetStatus(left));
     const rightIndex = targetStatuses.findIndex(({ value }) => value === targetGetStatus(right));
     comparison = leftIndex - rightIndex;
-  } else if (targetState.sortKey === "calibrated_pred_skill") {
-    const leftMode = targetGetPredModeForGoal(targetGetGoal(left));
-    const rightMode = targetGetPredModeForGoal(targetGetGoal(right));
-    comparison = targetCompareNumeric(
-      targetGetPredValue(left, leftMode),
-      targetGetPredValue(right, rightMode),
-    );
   } else if (targetState.sortKey === "original_level") {
     comparison = targetCompareNumeric(left[targetState.sortKey], right[targetState.sortKey]);
   } else {

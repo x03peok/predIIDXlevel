@@ -891,6 +891,14 @@ function getVisibleRows() {
 
   if (state.sortKey) {
     rows = rows.slice().sort((a, b) => {
+      if (["easy_pred_skill", "calibrated_pred_skill", "hard_pred_skill"].includes(state.sortKey)) {
+        const leftMissing = getNumericValue(a[state.sortKey]) === null;
+        const rightMissing = getNumericValue(b[state.sortKey]) === null;
+        // Missing predictions stay last independently of the numeric direction.
+        if (leftMissing || rightMissing) {
+          return leftMissing === rightMissing ? a.__order - b.__order : leftMissing ? 1 : -1;
+        }
+      }
       const result = compareValues(a, b, state.sortKey);
       if (result !== 0) {
         return state.sortDir === "asc" ? result : -result;

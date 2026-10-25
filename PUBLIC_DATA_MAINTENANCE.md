@@ -8,6 +8,21 @@ open-data license to the generated data.
 
 ## Generation
 
+For source folders containing `data.csv` and `stage_skills.csv`, run
+`node import_dataset.js <source-directory>` first. This maps the source Pred
+and Feature columns, parses only the explicit BPM field, preserves blank Pred
+values, and replaces course stages for the supplied versions while retaining
+other versions. Both CSV files are validated before either bundle is written.
+Then bump the data bundle cache keys in the HTML templates and run the chart
+page generator below. A full generation also updates the chart sitemap entries.
+
+The official CSV import index is built on every record-page initialization from
+the current bundle's `official_title`, `official_version`, and difficulty. Keep
+these fields populated during updates. `record-import-index.js` supplements only
+legacy aliases; new charts do not require a separate manual index update. Aliases
+for IDs absent from the current dataset are ignored, and same-name charts remain
+version-specific when the title and difficulty are ambiguous.
+
 Run `node generate_public_data.js` after changing `data.js`, or use
 `node generate_chart_pages.js`, which also generates the JSON. Generation
 validates all rows before writing output. All published Pred values are raw
