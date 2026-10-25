@@ -99,6 +99,10 @@ const csv = bundle.window.__CSV_BUNDLE__.trimEnd() + "\n"
       assert.equal(await page.locator('[data-chart-pred-position-mode]:visible').count(), 3);
       assert.equal(await page.locator('.chart-pred-histogram:visible').count(), known);
       assert(!(await page.locator('.chart-pred-position__mode-value').allTextContents()).includes("0.00"));
+      const shareText = await page.locator('#chartShareButton').evaluate(link => new URL(link.href).searchParams.get('text'));
+      for (const label of ["イージーPred", "ノマゲPred", "ハードPred"]) assert(shareText.includes(label + ": "));
+      assert(!shareText.includes("undefined") && !shareText.includes("NaN"));
+      assert(shareText.includes("ノマゲPred: —"));
     }
     assert.deepEqual(errors, []);
     console.log("PASS: missing/partial Pred metadata, filtering, lamp writes, daily manual selection, calculation exclusion and chart placeholders.");

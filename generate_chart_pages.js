@@ -176,12 +176,16 @@ function createPage(template, row) {
   const title = normalizeTitle(row.title);
   const level = `\u2606${row.original_level}`;
   const difficulty = difficultyLabels[String(row.difficulty).trim().toUpperCase()] ?? "";
-  const pred = formatPred(row.calibrated_pred_skill);
+  const predDescription = [
+    `イージーPred ${formatPred(row.easy_pred_skill)}`,
+    `ノマゲPred ${formatPred(row.calibrated_pred_skill)}`,
+    `ハードPred ${formatPred(row.hard_pred_skill)}`,
+  ].join(" / ");
   const bpm = formatBpm(row);
   const feature = String(row.features ?? "").trim() || "\u7279\u5fb4\u306a\u3057";
   const displayTitle = `${level} ${title}${difficulty ? ` [${difficulty}]` : ""}`;
   const pageTitle = `${displayTitle}｜${siteTitle}`;
-  const description = `${displayTitle}。ノマゲPred ${pred} / BPM ${bpm} / Feature ${feature}`;
+  const description = `${displayTitle}。${predDescription} / BPM ${bpm} / Feature ${feature}`;
   const canonicalUrl = `${publicBaseUrl}chart-pages/${encodeURIComponent(chartId)}.html`;
   const metadata = [
     `  <link rel="canonical" href="${escapeHtml(canonicalUrl)}">`,

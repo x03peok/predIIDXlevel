@@ -812,7 +812,6 @@ function renderChart() {
     chartState.predRow = row;
     chartState.predNumericScales = numericScales;
     const predPositions = renderChartPredHistogramsForCurrentWidth();
-    const predPosition = predPositions.normal;
 
     document.getElementById("chartFeatures").innerHTML = renderChartFeatureChips(row, true);
     chartInitializeOptionMemos();
@@ -823,8 +822,12 @@ function renderChart() {
     const shareButton = document.getElementById("chartShareButton");
     if (shareButton) {
       const shareDifficultyLabel = chartDifficultyLabels[difficulty] ?? difficulty;
-      const sharePred = formatChartPred(row.calibrated_pred_skill);
-      const sharePercentile = formatChartPredPercentile(predPosition, row).replace("（", "(").replace("）", ")");
+      const sharePredLines = Object.entries(chartPredModes).map(([mode, definition]) => {
+        const pred = formatChartPred(getChartPredValue(row, mode));
+        const percentile = formatChartPredPercentile(predPositions?.[mode], row)
+          .replace("（", "(").replace("）", ")");
+        return definition.label + ": " + pred + (percentile ? " " + percentile : "");
+      });
       const shareFeatureValues = String(row.features ?? "")
         .split("、")
         .map((feature) => feature.trim())
@@ -832,13 +835,12 @@ function renderChart() {
         .join("、");
       const shareFeatures = !shareFeatureValues || shareFeatureValues === "特徴なし" ? "―" : shareFeatureValues;
       const shareUrl = new URL(getPublicChartUrl(chartId), window.location.href);
-      shareUrl.searchParams.set("utm_source", "x");
-      shareUrl.searchParams.set("utm_medium", "share");
-      shareUrl.searchParams.set("utm_campaign", "chart_detail");
+      shareUrl.search = "";
+      shareUrl.hash = "";
       const shareText = [
         "☆" + (row.original_level ?? "") + " " + window.cpiShareText.formatTitle(row.title) + (shareDifficultyLabel ? " [" + shareDifficultyLabel + "]" : ""),
         "",
-        "ノマゲPred: " + sharePred + " " + sharePercentile,
+        ...sharePredLines,
         "",
         "Feature: " + shareFeatures,
         "",
