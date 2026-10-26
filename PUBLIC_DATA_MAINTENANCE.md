@@ -8,6 +8,43 @@ open-data license to the generated data.
 
 ## Generation
 
+### Feature data (continuous SD model)
+
+Keep `chart_elements_*.csv` private and out of the publication checkout. These
+source files are ignored by Git. Only generated display tags and clipped
+correction vectors are published, never the source CSV, raw values, percentiles,
+or unclipped SD values.
+
+To update Feature data against the current chart bundle, run:
+
+```sh
+node generate_feature_data.js <private-chart-elements-csv>
+node generate_chart_pages.js
+```
+
+`generate_feature_data.js` joins by chart ID, retaining current titles and
+official CSV metadata. Display tags use the mean of all three gauges' amount
+and available impact SD values, clipped AFTER averaging to [-4, 4] (method A).
+Thresholds 1 / 2 / 3 produce plain / + / ++ tags. Prediction vectors use each
+gauge's impact SD, falling back to amount when impact is absent, clipped
+individually to [-4, 4]. Missing metrics stay null in the generated bundle;
+they do not become artificial observed zeros or tags.
+
+`feature-data.js` contains only clipped vectors, with explicit feature/gauge
+ordering and a matching dataset ID in `data.js`. My Page and My Target load it;
+external `data/v1` JSON retains tags only. Correction values are not displayed
+but ARE publicly retrievable browser assets. Shared coefficients are fitted
+against signed, gauge-specific vectors, then the SAME vectors are used for
+prediction. Existing recommendation/daily selections are preserved.
+
+For a complete dataset import, supply the metrics CSV in the source directory,
+or run `node import_dataset.js <source-directory> <private-chart-elements-csv>`.
+Once continuous data exists, importing without it is rejected before writes,
+so an update cannot silently restore old display tags or stale corrections.
+Bump BOTH data.js and feature-data.js cache keys after generation, including
+chart.html before regenerating chart pages. Do not copy the private CSV to the
+publication checkout.
+
 For source folders containing `data.csv` and `stage_skills.csv`, run
 `node import_dataset.js <source-directory>` first. This maps the source Pred
 and Feature columns, parses only the explicit BPM field, preserves blank Pred

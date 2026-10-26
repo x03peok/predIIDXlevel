@@ -9,6 +9,17 @@ window.cpiPrediction = Object.freeze({
   modelForMode(modelsByMode, overallModel, mode = "normal") {
     return modelsByMode?.[mode] ?? overallModel ?? null;
   },
+  featureVector(row, mode = "normal", featureNames = []) {
+    const data = window.__FEATURE_DATA__;
+    if (window.__FEATURE_DATA_ID__ && (data?.version !== 1 || data.id !== window.__FEATURE_DATA_ID__)) {
+      throw new Error("補正用Featureデータを読み込めませんでした。ページを再読み込みしてください。");
+    }
+    const vector = data?.charts?.[String(row?.chart_id)]?.[data.modes.indexOf(mode)];
+    return featureNames.map(name => {
+      const value = vector?.[data.features.indexOf(name)];
+      return Number.isFinite(value) ? Math.max(-4, Math.min(4, value)) : 0;
+    });
+  },
   adjustPred(rawPred, vector, deltas) {
     if (!Number.isFinite(rawPred)) return null;
     const adjusted = rawPred + vector.reduce((sum, strength, index) => sum + strength * (deltas?.[index] ?? 0), 0);
@@ -278,9 +289,9 @@ function targetFitFeatureDeltas(observations, model) {
     .map((observation) => ({
       pred: observation.pred,
       outcome: observation.outcome,
-      vector: targetGetFeatureVector(observation.row),
+      vector: targetGetFeatureVector(observation.row, observation.mode),
     }))
-    .filter((sample) => sample.vector.some((value) => value > 0));
+    .filter((sample) => sample.vector.some((value) => value !== 0));
   if (samples.length === 0) {
     return deltas;
   }
@@ -346,7 +357,7 @@ function targetFitFeatureDeltas(observations, model) {
     const model = targetFitBaseModel(observations, "overall");
     const modelsByMode = Object.fromEntries(Object.keys(targetPredModes).map(mode => [mode, targetFitBaseModel(observationsByMode[mode], mode)]));
     const deltas = targetFitFeatureDeltas(observations, model);
-    const adjustedPredById = new Map(rows.map(row => [String(row.chart_id), window.cpiPrediction.adjustPred(targetGetNumericValue(row[targetPredModes.normal.key]), targetGetFeatureVector(row), deltas)]));
+    const adjustedPredById = new Map(rows.map(row => [String(row.chart_id), window.cpiPrediction.adjustPred(targetGetNumericValue(row[targetPredModes.normal.key]), targetGetFeatureVector(row, "normal"), deltas)]));
     lastKey = key;
     lastResult = { model, modelsByMode, deltas, adjustedPredById, observationsByMode, boundsByMode };
     return lastResult;

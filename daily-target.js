@@ -745,7 +745,7 @@ function dailyRenderLockedRow(entry, row) {
 function dailyGetAdjustedPred(row, mode = "normal") {
   const sharedRow = targetState.rowsByChartId.get(String(row.chartId));
   const raw = dailyGetPredValue(row, mode);
-  const vector = sharedRow ? targetGetFeatureVector(sharedRow) : [];
+  const vector = sharedRow ? targetGetFeatureVector(sharedRow, mode) : [];
   return window.cpiPrediction.adjustPred(raw, vector, dailyState.deltas);
 }
 

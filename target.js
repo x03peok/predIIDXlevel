@@ -396,16 +396,6 @@ function targetGetFeatureOptions() {
   ];
 }
 
-function targetFeatureStrength(plusCount) {
-  if (plusCount >= 2) {
-    return 2;
-  }
-  if (plusCount === 1) {
-    return 1.5;
-  }
-  return 1;
-}
-
 function targetGetDifficultyOptions() {
   const available = new Set(targetState.rows.map((row) => row.difficulty));
   return targetDifficultyOrder.filter((difficulty) => available.has(difficulty));
@@ -1797,15 +1787,8 @@ function targetShuffleRows(rows) {
 
 
 
-function targetGetFeatureVector(row) {
-  const vector = new Array(targetFeatureNames.length).fill(0);
-  targetGetFeatureDetails(row).forEach((feature) => {
-    const index = targetFeatureNames.indexOf(feature.name);
-    if (index >= 0) {
-      vector[index] += targetFeatureStrength(feature.plusCount);
-    }
-  });
-  return vector;
+function targetGetFeatureVector(row, mode = "normal") {
+  return window.cpiPrediction.featureVector(row, mode, targetFeatureNames);
 }
 
 
@@ -1813,7 +1796,7 @@ function targetGetFeatureVector(row) {
 
 
 function targetGetAdjustedPred(row, mode = "normal") {
-  return window.cpiPrediction.adjustPred(targetGetPredValue(row, mode), targetGetFeatureVector(row), targetState.deltas);
+  return window.cpiPrediction.adjustPred(targetGetPredValue(row, mode), targetGetFeatureVector(row, mode), targetState.deltas);
 }
 
 

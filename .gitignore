@@ -1,0 +1,2 @@
+# Private source metrics; publish only generated tags and clipped vectors.
+chart_elements_*.csv

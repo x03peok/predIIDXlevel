@@ -92,20 +92,30 @@ function serializeCsv(rows) {
   return [headers.join(","), ...rows.map(row => headers.map(key => escape(row[key])).join(","))].join("\r\n") + "\r\n";
 }
 
-function importDataset(directory, root = __dirname) {
-  const charts = normalizeRows(readCsv(fs.readFileSync(path.join(directory, "data.csv"), "utf8")));
+function importDataset(directory, root = __dirname, elementsPath = path.join(directory, "chart_elements_48.csv")) {
+  let charts = normalizeRows(readCsv(fs.readFileSync(path.join(directory, "data.csv"), "utf8")));
   const courses = readCsv(fs.readFileSync(path.join(directory, "stage_skills.csv"), "utf8"));
   const context = { window: {} };
   vm.runInNewContext(fs.readFileSync(path.join(root, "danilabo-data.js"), "utf8"), context, { timeout: 5000 });
   const stages = buildStageRows(courses, charts, context.window.__DANILABO_ROWS__);
+  let bundles = null;
+  if (fs.existsSync(elementsPath)) {
+    const { buildFeatureDataset, serializeFeatureBundles } = require("./generate_feature_data.js");
+    const result = buildFeatureDataset(charts, readCsv(fs.readFileSync(elementsPath, "utf8")));
+    charts = result.charts;
+    bundles = serializeFeatureBundles(result);
+  } else if (fs.existsSync(path.join(root, "feature-data.js"))) {
+    throw new Error("Continuous Feature data requires chart_elements_48.csv (or an explicit metrics CSV argument). No files were changed.");
+  }
   // Validate both sources before replacing either runtime bundle.
-  fs.writeFileSync(path.join(root, "data.js"), `window.__CSV_BUNDLE__ = ${JSON.stringify(serializeCsv(charts))};\n`);
+  fs.writeFileSync(path.join(root, "data.js"), bundles?.charts ?? `window.__CSV_BUNDLE__ = ${JSON.stringify(serializeCsv(charts))};\n`);
+  if (bundles) fs.writeFileSync(path.join(root, "feature-data.js"), bundles.corrections);
   fs.writeFileSync(path.join(root, "danilabo-data.js"), `window.__DANILABO_ROWS__ = ${JSON.stringify(stages)};\n`);
   console.log(`Imported ${charts.length} charts and ${courses.length} courses (${stages.length} stages including retained versions).`);
 }
 
 module.exports = { readCsv, normalizeRows, buildStageRows, serializeCsv, importDataset };
 if (require.main === module) {
-  if (!process.argv[2]) throw new Error("Usage: node import_dataset.js <source-directory>");
-  importDataset(path.resolve(process.argv[2]));
+  if (!process.argv[2]) throw new Error("Usage: node import_dataset.js <source-directory> [private-chart-elements-csv]");
+  importDataset(path.resolve(process.argv[2]), __dirname, process.argv[3] ? path.resolve(process.argv[3]) : undefined);
 }

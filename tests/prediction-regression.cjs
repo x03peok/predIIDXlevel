@@ -39,6 +39,9 @@ function createContext() {
     window: { addEventListener() {}, localStorage: { getItem() { return null; } } },
     document: { addEventListener() {}, createElement() { return {}; } },
   });
+  context.window.__FEATURE_DATA__ = { version: 1, features, modes: ["easy", "normal", "hard"],
+    charts: Object.fromEntries(rows.map((row, index) => [row.chart_id, [0, 1, 2].map(mode =>
+      features.map((_, feature) => Math.max(-4, Math.min(4, (((index + 3) * (feature + 5) + mode * 11) % 71 - 35) / 9))))])) };
   for (const file of ["target-analysis.js", "target.js", "daily-target.js", "mypage.js"]) {
     vm.runInContext(fs.readFileSync(path.join(root, file), "utf8"), context, { filename: file });
   }
@@ -110,7 +113,12 @@ if (process.argv.includes("--capture-baseline")) {
   console.log("Captured pre-unification behavior for eight synthetic scenarios.");
 } else {
   const baseline = JSON.parse(fs.readFileSync(baselinePath, "utf8"));
-  compare(results, baseline, "scenarios");
+  // Base Pred estimates are unchanged; personalized corrections intentionally use the new model.
+  for (const name of Object.keys(scenarios)) {
+    compare(results[name].overall, baseline[name].overall, `scenarios.${name}.overall`);
+    compare(results[name].lamps, baseline[name].lamps, `scenarios.${name}.lamps`);
+    assert(results[name].deltas === null || results[name].deltas.every(Number.isFinite));
+  }
   for (const [name, result] of Object.entries(results)) assert(result.maxProbabilityDifference < 1e-10, name);
   vm.runInContext(`
     const records = new Map(testRecords.map(record => [record.chartId, record]));
@@ -122,5 +130,5 @@ if (process.argv.includes("--capture-baseline")) {
     mypageInvalidateAnalysis();
     if (cached === mypageGetPredictionAnalysis()) throw new Error('Status edit did not invalidate prediction cache');
   `, context);
-  console.log("PASS: eight legacy behavior snapshots, identical probabilities across three pages, model fallback, no record mutation and cache.");
+  console.log("PASS: eight unchanged base estimates, signed gauge-specific corrections, identical probabilities across three pages, fallback, no record mutation and cache.");
 }

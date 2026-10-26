@@ -968,34 +968,17 @@ function mypageFitPredRegression(mode = "normal", analysis = mypageGetPrediction
   };
 }
 
-function mypageFeatureStrength(plusCount) {
-  if (plusCount >= 2) {
-    return 2;
-  }
-  if (plusCount === 1) {
-    return 1.5;
-  }
-  return 1;
-}
-
-function mypageGetFeatureVector(row) {
-  const vector = new Array(mypageFeatureNames.length).fill(0);
-  mypageGetFeatureDetails(row).forEach((feature) => {
-    const index = mypageFeatureNames.indexOf(feature.name);
-    if (index >= 0) {
-      vector[index] += mypageFeatureStrength(feature.plusCount);
-    }
-  });
-  return vector;
+function mypageGetFeatureVector(row, mode = "normal") {
+  return window.cpiPrediction.featureVector(row, mode, mypageFeatureNames);
 }
 
 function mypageGetFeatureScores(observations, featureDeltas = null) {
   const deltas = Array.isArray(featureDeltas)
     ? featureDeltas
     : mypageGetPredictionAnalysis().deltas;
+  const vectors = observations.map(observation => mypageGetFeatureVector(observation.row, observation.mode));
   return mypageFeatureNames.map((feature, index) => {
-    const known = observations.reduce((count, observation) => count
-      + (mypageGetFeatureDetails(observation.row).some((item) => item.name === feature) ? 1 : 0), 0);
+    const known = vectors.reduce((count, vector) => count + (vector[index] !== 0 ? 1 : 0), 0);
     const delta = Number.isFinite(deltas[index]) ? deltas[index] : 0;
     const score = Math.max(0, Math.min(100, 50 - delta * 100));
     return { name: feature, score, delta, known };
@@ -1227,7 +1210,7 @@ function mypageGetStatusLabel(status) {
 function mypageGetRecommendationAdjustedPred(row, mode) {
   const definition = mypagePredModes[mode];
   const rawPred = definition ? mypageGetNumericValue(row?.[definition.key]) : null;
-  return window.cpiPrediction.adjustPred(rawPred, mypageGetFeatureVector(row), mypageGetPredictionAnalysis().deltas);
+  return window.cpiPrediction.adjustPred(rawPred, mypageGetFeatureVector(row, mode), mypageGetPredictionAnalysis().deltas);
 }
 
 function mypageGetRecommendationProbability(row, mode) {
