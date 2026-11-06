@@ -132,6 +132,8 @@ const targetState = {
   rowsByChartId: new Map(),
   records: new Map(),
   manualMemoIds: new Set(),
+  optionMemos: new Map(),
+  optionMemosError: "",
   searchQuery: "",
   statusFilter: new Set(targetDefaultStatusFilter),
   recommendationSettings: targetGetDefaultRecommendationSettings(),
@@ -1225,6 +1227,32 @@ function targetRenderManualMemos() {
   targetElements.manualEmpty.hidden = memoRows.length > 0;
 }
 
+function targetRenderOptionMemos() {
+  if (!targetElements.optionMemoTableBody) return;
+  const definitions = window.cpiChartOptions?.definitions ?? [];
+  const rows = targetState.rows
+    .filter(row => targetState.optionMemos.has(String(row.chart_id)))
+    .sort((left, right) => String(left.title).localeCompare(String(right.title), "ja", { numeric: true })
+      || left.__order - right.__order);
+  targetElements.optionMemoCount.textContent = rows.length.toLocaleString() + "件";
+  targetElements.optionMemoTableBody.innerHTML = rows.map(row => {
+    const difficulty = targetNormalizeDifficulty(row.difficulty);
+    const selected = new Set(targetState.optionMemos.get(String(row.chart_id)));
+    const chips = definitions.filter(item => selected.has(item.value)).map(item =>
+      '<span class="feature-chip target-option-chip">' + targetEscapeHtml(item.label) + '</span>').join("");
+    return '<tr><td class="mono">☆' + targetEscapeHtml(String(row.original_level).replace(/\.0$/, "")) + '</td>'
+      + '<td class="chart-title-cell"><a class="chart-link ' + targetGetDifficultyClass(difficulty)
+      + '" href="' + targetEscapeHtml(targetGetChartHref(row)) + '"><span class="chart-title-cell__name">'
+      + targetEscapeHtml(row.title) + '</span> <span class="chart-title-cell__difficulty">['
+      + targetEscapeHtml(difficulty) + ']</span></a></td>'
+      + '<td><div class="feature-chips target-option-chips">' + chips + '</div></td></tr>';
+  }).join("");
+  targetElements.optionMemoTableShell.hidden = rows.length === 0;
+  targetElements.optionMemoMessage.hidden = rows.length > 0 && !targetState.optionMemosError;
+  targetElements.optionMemoMessage.textContent = targetState.optionMemosError
+    || "譜面詳細ページでオプションメモを登録した譜面を表示します。";
+}
+
 function targetRenderMainTable() {
   const filteredRows = targetGetFilteredRows();
   const visibleRows = filteredRows.slice(0, targetState.visibleLimit);
@@ -1241,6 +1269,7 @@ function targetRender() {
   }
   targetRenderAutoRecommendations();
   targetRenderManualMemos();
+  targetRenderOptionMemos();
   targetRenderMainTable();
   requestAnimationFrame(targetUpdateTableOverflow);
 }
@@ -1991,6 +2020,22 @@ function targetApplyManualMemos(memos) {
   );
 }
 
+async function targetLoadOptionMemos() {
+  const previousError = targetState.optionMemosError;
+  try {
+    if (!window.cpiChartOptions) throw new Error("オプションメモを読み込めませんでした。再読み込みしてください。");
+    const memos = await window.cpiChartOptions.readAll(targetState.db);
+    const changed = memos.length !== targetState.optionMemos.size || memos.some(memo =>
+      JSON.stringify(memo.options) !== JSON.stringify(targetState.optionMemos.get(memo.chartId)));
+    targetState.optionMemos = new Map(memos.map(memo => [memo.chartId, memo.options]));
+    targetState.optionMemosError = "";
+    return changed || Boolean(previousError);
+  } catch (error) {
+    targetState.optionMemosError = error.message || "オプションメモを読み込めませんでした。";
+    return previousError !== targetState.optionMemosError;
+  }
+}
+
 function targetSyncRecommendationSettings() {
   const next = targetReadRecommendationSettings();
   if (JSON.stringify(next) === JSON.stringify(targetState.recommendationSettings)) return false;
@@ -2012,11 +2057,14 @@ async function targetRefreshFromExternalDataChange() {
   if (!targetStorageReady) return;
   if (targetRefreshPromise) { targetRefreshAgain = true; return targetRefreshPromise; }
   targetRefreshPromise = (async () => {
+    let optionsChanged = false;
     do {
       targetRefreshAgain = false;
       targetState.db = await targetOpenDatabase();
-      const records = await targetReadAllRecords();
-      const memos = await targetReadAllManualMemos();
+      const [records, memos, optionMemosChanged] = await Promise.all([
+        targetReadAllRecords(), targetReadAllManualMemos(), targetLoadOptionMemos(),
+      ]);
+      optionsChanged ||= optionMemosChanged;
       if (targetRefreshAgain) continue;
       const settingsChanged = targetSyncRecommendationSettings();
       const changed = records.length !== targetState.records.size || records.some(record => targetState.records.get(String(record.chartId))?.status !== record.status);
@@ -2024,10 +2072,11 @@ async function targetRefreshFromExternalDataChange() {
       const memosChanged = memoIds.size !== targetState.manualMemoIds.size || [...memoIds].some(id => !targetState.manualMemoIds.has(id));
       targetApplyRecords(records);
       targetApplyManualMemos(memos);
-      if (changed || memosChanged || settingsChanged || !targetState.autoRecommendationsInitialized) {
+      if (changed || memosChanged || optionsChanged || settingsChanged || !targetState.autoRecommendationsInitialized) {
         if (changed) targetRecalculateModel();
         targetUpdateAvailability();
         targetRender();
+        optionsChanged = false;
       }
     } while (targetRefreshAgain);
   })().catch(error => targetShowError(error.message || "記録を読み込めませんでした。"))
@@ -2306,6 +2355,10 @@ function targetInitializeElements() {
   targetElements.manualRowCount = document.getElementById("targetManualRowCount");
   targetElements.manualTableShell = document.getElementById("targetManualTableShell");
   targetElements.manualTableBody = document.getElementById("targetManualTableBody");
+  targetElements.optionMemoCount = document.getElementById("targetOptionMemoCount");
+  targetElements.optionMemoMessage = document.getElementById("targetOptionMemoMessage");
+  targetElements.optionMemoTableShell = document.getElementById("targetOptionMemoTableShell");
+  targetElements.optionMemoTableBody = document.getElementById("targetOptionMemoTableBody");
   targetElements.scrollTop = document.getElementById("targetScrollTopButton");
 }
 function targetPopulateFilters() {
@@ -2512,7 +2565,7 @@ async function targetInitialize() {
   try {
     targetState.db = await targetOpenDatabase();
     window.dispatchEvent(new Event("cpi:target-storage-ready"));
-    const [records, memos] = await Promise.all([targetReadAllRecords(), targetReadAllManualMemos()]);
+    const [records, memos] = await Promise.all([targetReadAllRecords(), targetReadAllManualMemos(), targetLoadOptionMemos()]);
     targetApplyRecords(records);
     targetApplyManualMemos(memos);
   } catch (error) {

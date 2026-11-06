@@ -262,7 +262,7 @@
       const predText = formattedPredText || "－";
       const predStyle = formattedPredText ? numericStyle(row.pred) : "";
       const predLabel = row.version === "ZINRAI"
-        ? "<span class=\"danilabo-stage-card__pred chart-detail__label-group\" data-tooltip=\"このStageを突破する推定難易度です。\" tabindex=\"0\" role=\"button\" aria-label=\"適正Predの説明\">適正Pred"
+        ? "<span class=\"danilabo-stage-card__pred chart-detail__label-group\" data-tooltip=\"このStageを突破する推定難易度です。\" tabindex=\"0\" role=\"button\" aria-label=\"Stage適正Predの説明\">Stage適正Pred"
         : "<span class=\"danilabo-stage-card__pred\">ノマゲPred";
       const predHtml = predLabel + " <span class=\"mono numeric-value numeric-value--pred\""
         + predStyle + ">" + escapeHtml(predText) + "</span></span>";

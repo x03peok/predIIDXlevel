@@ -1639,10 +1639,52 @@ body .title-lock {
   min-width: 0;
 }
 
+.chart-detail__status-line,
 .chart-detail__option-line {
   flex-direction: column;
   gap: 6px;
 }
+
+.chart-detail__status-options-group {
+  display: grid;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 12px;
+  background: rgba(219, 234, 254, 0.3);
+}
+
+.chart-detail__status-options-group .chart-detail__label {
+  color: #475569;
+}
+
+.chart-current-status {
+  width: 8.4rem;
+  max-width: 100%;
+  padding: 7px 24px 7px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1h10L6 7z' fill='%2364758b'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 9px 7px;
+  appearance: none;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.chart-current-status[data-status="unregistered"],
+.chart-current-status[data-status="unowned"],
+.chart-current-status[data-status="loading"] { color: #64748b; background-color: #f1f5f9; }
+.chart-current-status[data-status="no-play"] { color: #475569; background-color: #f1f5f9; }
+.chart-current-status[data-status="failed"] { color: #fff; background-color: #475569; }
+.chart-current-status[data-status="assisted"] { color: #7c3aed; background-color: #ede9fe; }
+.chart-current-status[data-status="easy"] { color: #65a30d; background-color: #ecfccb; }
+.chart-current-status[data-status="clear"] { color: #2563eb; background-color: #dbeafe; }
+.chart-current-status[data-status="hard"] { color: #dc2626; background-color: #fee2e2; }
+.chart-current-status:disabled { opacity: 0.6; }
+.chart-current-status:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
 
 .chart-detail__metric--options {
   align-items: center;

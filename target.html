@@ -19,7 +19,7 @@
   <script src="analytics.js?v=20261013-1" defer></script>
   <link rel="stylesheet" href="styles.css?v=20260916-2">
   <link rel="stylesheet" href="menu.css?v=20260904-2">
-  <link rel="stylesheet" href="target.css?v=20260926-7">
+  <link rel="stylesheet" href="target.css?v=20261106-1">
   <link rel="stylesheet" href="daily-target.css?v=20261017-1">
   <link rel="stylesheet" href="page-loading.css?v=20261018-1">
   <script defer src="page-loading.js?v=20261018-1"></script>
@@ -29,10 +29,11 @@
   <script src="share-payload.js?v=20261013-1" defer></script>
   <script src="status-toast.js?v=20260908-1" defer></script>
   <script defer src="storage.js?v=20261002-1"></script>
+  <script defer src="chart-options.js?v=20261106-1"></script>
   <script src="update-history.js?v=20261002-1" defer></script>
   <script src="target-analysis.js?v=20261027-1" defer></script>
   <script defer src="recommendation-cache.js?v=20261018-1"></script>
-  <script src="target.js?v=20261027-1" defer></script>
+  <script src="target.js?v=20261106-1" defer></script>
   <script src="target-tabs.js?v=20260922-4" defer></script>
   <script defer src="share-text.js?v=20261018-1"></script>
   <script src="daily-target.js?v=20261027-1" defer></script>
@@ -351,6 +352,18 @@
                   <tbody id="targetManualTableBody"></tbody>
                 </table>
               </div>
+              <section class="target-option-memos" aria-labelledby="targetOptionMemosTitle">
+                <h2 id="targetOptionMemosTitle" class="target-section-heading">オプションメモ一覧</h2>
+                <p id="targetOptionMemoCount" class="row-count" aria-live="polite"></p>
+                <p id="targetOptionMemoMessage" class="target-manual-empty" role="status">譜面詳細ページでオプションメモを登録した譜面を表示します。</p>
+                <div id="targetOptionMemoTableShell" class="table-shell" hidden>
+                  <table class="chart-table target-option-table">
+                    <colgroup><col class="target-option-col-level"><col><col class="target-option-col-options"></colgroup>
+                    <thead><tr><th scope="col">Level</th><th scope="col">Title</th><th scope="col">オプションメモ</th></tr></thead>
+                    <tbody id="targetOptionMemoTableBody"></tbody>
+                  </table>
+                </div>
+              </section>
             </section>
           </div>
           <section class="target-main-list">

@@ -476,6 +476,46 @@ body.target-settings-modal-open {
   font-size: 0.84rem;
 }
 
+.target-option-memos {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.target-option-table {
+  width: 100%;
+  min-width: 515px;
+  table-layout: fixed;
+}
+
+.target-option-col-level { width: 64px; }
+.target-option-col-options { width: 230px; }
+.target-option-table th,
+.target-option-table td { text-align: center; }
+.target-option-table thead th {
+  padding: 9px 12px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.target-option-table.chart-table tbody td.chart-title-cell { white-space: normal; }
+.target-option-table.chart-table tbody td.chart-title-cell .chart-link {
+  display: inline-block;
+  width: auto;
+  max-width: 100%;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.target-option-table.chart-table tbody td:last-child .target-option-chips {
+  flex-wrap: nowrap;
+  justify-content: center;
+  overflow: visible;
+}
+.target-option-chip { color: #1d4ed8; background: #dbeafe; border-color: #60a5fa; }
+
 .target-manual-table--empty {
   display: none;
 }

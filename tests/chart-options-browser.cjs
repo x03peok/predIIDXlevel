@@ -44,7 +44,11 @@ const root = path.resolve(__dirname, "..");
     await page.goto(base + "/chart-pages/1.html");
     await ready(page);
     assert.deepEqual(await page.locator("#chartOptionMemos button").allTextContents(), ["正規", "鏡", "乱", "R乱", "S乱"]);
-    assert.equal(await page.evaluate(() => document.getElementById("chartFeatures").closest(".chart-detail__line").nextElementSibling.classList.contains("chart-detail__option-line")), true);
+    assert.equal(await page.evaluate(() => {
+      const statusLine = document.getElementById("chartFeatures").closest(".chart-detail__line").nextElementSibling;
+      return statusLine.classList.contains("chart-detail__status-line")
+        && statusLine.nextElementSibling.classList.contains("chart-detail__option-line");
+    }), true);
     const before = await chip(page, "regular").evaluate(element => getComputedStyle(element).backgroundColor);
     await chip(page, "regular").click(); await ready(page);
     assert.equal(await chip(page, "regular").getAttribute("aria-pressed"), "true");
@@ -61,6 +65,24 @@ const root = path.resolve(__dirname, "..");
     });
     assert.equal(migration.version, 7);
     assert.deepEqual(migration.records, [{ chartId: "203", status: "clear", updatedAt: "2026-10-01T00:00:00Z" }]);
+    await page.waitForFunction(() => chartState.statusReady && !chartState.statusBusy);
+    assert.equal(await page.locator("#chartCurrentStatus").inputValue(), "unregistered");
+    assert.equal(await page.locator("#chartCurrentStatus option").count(), 9);
+    for (const status of ["easy", "clear", "unregistered"]) {
+      await page.locator("#chartCurrentStatus").selectOption(status);
+      await page.waitForFunction(value => chartState.currentStatus === value && !chartState.statusBusy, status);
+      assert.equal(await page.locator("#chartCurrentStatus").getAttribute("data-status"), status);
+    }
+    const statusChanges = await page.evaluate(async () => {
+      const db = await cpiStorage.open();
+      const events = await cpiUpdateHistory.readEvents(db);
+      return events.filter(event => event.chartId === "1").map(({ beforeStatus, afterStatus, source }) => ({ beforeStatus, afterStatus, source }));
+    });
+    assert.deepEqual(statusChanges, [
+      { beforeStatus: "unregistered", afterStatus: "easy", source: "chart" },
+      { beforeStatus: "easy", afterStatus: "clear", source: "chart" },
+      { beforeStatus: "clear", afterStatus: "unregistered", source: "chart" },
+    ]);
     const other = await context.newPage();
     await other.goto(base + "/chart-pages/1.html"); await ready(other);
     await chip(other, "mirror").click(); await ready(other);
@@ -79,6 +101,28 @@ const root = path.resolve(__dirname, "..");
     assert.equal(await other.locator('#chartOptionMemos [aria-pressed="true"]').count(), 0);
     await chip(other, "s-random").click(); await ready(other);
     console.log("PASS: five toggle chips, independent charts, persistence, cross-tab sync, v6 migration and responsive layout.");
+
+    await page.evaluate(async () => {
+      const db = await cpiStorage.open();
+      const tx = db.transaction("chart-statuses", "readwrite");
+      getChartRows(window.__CSV_BUNDLE__).slice(0, 12).forEach((row, index) => {
+        tx.objectStore("chart-statuses").put({ chartId: String(row.chart_id), status: index % 2 ? "clear" : "failed", updatedAt: new Date().toISOString() });
+      });
+      tx.objectStore("chart-statuses").put({ chartId: "1", status: "hard", updatedAt: new Date().toISOString() });
+      await new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); });
+    });
+    const target = await context.newPage();
+    await target.goto(base + "/target.html");
+    await target.waitForFunction(() => targetStorageReady);
+    await target.locator("#targetManualTab").click();
+    assert.equal(await target.locator("#targetOptionMemosTitle").textContent(), "オプションメモ一覧");
+    assert.equal(await target.locator("#targetOptionMemoTableBody tr").count(), 2);
+    assert.equal(await target.locator('#targetOptionMemoTableBody a[href="chart-pages/1.html"]').count(), 1);
+    await chip(other, "s-random").click(); await ready(other);
+    await target.waitForFunction(() => document.querySelectorAll("#targetOptionMemoTableBody tr").length === 1);
+    await chip(other, "s-random").click(); await ready(other);
+    await target.waitForFunction(() => document.querySelectorAll("#targetOptionMemoTableBody tr").length === 2);
+    console.log("PASS: editable current Status records all transitions; option-memo list includes HARD charts without manual registration and updates across tabs.");
 
     const settings = await context.newPage();
     settings.on("dialog", dialog => dialog.accept());

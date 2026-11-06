@@ -12,6 +12,11 @@ const chartState = {
   optionMemos: new Set(),
   optionMemoReady: false,
   optionMemoBusy: false,
+  currentStatus: "unregistered",
+  statusReady: false,
+  statusBusy: false,
+  statusLoadVersion: 0,
+  statusRefreshPending: false,
   predRows: null,
   predRow: null,
   predNumericScales: null,
@@ -573,6 +578,139 @@ function chartSetOptionMemoMessage(message) {
   element.hidden = !message;
 }
 
+function chartSetStatusMessage(message) {
+  const element = document.getElementById("chartCurrentStatusMessage");
+  if (!element) return;
+  element.textContent = message;
+  element.hidden = !message;
+}
+
+function chartNormalizeStatus(value) {
+  const status = String(value ?? "").trim().toLowerCase();
+  return Object.hasOwn(window.cpiUpdateHistory?.statusLabels ?? {}, status) ? status : "unregistered";
+}
+
+function chartUpdateStatusSelect() {
+  const select = document.getElementById("chartCurrentStatus");
+  if (!select) return;
+  select.value = chartState.statusReady ? chartState.currentStatus : "";
+  select.dataset.status = chartState.statusReady ? chartState.currentStatus : "loading";
+  select.disabled = !chartState.statusReady || chartState.statusBusy;
+}
+
+async function chartLoadStatusState() {
+  if (!chartState.chartId || !document.getElementById("chartCurrentStatus")) return;
+  if (chartState.statusBusy) { chartState.statusRefreshPending = true; return; }
+  const version = ++chartState.statusLoadVersion;
+  try {
+    chartState.db = await chartOpenDatabase();
+    const status = await new Promise((resolve, reject) => {
+      const transaction = chartState.db.transaction(chartStatusStoreName, "readonly");
+      const request = transaction.objectStore(chartStatusStoreName).get(chartState.chartId);
+      let value = "unregistered";
+      request.onsuccess = () => { value = chartNormalizeStatus(request.result?.status); };
+      transaction.oncomplete = () => resolve(value);
+      transaction.onerror = transaction.onabort = () => reject(transaction.error ?? new Error("現在Statusを読み込めませんでした。"));
+    });
+    if (version !== chartState.statusLoadVersion || chartState.statusBusy) return;
+    chartState.currentStatus = status;
+    chartState.statusReady = true;
+    chartSetStatusMessage("");
+  } catch (error) {
+    if (version !== chartState.statusLoadVersion || chartState.statusBusy) return;
+    chartState.statusReady = false;
+    chartSetStatusMessage(error.message || "現在Statusを読み込めませんでした。");
+  }
+  chartUpdateStatusSelect();
+}
+
+function chartWriteCurrentStatus(database, chartId, status) {
+  if (!/^\d{1,32}$/.test(chartId) || !Object.hasOwn(window.cpiUpdateHistory?.statusLabels ?? {}, status)) {
+    return Promise.reject(new Error("Statusの指定が不正です。"));
+  }
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction([chartStatusStoreName, chartUpdateHistoryStoreName], "readwrite");
+    const store = transaction.objectStore(chartStatusStoreName);
+    const request = store.get(chartId);
+    let result;
+    request.onsuccess = () => {
+      try {
+        // Read the baseline inside this transaction so another tab cannot leave a stale history transition.
+        const beforeStatus = chartNormalizeStatus(request.result?.status);
+        result = { beforeStatus, afterStatus: status, changed: beforeStatus !== status };
+        if (!result.changed) return;
+        const now = new Date();
+        if (status === "unregistered") store.delete(chartId);
+        else store.put({ ...request.result, chartId, status, updatedAt: now.toISOString() });
+        window.cpiUpdateHistory.appendToTransaction(transaction, [{
+          chartId, beforeStatus, afterStatus: status, snapshot: chartState.predRow,
+        }], { source: "chart", changedAt: now });
+      } catch (error) {
+        transaction.abort();
+        reject(error);
+      }
+    };
+    transaction.oncomplete = () => {
+      resolve(result);
+      if (result.changed) window.dispatchEvent(new CustomEvent("cpi:status-changed", {
+        detail: { source: "chart", chartId, status },
+      }));
+    };
+    transaction.onerror = transaction.onabort = () => reject(transaction.error ?? new Error("Statusを保存できませんでした。"));
+  });
+}
+
+async function chartSaveCurrentStatus(status) {
+  if (!chartState.statusReady || chartState.statusBusy) return null;
+  chartState.statusBusy = true;
+  chartState.statusLoadVersion += 1;
+  chartUpdateStatusSelect();
+  try {
+    chartState.db = await chartOpenDatabase();
+    const result = await chartWriteCurrentStatus(chartState.db, chartState.chartId, status);
+    chartState.currentStatus = result.afterStatus;
+    chartSetStatusMessage("");
+    return result;
+  } catch (error) {
+    chartSetStatusMessage(error.message || "Statusを保存できませんでした。");
+    throw error;
+  } finally {
+    chartState.statusBusy = false;
+    chartUpdateStatusSelect();
+    if (chartState.statusRefreshPending) {
+      chartState.statusRefreshPending = false;
+      void chartLoadStatusState();
+    }
+  }
+}
+
+async function chartHandleStatusChange(event) {
+  try {
+    const result = await chartSaveCurrentStatus(event.target.value);
+    if (result?.changed) window.cpiStatusToast?.show({
+      onUndo: () => chartSaveCurrentStatus(result.beforeStatus),
+    });
+  } catch { /* The inline message explains the failure; the saved value remains selected. */ }
+}
+
+function chartInitializeCurrentStatus() {
+  const select = document.getElementById("chartCurrentStatus");
+  if (!select) return;
+  if (!window.cpiUpdateHistory) {
+    chartSetStatusMessage("現在Statusを読み込めませんでした。再読み込みしてください。");
+    return;
+  }
+  select.innerHTML = '<option value="" disabled hidden>読み込み中…</option>'
+    + Object.entries(window.cpiUpdateHistory.statusLabels).map(([value, label]) =>
+      '<option value="' + escapeChartHtml(value) + '">' + escapeChartHtml(label) + '</option>').join("");
+  if (!select.dataset.bound) {
+    select.dataset.bound = "true";
+    select.addEventListener("change", chartHandleStatusChange);
+  }
+  chartUpdateStatusSelect();
+  void chartLoadStatusState();
+}
+
 function chartUpdateOptionMemoButtons() {
   document.querySelectorAll("#chartOptionMemos [data-chart-option]").forEach(button => {
     button.setAttribute("aria-pressed", String(chartState.optionMemos.has(button.dataset.chartOption)));
@@ -814,6 +952,7 @@ function renderChart() {
     const predPositions = renderChartPredHistogramsForCurrentWidth();
 
     document.getElementById("chartFeatures").innerHTML = renderChartFeatureChips(row, true);
+    chartInitializeCurrentStatus();
     chartInitializeOptionMemos();
     document.getElementById("chartBpm").textContent = formatChartBpm(row.bpm_min, row.bpm_max);
     const textageOnePlayerUrl = row.url || window.__TEXTAGE_URLS__?.[normalizeChartId(row.chart_id)] || "";
@@ -881,9 +1020,16 @@ function renderChart() {
 
 window.addEventListener("resize", scheduleChartPredHistogramResize, { passive: true });
 window.addEventListener("cpi:storage-changed", chartLoadOptionMemoState);
+window.addEventListener("cpi:storage-changed", chartLoadStatusState);
+window.addEventListener("cpi:status-changed", chartLoadStatusState);
 window.addEventListener("pageshow", chartLoadOptionMemoState);
+window.addEventListener("pageshow", chartLoadStatusState);
 window.addEventListener("focus", chartLoadOptionMemoState);
+window.addEventListener("focus", chartLoadStatusState);
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") void chartLoadOptionMemoState();
+  if (document.visibilityState === "visible") {
+    void chartLoadOptionMemoState();
+    void chartLoadStatusState();
+  }
 });
 document.addEventListener("DOMContentLoaded", renderChart);

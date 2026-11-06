@@ -28,17 +28,18 @@
   <meta name="twitter:description" content="☆10 Xperanza [H]。イージーPred 10.50 / ノマゲPred 10.96 / ハードPred 11.72 / BPM 200 / Feature 皿複合+">
   <!-- Google Analytics -->
   <script defer src="../analytics.js?v=20261013-1"></script>
-  <link rel="stylesheet" href="../styles.css?v=20261018-1">
+  <link rel="stylesheet" href="../styles.css?v=20261106-6">
   <link rel="stylesheet" href="../menu.css?v=20260904-2">
   <script defer src="../menu.js?v=20260925-1"></script>
   <script defer src="../data.js?v=20261027-1"></script>
 
   <script defer src="../chart-similar-data.js?v=20261013-2"></script>
   <script defer src="../storage.js?v=20261016-1"></script>
-  <script defer src="../chart-options.js?v=20261016-1"></script>
+  <script defer src="../chart-options.js?v=20261106-1"></script>
+  <script defer src="../status-toast.js?v=20260908-1"></script>
   <script defer src="../update-history.js?v=20261002-1"></script>
   <script defer src="../share-text.js?v=20261018-1"></script>
-  <script defer src="../chart.js?v=20261025-2"></script>
+  <script defer src="../chart.js?v=20261106-1"></script>
 </head>
 <body data-page="chart" data-static-chart-page="true" data-chart-id="4705">
   <main class="app">
@@ -112,12 +113,23 @@
             <div class="chart-detail__line">
               <div class="chart-detail__metric chart-detail__metric--feature"><span class="chart-detail__label-group" data-tooltip="同程度のPredの譜面と比較して目立つ特徴です。強まるほど+が増えていきます。" tabindex="0" role="button" aria-label="Featureの説明"><span class="chart-detail__label">Feature</span><span class="chart-detail__info-mark" aria-hidden="true">ⓘ</span></span><div id="chartFeatures" class="chart-detail__value chart-detail__feature-value"></div></div>
             </div>
-            <div class="chart-detail__line chart-detail__option-line">
-              <div class="chart-detail__metric chart-detail__metric--options">
-                <span id="chartOptionMemoLabel" class="chart-detail__label">オプションメモ</span>
-                <div id="chartOptionMemos" class="chart-option-chips" role="group" aria-labelledby="chartOptionMemoLabel"></div>
+            <div class="chart-detail__status-options-group">
+              <div class="chart-detail__line chart-detail__status-line">
+                <div class="chart-detail__metric chart-detail__metric--status">
+                  <label for="chartCurrentStatus" class="chart-detail__label">現在Status</label>
+                  <select id="chartCurrentStatus" class="chart-current-status" data-status="loading" disabled>
+                    <option value="">読み込み中…</option>
+                  </select>
+                </div>
+                <p id="chartCurrentStatusMessage" class="chart-option-message" role="status" hidden></p>
               </div>
-              <p id="chartOptionMemoMessage" class="chart-option-message" role="status" hidden></p>
+              <div class="chart-detail__line chart-detail__option-line">
+                <div class="chart-detail__metric chart-detail__metric--options">
+                  <span id="chartOptionMemoLabel" class="chart-detail__label">オプションメモ</span>
+                  <div id="chartOptionMemos" class="chart-option-chips" role="group" aria-labelledby="chartOptionMemoLabel"></div>
+                </div>
+                <p id="chartOptionMemoMessage" class="chart-option-message" role="status" hidden></p>
+              </div>
             </div>
           </div>
           <section id="similarChartsSection" class="chart-detail__similar" aria-labelledby="similarChartsTitle" hidden>

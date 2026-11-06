@@ -39,6 +39,19 @@
       transaction.onerror = transaction.onabort = () => reject(transaction.error ?? new Error("オプションメモを読み込めませんでした。"));
     });
   }
+  function readAll(database) {
+    return new Promise((resolve, reject) => {
+      const transaction = database.transaction(storeName, "readonly");
+      const request = transaction.objectStore(storeName).getAll();
+      let records = [];
+      request.onsuccess = () => {
+        try { records = validateRecords(request.result ?? []); }
+        catch (error) { reject(error); }
+      };
+      transaction.oncomplete = () => resolve(records);
+      transaction.onerror = transaction.onabort = () => reject(transaction.error ?? new Error("オプションメモを読み込めませんでした。"));
+    });
+  }
   function toggle(database, chartId, option) {
     chartId = String(chartId);
     if (!/^\d{1,32}$/.test(chartId) || !allowed.has(option)) throw new Error("オプションメモの指定が不正です。");
@@ -64,5 +77,5 @@
       transaction.onerror = transaction.onabort = () => reject(transaction.error ?? new Error("オプションメモを保存できませんでした。"));
     });
   }
-  window.cpiChartOptions = Object.freeze({ definitions, storeName, validateRecords, read, toggle });
+  window.cpiChartOptions = Object.freeze({ definitions, storeName, validateRecords, read, readAll, toggle });
 })();

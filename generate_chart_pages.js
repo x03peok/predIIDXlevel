@@ -216,6 +216,7 @@ function createPage(template, row) {
   page = page.replace('src="chart-options.js?', 'src="../chart-options.js?');
   page = page.replace('src="share-text.js?', 'src="../share-text.js?');
   page = page.replace('src="storage.js?', 'src="../storage.js?');
+  page = page.replace('src="status-toast.js?', 'src="../status-toast.js?');
   page = page.replace('src="update-history.js?', 'src="../update-history.js?');
   page = page.replace('data-href="pred.html"', 'data-href="../pred.html"');
   page = page.replace('data-href="about.html"', 'data-href="../about.html"');
