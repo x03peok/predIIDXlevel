@@ -2,28 +2,53 @@
 
 const predSummarySortStorageKey = "cpi-next-pred-summary-sort-direction";
 const predSummarySelectionStorageKey = "cpi-next-pred-summary-selection-v1";
-const predSummarySettingsStorageKey = "cpi-next-pred-summary-settings-v1";
+const predSummarySettingsStorageKey = "cpi-next-pred-summary-settings-v2";
+const predSummaryLegacySettingsStorageKey = "cpi-next-pred-summary-settings-v1";
 const predSummaryFeatureNames = ["同時押し", "単鍵ラッシュ", "物量", "連打", "連皿", "皿複合", "チャージノート", "BPM変化", "ラスト難", "特徴なし"];
+const predSummaryRegularFeatures = predSummaryFeatureNames.filter(name => name !== FEATURE_NONE);
+const predSummaryFeatureLevels = ["含まない", "無印", "+", "++"];
+const predSummaryFeatureLegend = ["なし", "あり", "+", "++"];
 const predSummaryDifficulties = ["N", "H", "A", "L"];
 
 function predSummaryDefaultSettings() {
   return {
     difficulties: [...predSummaryDifficulties],
-    features: Object.fromEntries(predSummaryFeatureNames.map(name => [name, { include: true, exclude: true }])),
+    features: Object.fromEntries(predSummaryFeatureNames.map(name => [
+      name,
+      name === FEATURE_NONE ? { include: true, exclude: true } : { min: 0, max: 3 },
+    ])),
   };
 }
 
 function predSummaryReadSettings() {
   const defaults = predSummaryDefaultSettings();
   try {
-    const raw = window.localStorage.getItem(predSummarySettingsStorageKey);
+    const raw = window.localStorage.getItem(predSummarySettingsStorageKey)
+      ?? window.localStorage.getItem(predSummaryLegacySettingsStorageKey);
     const saved = raw && raw.length <= 8000 ? JSON.parse(raw) : null;
-    if (saved?.version !== 1 || !Array.isArray(saved.difficulties)
+    if (![1, 2].includes(saved?.version) || !Array.isArray(saved.difficulties)
       || saved.difficulties.length > 4 || saved.difficulties.some(value => !predSummaryDifficulties.includes(value))) return defaults;
     defaults.difficulties = [...new Set(saved.difficulties)];
     for (const name of predSummaryFeatureNames) {
-      for (const mode of ["include", "exclude"]) {
-        if (typeof saved.features?.[name]?.[mode] === "boolean") defaults.features[name][mode] = saved.features[name][mode];
+      const value = saved.features?.[name];
+      if (name === FEATURE_NONE) {
+        for (const mode of ["include", "exclude"]) {
+          if (typeof value?.[mode] === "boolean") defaults.features[name][mode] = value[mode];
+        }
+      } else if (saved.version === 2) {
+        if (Number.isInteger(value?.min) && Number.isInteger(value?.max)
+          && value.min >= 0 && value.min <= 3 && value.max >= 0 && value.max <= 3
+          && (value.min <= value.max || (value.min === 1 && value.max === 0))) {
+          defaults.features[name] = { min: value.min, max: value.max };
+        }
+      } else if (typeof value?.include === "boolean" && typeof value?.exclude === "boolean") {
+        defaults.features[name] = value.include && value.exclude
+          ? { min: 0, max: 3 }
+          : value.include
+            ? { min: 1, max: 3 }
+            : value.exclude
+              ? { min: 0, max: 0 }
+              : { min: 1, max: 0 };
       }
     }
   } catch { /* Invalid or unavailable storage uses unrestricted filters. */ }
@@ -35,10 +60,21 @@ let predSummarySettings = predSummaryReadSettings();
 function predSummaryMatchesSettings(row) {
   const difficulty = difficultyLabels[normalizeDifficulty(row.difficulty)];
   if (!predSummarySettings.difficulties.includes(difficulty)) return false;
-  const features = new Set(getRowFeatures(row));
-  return predSummaryFeatureNames.every(name => (
-    predSummarySettings.features[name][features.has(name) ? "include" : "exclude"]
-  ));
+  const features = new Map();
+  for (const feature of getRawRowFeatures(row)) {
+    const name = normalizeFeature(feature);
+    if (!name || name === FEATURE_NONE) continue;
+    const plusCount = (String(feature).match(/\+/g) ?? []).length;
+    features.set(name, Math.min(3, plusCount + 1));
+  }
+  const noneSettings = predSummarySettings.features[FEATURE_NONE];
+  if (!noneSettings[features.size === 0 ? "include" : "exclude"]) return false;
+  return predSummaryRegularFeatures.every(name => {
+    const range = predSummarySettings.features[name];
+    if (range.min > range.max) return false;
+    const strength = features.get(name) ?? 0;
+    return strength >= range.min && strength <= range.max;
+  });
 }
 let predSummarySortDirection = "asc";
 try {
@@ -147,6 +183,65 @@ function predSummaryRender() {
   message.textContent = levels.size ? "該当する譜面はありません。" : "Levelを選択してください。";
 }
 
+function predSummaryNextFeatureRange(range, value) {
+  const { min, max } = range;
+  if (min > max) return { min: value, max: value };
+  if (value < min) return { min: value, max };
+  if (value > max) return { min, max: value };
+  if (value === min && min < max) return { min: min + 1, max };
+  if (value === max && max > min) return { min, max: max - 1 };
+  return value - min < max - value
+    ? { min: value, max }
+    : { min, max: value };
+}
+
+function predSummaryFindFeatureRangeValue(group, clientX) {
+  let nearestValue = 0;
+  let nearestDistance = Infinity;
+  group.querySelectorAll("[data-range-value]").forEach(button => {
+    const rect = button.getBoundingClientRect();
+    const distance = Math.abs(clientX - (rect.left + rect.width / 2));
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearestValue = Number(button.dataset.rangeValue);
+    }
+  });
+  return nearestValue;
+}
+
+function predSummaryUpdateFeatureRange(group, range) {
+  const min = Number(range.min);
+  const max = Number(range.max);
+  const empty = min > max;
+  group.dataset.min = String(min);
+  group.dataset.max = String(max);
+  group.classList.toggle("is-empty", empty);
+  group.style.setProperty("--range-start", `${min / 3 * 100}%`);
+  group.style.setProperty("--range-end", `${max / 3 * 100}%`);
+  group.setAttribute("aria-label", empty
+    ? `${group.dataset.featureName}: 対象なし`
+    : `${group.dataset.featureName}: ${predSummaryFeatureLevels[min]}～${predSummaryFeatureLevels[max]}`);
+  group.querySelectorAll("[data-range-value]").forEach(button => {
+    const value = Number(button.dataset.rangeValue);
+    const selected = !empty && value >= min && value <= max;
+    button.classList.toggle("is-selected", selected);
+    button.classList.toggle("is-boundary", selected && (value === min || value === max));
+    button.setAttribute("aria-pressed", String(selected));
+  });
+}
+
+function predSummaryUpdateNoneFeatureGroup(group, settings) {
+  const bothSelected = Boolean(settings.include && settings.exclude);
+  group.classList.toggle("is-connection-selected", bothSelected);
+  for (const mode of ["include", "exclude"]) {
+    const selected = Boolean(settings[mode]);
+    group.dataset[mode] = String(selected);
+    const button = group.querySelector(`[data-feature-mode="${mode}"]`);
+    button.classList.toggle("is-selected", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  }
+}
+
 function predSummaryInitializeSettings() {
   const opener = document.getElementById("predSummarySettingsButton");
   if (!opener) return;
@@ -181,6 +276,18 @@ function predSummaryInitializeSettings() {
   allInput.setAttribute("aria-label", "Featureをすべて選択・解除");
   allLabel.append(allInput, document.createTextNode("all"));
   featureContainer.append(allLabel);
+  const legend = document.createElement("div");
+  legend.className = "pred-summary-settings__feature-legend";
+  const legendSpacer = document.createElement("span");
+  legendSpacer.setAttribute("aria-hidden", "true");
+  const legendValues = document.createElement("div");
+  for (const labelText of predSummaryFeatureLegend) {
+    const label = document.createElement("span");
+    label.textContent = labelText;
+    legendValues.append(label);
+  }
+  legend.append(legendSpacer, legendValues);
+  featureContainer.append(legend);
   for (const name of predSummaryFeatureNames) {
     const row = document.createElement("div");
     row.className = "pred-summary-settings__feature-row multi-filter__option feature-filter__option";
@@ -188,33 +295,160 @@ function predSummaryInitializeSettings() {
     title.className = "feature-filter__name";
     title.textContent = name;
     row.append(title);
-    for (const [mode, text] of [["include", "含む"], ["exclude", "含まない"]]) {
-      const label = document.createElement("label");
-      label.className = "feature-filter__mode";
-      const input = document.createElement("input");
-      input.type = "checkbox";
-      input.dataset.predFeature = name;
-      input.dataset.featureMode = mode;
-      input.setAttribute("aria-label", name + "を" + text);
-      label.append(input, document.createTextNode(text));
-      row.append(label);
+    if (name === FEATURE_NONE) {
+      row.classList.add("pred-summary-settings__feature-row--none");
+      const rangeGroup = document.createElement("div");
+      rangeGroup.className = "pred-summary-settings__feature-range pred-summary-settings__feature-range--none";
+      rangeGroup.dataset.predFeatureNoneGroup = "true";
+      rangeGroup.dataset.featureName = name;
+      rangeGroup.setAttribute("role", "group");
+      rangeGroup.setAttribute("aria-label", "特徴なしの譜面と特徴がある譜面の表示設定");
+      for (const mode of ["include", "exclude"]) {
+        const button = document.createElement("button");
+        const labelText = mode === "include" ? "特徴なしの譜面を含む" : "特徴がある譜面を含む";
+        button.type = "button";
+        button.className = "pred-summary-settings__feature-dot";
+        button.dataset.featureMode = mode;
+        button.setAttribute("aria-label", labelText);
+        button.setAttribute("aria-pressed", "false");
+        button.addEventListener("click", () => {
+          const selected = rangeGroup.dataset[mode] !== "true";
+          const settings = {
+            include: rangeGroup.dataset.include === "true",
+            exclude: rangeGroup.dataset.exclude === "true",
+          };
+          settings[mode] = selected;
+          predSummaryUpdateNoneFeatureGroup(rangeGroup, settings);
+          syncAll();
+        });
+        rangeGroup.append(button);
+      }
+      for (let slot = 2; slot < 4; slot += 1) {
+        const placeholder = document.createElement("span");
+        placeholder.className = "pred-summary-settings__feature-dot-placeholder";
+        placeholder.setAttribute("aria-hidden", "true");
+        rangeGroup.append(placeholder);
+      }
+      row.append(rangeGroup);
+    } else {
+      const rangeGroup = document.createElement("div");
+      rangeGroup.className = "pred-summary-settings__feature-range";
+      rangeGroup.dataset.predFeatureRangeGroup = "true";
+      rangeGroup.dataset.featureName = name;
+      rangeGroup.setAttribute("role", "group");
+      let pointerDrag = null;
+      let pendingPointerClickValue = null;
+      let suppressNextClick = false;
+      for (let value = 0; value < predSummaryFeatureLevels.length; value += 1) {
+        const button = document.createElement("button");
+        const labelText = predSummaryFeatureLevels[value];
+        button.type = "button";
+        button.className = "pred-summary-settings__feature-dot";
+        button.dataset.rangeValue = String(value);
+        button.setAttribute("aria-label", name + "：" + (value === 0 ? "含まない" : "含む（" + labelText + "）"));
+        button.setAttribute("aria-pressed", "false");
+        button.append(document.createElement("span"));
+        rangeGroup.append(button);
+      }
+      rangeGroup.addEventListener("pointerdown", event => {
+        const button = event.target.closest("[data-range-value]");
+        if (!button || (event.pointerType === "mouse" && event.button !== 0)) return;
+        const startValue = Number(button.dataset.rangeValue);
+        const min = Number(rangeGroup.dataset.min);
+        const max = Number(rangeGroup.dataset.max);
+        const empty = min > max;
+        const edge = empty || min === max
+          ? "anchor"
+          : startValue === min
+            ? "min"
+            : startValue === max
+              ? "max"
+              : startValue - min <= max - startValue ? "min" : "max";
+        pointerDrag = { pointerId: event.pointerId, startValue, lastValue: startValue, min, max, edge, moved: false };
+        pendingPointerClickValue = startValue;
+        rangeGroup.classList.add("is-dragging");
+        try { rangeGroup.setPointerCapture(event.pointerId); } catch { /* Pointer capture may be unavailable. */ }
+      });
+      rangeGroup.addEventListener("pointermove", event => {
+        if (!pointerDrag || event.pointerId !== pointerDrag.pointerId) return;
+        const value = predSummaryFindFeatureRangeValue(rangeGroup, event.clientX);
+        if (value === pointerDrag.lastValue) return;
+        pointerDrag.moved = true;
+        pointerDrag.lastValue = value;
+        let range;
+        if (pointerDrag.edge === "min") {
+          range = { min: Math.min(value, pointerDrag.max), max: pointerDrag.max };
+        } else if (pointerDrag.edge === "max") {
+          range = { min: pointerDrag.min, max: Math.max(value, pointerDrag.min) };
+        } else {
+          range = {
+            min: Math.min(pointerDrag.startValue, value),
+            max: Math.max(pointerDrag.startValue, value),
+          };
+        }
+        predSummaryUpdateFeatureRange(rangeGroup, range);
+        syncAll();
+      });
+      const finishPointerDrag = event => {
+        if (!pointerDrag || event.pointerId !== pointerDrag.pointerId) return;
+        if (pointerDrag.moved) {
+          suppressNextClick = true;
+          window.setTimeout(() => { suppressNextClick = false; }, 0);
+        } else {
+          pendingPointerClickValue = pointerDrag.startValue;
+        }
+        pointerDrag = null;
+        rangeGroup.classList.remove("is-dragging");
+      };
+      rangeGroup.addEventListener("pointerup", finishPointerDrag);
+      rangeGroup.addEventListener("pointercancel", event => {
+        finishPointerDrag(event);
+        pendingPointerClickValue = null;
+      });
+      rangeGroup.addEventListener("click", event => {
+        if (suppressNextClick) {
+          suppressNextClick = false;
+          pendingPointerClickValue = null;
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+        const button = event.target.closest("[data-range-value]");
+        const value = button ? Number(button.dataset.rangeValue) : pendingPointerClickValue;
+        pendingPointerClickValue = null;
+        if (value === null || value === undefined) return;
+        const range = predSummaryNextFeatureRange(
+          { min: Number(rangeGroup.dataset.min), max: Number(rangeGroup.dataset.max) },
+          value,
+        );
+        predSummaryUpdateFeatureRange(rangeGroup, range);
+        syncAll();
+      });
+      row.append(rangeGroup);
     }
     featureContainer.append(row);
   }
-  const featureInputs = [...dialog.querySelectorAll("input[data-pred-feature]")];
+  const rangeGroups = [...dialog.querySelectorAll("[data-pred-feature-range-group]")];
+  const noneGroup = dialog.querySelector("[data-pred-feature-none-group]");
   const syncAll = () => {
-    const selected = featureInputs.filter(input => input.checked).length;
-    allInput.checked = selected === featureInputs.length;
-    allInput.indeterminate = selected > 0 && selected < featureInputs.length;
+    const allRanges = rangeGroups.every(group => group.dataset.min === "0" && group.dataset.max === "3");
+    const noneSelected = noneGroup.dataset.include === "true" && noneGroup.dataset.exclude === "true";
+    const allOff = rangeGroups.every(group => Number(group.dataset.min) > Number(group.dataset.max))
+      && noneGroup.dataset.include !== "true" && noneGroup.dataset.exclude !== "true";
+    allInput.checked = allRanges && noneSelected;
+    allInput.indeterminate = !allInput.checked && !allOff;
   };
   allInput.addEventListener("change", () => {
-    featureInputs.forEach(input => { input.checked = allInput.checked; });
+    rangeGroups.forEach(group => predSummaryUpdateFeatureRange(group, allInput.checked
+      ? { min: 0, max: 3 }
+      : { min: 1, max: 0 }));
+    predSummaryUpdateNoneFeatureGroup(noneGroup, { include: allInput.checked, exclude: allInput.checked });
     syncAll();
   });
-  featureInputs.forEach(input => input.addEventListener("change", syncAll));
   const fill = (settings) => {
     dialog.querySelectorAll("input[data-pred-difficulty]").forEach(input => { input.checked = settings.difficulties.includes(input.dataset.predDifficulty); });
-    dialog.querySelectorAll("input[data-pred-feature]").forEach(input => { input.checked = settings.features[input.dataset.predFeature][input.dataset.featureMode]; });
+    rangeGroups.forEach(group => predSummaryUpdateFeatureRange(group, settings.features[group.dataset.featureName]));
+    predSummaryUpdateNoneFeatureGroup(noneGroup, settings.features[FEATURE_NONE]);
     syncAll();
   };
   opener.addEventListener("click", () => {
@@ -234,10 +468,16 @@ function predSummaryInitializeSettings() {
   dialog.querySelector("[data-settings-save]").addEventListener("click", () => {
     const next = predSummaryDefaultSettings();
     next.difficulties = [...dialog.querySelectorAll("input[data-pred-difficulty]:checked")].map(input => input.dataset.predDifficulty);
-    dialog.querySelectorAll("input[data-pred-feature]").forEach(input => { next.features[input.dataset.predFeature][input.dataset.featureMode] = input.checked; });
+    rangeGroups.forEach(group => {
+      next.features[group.dataset.featureName] = { min: Number(group.dataset.min), max: Number(group.dataset.max) };
+    });
+    next.features[FEATURE_NONE] = {
+      include: noneGroup.dataset.include === "true",
+      exclude: noneGroup.dataset.exclude === "true",
+    };
     predSummarySettings = next;
     try {
-      window.localStorage.setItem(predSummarySettingsStorageKey, JSON.stringify({ version: 1, ...next }));
+      window.localStorage.setItem(predSummarySettingsStorageKey, JSON.stringify({ version: 2, ...next }));
     } catch {
       predSummaryRender();
       const message = dialog.querySelector("#predSummarySettingsMessage");
