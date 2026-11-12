@@ -28,7 +28,7 @@
   <!-- Google Analytics -->
   <script defer src="analytics.js?v=20261013-1"></script>
   <link rel="stylesheet" href="styles.css?v=20260916-2">
-<link rel="stylesheet" href="mypage.css?v=20261017-1">
+<link rel="stylesheet" href="mypage.css?v=20261112-4">
   <link rel="stylesheet" href="menu.css?v=20260904-2">
   <link rel="stylesheet" href="page-loading.css?v=20261018-1">
   <script defer src="page-loading.js?v=20261018-1"></script>
@@ -42,7 +42,7 @@
   <script defer src="update-history.js?v=20261002-1"></script>
   <script defer src="target-analysis.js?v=20261027-1"></script>
   <script defer src="share-text.js?v=20261018-1"></script>
-  <script defer src="mypage.js?v=20261027-1"></script>
+  <script defer src="mypage.js?v=20261112-1"></script>
 </head>
 <body data-page="mypage">
   <main class="app">
@@ -105,7 +105,10 @@
           <p id="mypagePredEstimateNote" class="mypage-pred-estimate__note" hidden></p>
         </div>
         <div class="mypage-status-distribution">
-            <h3 class="mypage-status-distribution__title">レベル別クリア状況</h3>
+            <h3 class="mypage-status-distribution__title mypage-status-distribution__title--details">
+              <span>レベル別クリア状況</span>
+              <button id="mypageStatusDistributionDetailsButton" class="mypage-status-distribution__details-button" type="button" aria-haspopup="dialog" aria-controls="mypageStatusDistributionDialog">詳細🔎</button>
+            </h3>
             <div class="mypage-status-distribution__controls">
               <label>未登録を含む<input id="mypageIncludeUnregistered" type="checkbox"></label>
               <label>未所持・未解禁を含む<input id="mypageIncludeUnowned" type="checkbox"></label>
@@ -113,6 +116,13 @@
             <div id="mypageStatusDistributionChart" class="mypage-status-distribution__chart" role="list" aria-label="レベル別クリア状況"></div>
             <div id="mypageStatusDistributionLegend" class="mypage-status-distribution__legend" role="list" aria-label="Statusの凡例"></div>
           </div>
+        <dialog id="mypageStatusDistributionDialog" class="mypage-status-dialog" aria-labelledby="mypageStatusDistributionDialogTitle">
+          <div class="mypage-status-dialog__header">
+            <h2 id="mypageStatusDistributionDialogTitle">レベル別クリア状況詳細</h2>
+            <button id="mypageStatusDistributionDialogClose" class="mypage-status-dialog__close" type="button" aria-label="閉じる">×</button>
+          </div>
+          <div id="mypageStatusDistributionTableShell" class="mypage-status-dialog__table-shell" role="region" aria-label="Status別件数表" tabindex="0"></div>
+        </dialog>
         <section class="mypage-recommendation-block mypage-recommendation-block--plain mypage-recommendation-block--start" aria-labelledby="mypageHighPredTitle">
           <h3 id="mypageHighPredTitle" class="mypage-recommendation-block__title">評価の高いクリアランプ</h3>
           <p class="mypage-recommendation-block__note">クリア済の譜面から、Pred評価が高い順に表示します。<br>エクハ・フルコンはHARD以上にまとめられます。</p>

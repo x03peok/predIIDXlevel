@@ -421,13 +421,7 @@ function mypageGetStatus(row) {
   return mypageStatusValues.has(status) ? status : "unregistered";
 }
 
-function mypageRenderStatusDistribution() {
-  const chart = mypageElements.statusDistributionChart;
-  const legend = mypageElements.statusDistributionLegend;
-  if (!chart || !legend) {
-    return;
-  }
-
+function mypageBuildStatusDistributionCounts() {
   const distributions = new Map();
   for (const row of mypageState.rows) {
     const level = mypageGetNumericValue(row.original_level);
@@ -443,6 +437,88 @@ function mypageRenderStatusDistribution() {
       statusCounts.set(status, statusCounts.get(status) + 1);
     }
   }
+  return distributions;
+}
+
+function mypageRenderStatusDistributionDetails() {
+  const shell = mypageElements.statusDistributionTableShell;
+  if (!shell) {
+    return;
+  }
+
+  const distributions = mypageBuildStatusDistributionCounts();
+  const levels = [8, 9, 10, 11, 12];
+  const table = document.createElement("table");
+  table.className = "mypage-status-dialog__table";
+  table.setAttribute("aria-label", "Status別・レベル別の譜面数");
+
+  const colgroup = document.createElement("colgroup");
+  const statusColumn = document.createElement("col");
+  statusColumn.className = "mypage-status-dialog__status-column";
+  colgroup.append(statusColumn);
+  for (const level of levels) {
+    const column = document.createElement("col");
+    column.className = "mypage-status-dialog__level-column";
+    colgroup.append(column);
+  }
+  table.append(colgroup);
+
+  const thead = document.createElement("thead");
+  const headingRow = document.createElement("tr");
+  const statusHeading = document.createElement("th");
+  statusHeading.scope = "col";
+  statusHeading.textContent = "Status";
+  headingRow.append(statusHeading);
+  for (const level of levels) {
+    const heading = document.createElement("th");
+    heading.scope = "col";
+    heading.textContent = "☆" + level;
+    headingRow.append(heading);
+  }
+  thead.append(headingRow);
+  table.append(thead);
+
+  const tbody = document.createElement("tbody");
+  for (const { value, label } of mypageStatuses) {
+    const row = document.createElement("tr");
+    const statusCell = document.createElement("th");
+    statusCell.scope = "row";
+    const statusLabel = document.createElement("span");
+    statusLabel.className = "mypage-status-dialog__status-label";
+    const swatch = document.createElement("span");
+    swatch.className = "mypage-status-distribution__swatch";
+    swatch.dataset.status = value;
+    swatch.setAttribute("aria-hidden", "true");
+    const text = document.createElement("span");
+    if (value === "unowned") {
+      text.append(document.createTextNode("未所持・"), document.createElement("br"), document.createTextNode("未解禁"));
+      statusCell.setAttribute("aria-label", label);
+    } else {
+      text.textContent = label;
+    }
+    statusLabel.append(swatch, text);
+    statusCell.append(statusLabel);
+    row.append(statusCell);
+
+    for (const level of levels) {
+      const cell = document.createElement("td");
+      cell.textContent = String(distributions.get(level)?.get(value) ?? 0);
+      row.append(cell);
+    }
+    tbody.append(row);
+  }
+  table.append(tbody);
+  shell.replaceChildren(table);
+}
+
+function mypageRenderStatusDistribution() {
+  const chart = mypageElements.statusDistributionChart;
+  const legend = mypageElements.statusDistributionLegend;
+  if (!chart || !legend) {
+    return;
+  }
+
+  const distributions = mypageBuildStatusDistributionCounts();
 
   chart.replaceChildren();
   legend.replaceChildren();
@@ -2160,6 +2236,18 @@ function mypageBindEvents() {
   [mypageElements.summaryTab, mypageElements.detailTab, mypageElements.historyTab].forEach((tab) => {
     tab?.addEventListener("click", () => mypageSetActiveTab(tab.dataset.mypageTab));
   });
+  mypageElements.statusDistributionDetailsButton.addEventListener("click", () => {
+    mypageRenderStatusDistributionDetails();
+    mypageElements.statusDistributionDialog.showModal();
+  });
+  mypageElements.statusDistributionDialogClose.addEventListener("click", () => {
+    mypageElements.statusDistributionDialog.close();
+  });
+  mypageElements.statusDistributionDialog.addEventListener("click", (event) => {
+    if (event.target === mypageElements.statusDistributionDialog) {
+      mypageElements.statusDistributionDialog.close();
+    }
+  });
   mypageElements.highPredMore.addEventListener("click", () => {
     mypageState.highPredVisibleLimit += mypageRecommendationPageSize;
     mypageRender();
@@ -2510,6 +2598,10 @@ function mypageInitializeElements() {
   mypageElements.predEstimate = document.getElementById("mypagePredEstimate");
   mypageElements.statusDistributionChart = document.getElementById("mypageStatusDistributionChart");
   mypageElements.statusDistributionLegend = document.getElementById("mypageStatusDistributionLegend");
+  mypageElements.statusDistributionDetailsButton = document.getElementById("mypageStatusDistributionDetailsButton");
+  mypageElements.statusDistributionDialog = document.getElementById("mypageStatusDistributionDialog");
+  mypageElements.statusDistributionDialogClose = document.getElementById("mypageStatusDistributionDialogClose");
+  mypageElements.statusDistributionTableShell = document.getElementById("mypageStatusDistributionTableShell");
   mypageElements.featureResult = document.getElementById("mypageFeatureResult");
   mypageElements.featureBars = document.getElementById("mypageFeatureBars");
   mypageElements.includeUnregistered = document.getElementById("mypageIncludeUnregistered");

@@ -37,7 +37,7 @@
   <script defer src="storage.js?v=20261002-1"></script>
   <script defer src="update-history.js?v=20261002-1"></script>
   <script defer src="recommendation-cache.js?v=20261018-1"></script>
-  <script defer src="record.js?v=20261025-1"></script>
+  <script defer src="record.js?v=20261112-1"></script>
 </head>
 <body data-page="record">
   <main class="app">
@@ -131,9 +131,9 @@
               </colgroup>
               <thead>
                 <tr>
-                  <th scope="col">Level</th>
-                  <th scope="col">Title</th>
-                  <th scope="col">Status</th>
+                  <th scope="col" aria-sort="none"><button type="button" data-sort-key="level"><span>Level</span><span class="sort-mark"></span></button></th>
+                  <th scope="col" aria-sort="ascending"><button type="button" data-sort-key="title"><span>Title</span><span class="sort-mark">▲</span></button></th>
+                  <th scope="col" aria-sort="none"><button type="button" data-sort-key="status"><span>Status</span><span class="sort-mark"></span></button></th>
                 </tr>
               </thead>
               <tbody id="recordTableBody"></tbody>

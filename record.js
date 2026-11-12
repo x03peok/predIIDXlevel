@@ -50,6 +50,8 @@ const recordState = {
     .map(({ value }) => value),
   levelFilter: null,
   difficultyFilter: null,
+  sortKey: "title",
+  sortDir: "asc",
   visibleLimit: recordPageSize,
   importFile: null,
   importFileWarning: "",
@@ -556,9 +558,10 @@ function recordLoadRows() {
     }
   }
 
-  return parsed.map((cells) => {
+  return parsed.map((cells, index) => {
     const get = (key) => (cells[headerIndex.get(key)] ?? "").trim();
     return {
+      __order: index,
       chartId: get("chart_id"),
       title: recordNormalizeTitle(get("title")),
       officialTitle: recordNormalizeTitle(get("official_title") || get("title")),
@@ -805,7 +808,63 @@ function recordGetFilteredRows() {
     rows = rows.filter((row) => selectedLevelSet.has(row.level));
   }
 
-  return rows;
+  return rows.slice().sort((left, right) => {
+    const comparison = recordCompareRows(left, right);
+    if (comparison !== 0) {
+      return recordState.sortDir === "asc" ? comparison : -comparison;
+    }
+    if (recordState.sortKey !== "title") {
+      const titleComparison = recordCompareTitles(left, right);
+      if (titleComparison !== 0) return titleComparison;
+    }
+    return left.__order - right.__order;
+  });
+}
+
+function recordCompareRows(left, right) {
+  if (recordState.sortKey === "status") {
+    const leftRank = recordStatuses.findIndex(({ value }) => value === recordGetStatus(left));
+    const rightRank = recordStatuses.findIndex(({ value }) => value === recordGetStatus(right));
+    return leftRank - rightRank;
+  }
+  if (recordState.sortKey === "level") {
+    return Number(left.level) - Number(right.level);
+  }
+  return recordCompareTitles(left, right);
+}
+
+function recordCompareTitles(left, right) {
+  return String(left.title ?? "").localeCompare(String(right.title ?? ""), "en", {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+function recordUpdateSortIndicators() {
+  recordElements.table.querySelectorAll("thead button[data-sort-key]").forEach((button) => {
+    const isActive = button.dataset.sortKey === recordState.sortKey;
+    const mark = button.querySelector(".sort-mark");
+    const heading = button.closest("th");
+    if (mark) {
+      mark.textContent = isActive ? (recordState.sortDir === "asc" ? "▲" : "▼") : "";
+    }
+    if (heading) {
+      heading.setAttribute("aria-sort", isActive
+        ? (recordState.sortDir === "asc" ? "ascending" : "descending")
+        : "none");
+    }
+  });
+}
+
+function recordSetSort(key) {
+  if (recordState.sortKey === key) {
+    recordState.sortDir = recordState.sortDir === "asc" ? "desc" : "asc";
+  } else {
+    recordState.sortKey = key;
+    recordState.sortDir = "asc";
+  }
+  recordState.visibleLimit = recordPageSize;
+  recordRender();
 }
 function recordGetStatus(row) {
   return recordState.records.get(row.chartId)?.status ?? "unregistered";
@@ -874,6 +933,7 @@ function recordRender() {
     recordState.records.size.toLocaleString() + "件";
   recordUpdateMissingDataMessage();
   recordElements.loadMore.hidden = visibleRows.length >= filteredRows.length;
+  recordUpdateSortIndicators();
 }
 
 function recordPopulateFilters() {
@@ -944,6 +1004,9 @@ async function recordHandleStatusChange(event) {
 }
 
 function recordBindEvents() {
+  recordElements.table.querySelectorAll("thead button[data-sort-key]").forEach((button) => {
+    button.addEventListener("click", () => recordSetSort(button.dataset.sortKey));
+  });
   recordElements.search.addEventListener("input", () => {
     recordState.query = recordElements.search.value;
     recordState.visibleLimit = recordPageSize;
@@ -972,6 +1035,7 @@ async function recordInitialize() {
   recordElements.message = document.getElementById("recordMessage");
   recordElements.missingDataMessage = document.getElementById("recordMissingDataMessage");
   recordElements.summary = document.getElementById("recordSummary");
+  recordElements.table = document.querySelector(".record-table");
   recordElements.tableBody = document.getElementById("recordTableBody");
   recordElements.loadMore = document.getElementById("recordLoadMoreButton");
   recordElements.csvInput = document.getElementById("recordCsvInput");
