@@ -33,6 +33,15 @@ function readCsv(text) {
   });
 }
 
+function hasFeatureMetrics(row) {
+  return Object.keys(row).some(key => /^(easy|normal|hard)_.+_(amount|impact)_sd$/.test(key));
+}
+
+function normalizeSourceTitle(title, chartId) {
+  // Restore the known song title when spreadsheet software converts it to a date.
+  return ["6042", "6043"].includes(String(chartId)) && title === "9月1日" ? "9-1" : title;
+}
+
 function normalizeRows(source) {
   const rows = source.map(row => {
     const match = String(row.bpm ?? "").trim().match(/^(\d+(?:\.\d+)?)(?:[~\uFF5E\u301C-](\d+(?:\.\d+)?))?$/);
@@ -40,16 +49,16 @@ function normalizeRows(source) {
     if (match && Number(match[1]) > Number(match[2] ?? match[1])) throw new Error(`Reversed BPM for chart ${row.chart_id}.`);
     return {
       chart_id: row.chart_id,
-      title: row.title,
+      title: normalizeSourceTitle(row.title, row.chart_id),
       difficulty: row.diff_label_from_query,
       original_level: row.level_from_query,
       easy_pred_skill: row.EASY_Pred,
       calibrated_pred_skill: row.CLEAR_Pred,
       hard_pred_skill: row.HARD_Pred,
-      features: row["1SD\u4ee5\u4e0a\u306e\u8981\u7d20"],
+      features: row["1SD\u4ee5\u4e0a\u306e\u8981\u7d20"] ?? (hasFeatureMetrics(row) ? "" : undefined),
       bpm_min: match?.[1] ?? "",
       bpm_max: match ? match[2] ?? match[1] : "",
-      official_title: row.official_title,
+      official_title: normalizeSourceTitle(row.official_title, row.chart_id),
       official_version: row.official_version,
       url: row.url,
     };
@@ -92,20 +101,29 @@ function serializeCsv(rows) {
   return [headers.join(","), ...rows.map(row => headers.map(key => escape(row[key])).join(","))].join("\r\n") + "\r\n";
 }
 
-function importDataset(directory, root = __dirname, elementsPath = path.join(directory, "chart_elements_48.csv")) {
-  let charts = normalizeRows(readCsv(fs.readFileSync(path.join(directory, "data.csv"), "utf8")));
+function importDataset(directory, root = __dirname, elementsPath) {
+  const source = readCsv(fs.readFileSync(path.join(directory, "data.csv"), "utf8"));
+  let charts = normalizeRows(source);
   const courses = readCsv(fs.readFileSync(path.join(directory, "stage_skills.csv"), "utf8"));
   const context = { window: {} };
   vm.runInNewContext(fs.readFileSync(path.join(root, "danilabo-data.js"), "utf8"), context, { timeout: 5000 });
   const stages = buildStageRows(courses, charts, context.window.__DANILABO_ROWS__);
   let bundles = null;
-  if (fs.existsSync(elementsPath)) {
+  const legacyElementsPath = path.join(directory, "chart_elements_48.csv");
+  const elements = elementsPath !== undefined
+    ? readCsv(fs.readFileSync(elementsPath, "utf8"))
+    : source.some(hasFeatureMetrics)
+      ? source
+      : fs.existsSync(legacyElementsPath)
+        ? readCsv(fs.readFileSync(legacyElementsPath, "utf8"))
+        : null;
+  if (elements) {
     const { buildFeatureDataset, serializeFeatureBundles } = require("./generate_feature_data.js");
-    const result = buildFeatureDataset(charts, readCsv(fs.readFileSync(elementsPath, "utf8")));
+    const result = buildFeatureDataset(charts, elements);
     charts = result.charts;
     bundles = serializeFeatureBundles(result);
   } else if (fs.existsSync(path.join(root, "feature-data.js"))) {
-    throw new Error("Continuous Feature data requires chart_elements_48.csv (or an explicit metrics CSV argument). No files were changed.");
+    throw new Error("Continuous Feature data requires embedded metrics, chart_elements_48.csv, or an explicit metrics CSV argument. No files were changed.");
   }
   // Validate both sources before replacing either runtime bundle.
   fs.writeFileSync(path.join(root, "data.js"), bundles?.charts ?? `window.__CSV_BUNDLE__ = ${JSON.stringify(serializeCsv(charts))};\n`);

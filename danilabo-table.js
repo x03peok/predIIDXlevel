@@ -141,7 +141,9 @@
   }
 
   function formatPred(value) {
-    const numeric = Number(value);
+    const raw = String(value ?? "").trim();
+    if (!raw) return "";
+    const numeric = Number(raw);
     return Number.isFinite(numeric) ? (Math.round(numeric * 10) / 10).toFixed(1) : "";
   }
 
@@ -290,9 +292,10 @@
       .map(Number)
       .filter((value) => Number.isFinite(value));
     const isZinrai = rankRows[0]?.version === "ZINRAI";
-    const finalPred = rankRows.find((row) => String(row.stage ?? "").trim().toUpperCase() === "FINAL")?.pred;
+    const finalPredText = String(rankRows.find((row) => String(row.stage ?? "").trim().toUpperCase() === "FINAL")?.pred ?? "").trim();
+    const finalPred = finalPredText ? Number(finalPredText) : null;
     const averagePred = isZinrai
-      ? (Number.isFinite(Number(finalPred)) ? Number(finalPred) : null)
+      ? (Number.isFinite(finalPred) ? finalPred : null)
       : (predValues.length > 0
         ? predValues.reduce((sum, value) => sum + value, 0) / predValues.length
         : null);
@@ -301,7 +304,7 @@
       : "<span class=\"danilabo-rank__average-label\">課題曲平均ノマゲPred</span>";
     const averagePredHtml = averagePred === null
       ? ""
-      : " <span class=\"danilabo-rank__average\">" + averageLabel + " <span class=\"numeric-value numeric-value--pred\"" + numericStyle(averagePred) + ">" + averagePred.toFixed(isZinrai ? 1 : 2) + "</span></span>";
+      : " <span class=\"danilabo-rank__average\">" + averageLabel + " <span class=\"numeric-value numeric-value--pred\"" + numericStyle(averagePred) + ">" + (isZinrai ? formatPred(averagePred) : averagePred.toFixed(2)) + "</span></span>";
     return [
       "<section class=\"danilabo-rank\" aria-labelledby=\"danilabo-rank-" + rankIndex + "\">",
       "<h2 id=\"danilabo-rank-" + rankIndex + "\" class=\"danilabo-rank__title\" data-rank=\"" + escapeHtml(rank) + "\"><span class=\"danilabo-rank__name\">" + escapeHtml(rank) + "</span>" + averagePredHtml + "</h2>",

@@ -27,6 +27,17 @@ test("preserves missing predictions, exact chart IDs and supplied titles", () =>
   assert.throws(() => normalizeRows([source({ official_version: "" })]));
 });
 
+test("restores the known 9-1 title without changing unrelated supplied titles", () => {
+  for (const chart_id of ["6042", "6043"]) {
+    const [chart] = normalizeRows([source({ chart_id, title: "9月1日", official_title: "9月1日" })]);
+    assert.equal(chart.title, "9-1");
+    assert.equal(chart.official_title, "9-1");
+  }
+  const [other] = normalizeRows([source({ title: "9月1日", official_title: "Other title" })]);
+  assert.equal(other.title, "9月1日");
+  assert.equal(other.official_title, "Other title");
+});
+
 test("updates stage skills while preserving other versions", () => {
   const charts = normalizeRows([source()]);
   const course = { version: "ZINRAI", course: "test" };

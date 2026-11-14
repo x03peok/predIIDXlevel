@@ -128,6 +128,54 @@ test("generated public assets match IDs, preserve missing predictions, and conta
   }
 });
 
+test("integrated CSV imports derive tags and vectors and reject incomplete metrics before writing", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "cpi-integrated-import-"));
+  try {
+    const source = path.join(directory, "source");
+    fs.mkdirSync(source);
+    const { chart, element } = fixture();
+    for (const mode of modes) {
+      element[mode + "_同時押し_amount_sd"] = "8";
+      element[mode + "_同時押し_impact_sd"] = "-2";
+    }
+    const integrated = {
+      chart_id: chart.chart_id, title: chart.title, official_title: chart.official_title, official_version: chart.official_version,
+      diff_label_from_query: chart.difficulty, level_from_query: chart.original_level, bpm: "150", url: "",
+      EASY_Pred: "10", CLEAR_Pred: "11", HARD_Pred: "12",
+      ...Object.fromEntries(Object.entries(element).filter(([key]) => key.endsWith("_sd"))),
+    };
+    const course = { version: "ZINRAI", course: "test" };
+    for (let stage = 1; stage <= 4; stage++) {
+      course["stage_" + stage + "_chart_id"] = chart.chart_id;
+      course["skill_after_" + stage] = "10";
+    }
+    fs.writeFileSync(path.join(source, "stage_skills.csv"), serializeCsv([course]));
+    fs.writeFileSync(path.join(directory, "data.js"), "unchanged");
+    fs.writeFileSync(path.join(directory, "feature-data.js"), "unchanged");
+    fs.writeFileSync(path.join(directory, "danilabo-data.js"), "window.__DANILABO_ROWS__ = [];");
+    const incomplete = { ...integrated };
+    delete incomplete.hard_物量_amount_sd;
+    fs.writeFileSync(path.join(source, "data.csv"), serializeCsv([incomplete]));
+    assert.throws(() => importDataset(source, directory), /Missing Feature column/);
+    assert.equal(fs.readFileSync(path.join(directory, "data.js"), "utf8"), "unchanged");
+    assert.equal(fs.readFileSync(path.join(directory, "feature-data.js"), "utf8"), "unchanged");
+    assert.equal(fs.readFileSync(path.join(directory, "danilabo-data.js"), "utf8"), "window.__DANILABO_ROWS__ = [];");
+    fs.writeFileSync(path.join(source, "data.csv"), serializeCsv([integrated]));
+    assert.throws(() => importDataset(source, directory, path.join(source, "missing.csv")), /ENOENT/);
+    importDataset(source, directory);
+    const context = { window: {} };
+    for (const file of ["data.js", "feature-data.js", "danilabo-data.js"]) {
+      vm.runInNewContext(fs.readFileSync(path.join(directory, file), "utf8"), context);
+    }
+    assert.equal(readCsv(context.window.__CSV_BUNDLE__)[0].features, "同時押し++");
+    assert.equal(context.window.__FEATURE_DATA_ID__, context.window.__FEATURE_DATA__.id);
+    assert.deepEqual(Array.from(context.window.__FEATURE_DATA__.charts["1"], vector => vector[0]), [-2, -2, -2]);
+    assert.equal(context.window.__DANILABO_ROWS__.length, 4);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("future full imports require matching metrics before writing any bundle", () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "cpi-feature-import-"));
   try {

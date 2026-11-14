@@ -28,8 +28,10 @@ function buildFeatureDataset(charts, elements) {
   const updatedCharts = charts.map(chart => {
     const id = String(chart.chart_id);
     const element = byId.get(id);
-    if (!element || element.difficulty !== chart.difficulty
-      || (String(element.level).trim() && Number(element.level) !== Number(chart.original_level))) {
+    const difficulty = element?.difficulty ?? element?.diff_label_from_query;
+    const level = element?.level ?? element?.level_from_query;
+    if (!element || difficulty !== chart.difficulty
+      || (String(level ?? "").trim() && Number(level) !== Number(chart.original_level))) {
       throw new Error(`Feature chart metadata mismatch: ${id}`);
     }
     const inputs = featureNames.map(feature => modes.map(mode => {
