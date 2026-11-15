@@ -1367,7 +1367,7 @@ function mypageRenderHighPredStatusLabel(status) {
 function mypageRenderHighPredCard(candidate) {
   const row = candidate.row;
   const predText = Number.isFinite(candidate.pred)
-    ? candidate.pred.toFixed(2)
+    ? candidate.pred.toFixed(1)
     : String(candidate.pred);
   const predColor = getNumericColorStyle(
     candidate.pred,
@@ -2044,7 +2044,7 @@ function mypageRenderUpdateHistoryEvent(event, showBestClearUpdate = false) {
     predLabel.textContent = "Pred";
     const predValue = document.createElement("strong");
     predValue.className = "mypage-history__pred numeric-value numeric-value--pred";
-    predValue.textContent = pred.toFixed(2);
+    predValue.textContent = pred.toFixed(1);
     const predColor = getNumericScaleColor(pred, predBounds.min, predBounds.max);
     if (predColor) {
       predValue.style.setProperty("--numeric-color", predColor);
