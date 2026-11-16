@@ -70,6 +70,7 @@ const mypageStatuses = [
 const mypageStatusValues = new Set(mypageStatuses.map(({ value }) => value));
 const mypageStoredStatusValues = new Set([...mypageStatusValues, "failed"]);
 const mypageRecommendationPageSize = 3;
+const mypageUpdateTargetPreviewCount = 5;
 const mypageHistoryPageSize = 10;
 const mypageUpdateTargetByStatus = Object.freeze({
   failed: { mode: "easy", label: "EASY" },
@@ -1384,20 +1385,9 @@ function mypageRenderHighPredCard(candidate) {
   ].join("");
 }
 
-function mypageFormatRecommendationProbability(value) {
-  const probability = Number(value);
-  if (!Number.isFinite(probability)) {
-    return "ー";
-  }
-  const percent = Math.max(0, Math.min(100, probability * 100));
-  const bucket = Math.min(95, Math.floor(percent / 5) * 5);
-  return bucket >= 95 ? "95%以上" : bucket + "%～" + (bucket + 5) + "%";
-}
-
 function mypageRenderUpdateTargetCard(candidate) {
   const row = candidate.row;
   const targetLabel = candidate.target.mode === "hard" ? "HARD" : candidate.target.label;
-  const probabilityText = mypageFormatRecommendationProbability(candidate.probability);
   return [
     '<article class="mypage-recommendation-card mypage-recommendation-card--update mypage-recommendation-card--summary">',
     '  <div class="mypage-recommendation-card__header mypage-recommendation-card__header--combined" aria-label="現在と目標">',
@@ -1406,8 +1396,7 @@ function mypageRenderUpdateTargetCard(candidate) {
     '    <span class="mypage-recommendation-card__header-status" data-status="' + mypageEscapeHtml(candidate.target.mode) + '"><span class="mypage-recommendation-card__header-status-label">目標：</span><strong class="mypage-recommendation-card__header-status-value">' + mypageEscapeHtml(targetLabel) + '</strong></span>',
     '  </div>',
     '  ' + mypageGetRecommendationTitleHtml(row),
-    '  <div class="mypage-recommendation-card__level-pred"><span class="mypage-recommendation-card__level">' + mypageEscapeHtml("☆" + (row.original_level ?? "")) + '</span><span class="mypage-recommendation-card__pred-label">更新見込み</span><strong>' + probabilityText + '</strong></div>',
-    '  ' + mypageRenderFeatureChips(row),
+    '  <div class="mypage-recommendation-card__level-pred mypage-recommendation-card__level-features"><span class="mypage-recommendation-card__level">' + mypageEscapeHtml("☆" + (row.original_level ?? "")) + '</span>' + mypageRenderFeatureChips(row) + '</div>',
     '</article>',
   ].join("");
 }
@@ -1503,7 +1492,7 @@ function mypageRenderRecommendationLists(analysis) {
     updateMessage.textContent = "クリア確率を計算できるデータがありません。クリアランプ登録が増えると表示されます。";
     return;
   }
-  const updateVisible = updateCandidates.slice(0, mypageRecommendationPageSize);
+  const updateVisible = updateCandidates.slice(0, mypageUpdateTargetPreviewCount);
   updateCards.innerHTML = updateVisible.map(mypageRenderUpdateTargetCard).join("");
   updateMessage.hidden = updateCandidates.length > 0;
   updateMessage.textContent = updateCandidates.length > 0

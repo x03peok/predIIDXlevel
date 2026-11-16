@@ -8,6 +8,7 @@ const targetDailyTargetsStoreName = "daily-targets";
 const targetUpdateHistoryStoreName = "status-update-events";
 const targetPageSize = 100;
 const targetFeatureNone = "特徴なし";
+const targetRecommendationFeatureLevels = ["なし", "あり", "+", "++"];
 const targetUnlockEventStorageKey = "cpi-next-target-unlocked-event-sent";
 const targetFeatureNames = [
   "同時押し",
@@ -74,6 +75,7 @@ const targetDefaultRecommendationStatusFilter = targetStatuses
   .filter(({ value }) => !["unowned", "hard"].includes(value))
   .map(({ value }) => value);
 const targetRecommendationSettingsKey = "cpi-next-target-recommendation-statuses";
+const targetRecommendationPredDifferencesVisibleKey = "cpi-next-target-recommendation-pred-differences-visible";
 const targetEmptyTargetGoalsConfirmedKey = "cpi-next-target-recommendation-empty-target-goals-confirmed";
 const targetAutoRecommendationNoticeStorageKey = "cpi-next-target-auto-recommendation-notice-dismissed-v2";
 const targetRecommendationLevelValues = [8, 9, 10, 11, 12];
@@ -137,6 +139,7 @@ const targetState = {
   searchQuery: "",
   statusFilter: new Set(targetDefaultStatusFilter),
   recommendationSettings: targetGetDefaultRecommendationSettings(),
+  recommendationPredDifferencesVisible: false,
   autoRecommendationIds: [],
   autoRecommendationCandidateCount: 0,
   autoRecommendationMetaById: new Map(),
@@ -171,6 +174,8 @@ const targetState = {
 
 const targetElements = {};
 let targetRecommendationDraft = null;
+let targetRecommendationPredDifferencesVisibleDraft = null;
+let targetRecommendationSettingsSaveTimer = null;
 
 function targetReadAutoRecommendationNoticeDismissed() {
   try {
@@ -186,6 +191,13 @@ function targetDismissAutoRecommendationNotice() {
     // Continue hiding the notice even when storage is unavailable.
   }
   if (targetElements.autoNotice) targetElements.autoNotice.hidden = true;
+}
+function targetReadRecommendationPredDifferencesVisible() {
+  try {
+    return window.localStorage?.getItem(targetRecommendationPredDifferencesVisibleKey) === "1";
+  } catch {
+    return false;
+  }
 }
 
 function targetEscapeHtml(value) {
@@ -992,17 +1004,22 @@ function targetGetRecommendationFeatureBand(delta) {
 }
 
 function targetRecommendationFeatureMatches(row, featureFilters) {
-  const rowFeatures = new Set(targetGetRowFeatures(row));
   if (featureFilters && typeof featureFilters === "object" && !Array.isArray(featureFilters)) {
+    const details = targetGetFeatureDetails(row);
+    const noneSetting = featureFilters[targetFeatureNone] ?? { include: true, exclude: true };
+    if (details.length === 0 ? !noneSetting.include : !noneSetting.exclude) return false;
+    const strengths = new Map(details.map(({ name, plusCount }) => [name, Math.min(3, plusCount + 1)]));
     return Object.entries(featureFilters).every(([feature, setting]) => {
-      if (!setting || setting.include === setting.exclude) {
+      if (feature === targetFeatureNone || !setting || !Number.isInteger(setting.min) || !Number.isInteger(setting.max)) {
         return true;
       }
-      const hasFeature = rowFeatures.has(feature);
-      return setting.include ? hasFeature : !hasFeature;
+      if (setting.min > setting.max) return false;
+      const strength = strengths.get(feature) ?? 0;
+      return strength >= setting.min && strength <= setting.max;
     });
   }
 
+  const rowFeatures = new Set(targetGetRowFeatures(row));
   const selected = new Set(Array.isArray(featureFilters) ? featureFilters : []);
   if (selected.size === 0) {
     return false;
@@ -1086,7 +1103,9 @@ function targetRenderRecommendationCard(row, candidate) {
   const adjustedPred = targetGetNumericValue(candidate.adjustedPred ?? targetGetAdjustedPred(row, predMode));
   const appropriateDifference = targetGetNumericValue(candidate.appropriateDifference);
   const correctionDifference = targetGetNumericValue(candidate.correctionDifference);
-  const predDifferenceMarkup = Number.isFinite(appropriateDifference) && Number.isFinite(correctionDifference)
+  const predDifferenceMarkup = targetState.recommendationPredDifferencesVisible
+    && Number.isFinite(appropriateDifference)
+    && Number.isFinite(correctionDifference)
     ? '<div class="target-recommendation-card__pred-differences">'
       + '<span>適正' + targetEscapeHtml(targetFormatPredDifference(appropriateDifference)) + '</span>'
       + '<span aria-hidden="true"> / </span>'
@@ -1318,13 +1337,15 @@ function targetGetStatus(row) {
 }
 
 function targetGetRecommendationFeatureValues() {
-  return [targetFeatureNone, ...targetFeatureNames];
+  return [...targetFeatureNames, targetFeatureNone];
 }
 
 function targetGetDefaultRecommendationFeatureFilters() {
   return Object.fromEntries(targetGetRecommendationFeatureValues().map((feature) => [
     feature,
-    { include: true, exclude: true },
+    feature === targetFeatureNone
+      ? { include: true, exclude: true }
+      : { min: 0, max: 3 },
   ]));
 }
 
@@ -1337,10 +1358,22 @@ function targetNormalizeRecommendationFeatureFilters(values, fallback = targetGe
   ]);
   return Object.fromEntries([...keys].map((feature) => {
     const setting = source[feature] ?? fallback?.[feature];
-    return [feature, {
-      include: setting?.include === true,
-      exclude: setting?.exclude === true,
-    }];
+    if (feature === targetFeatureNone) {
+      return [feature, {
+        include: typeof setting?.include === "boolean" ? setting.include : fallback?.[feature]?.include === true,
+        exclude: typeof setting?.exclude === "boolean" ? setting.exclude : fallback?.[feature]?.exclude === true,
+      }];
+    }
+    if (Number.isInteger(setting?.min) && Number.isInteger(setting?.max)
+      && setting.min >= 0 && setting.min <= 3 && setting.max >= 0 && setting.max <= 3
+      && (setting.min <= setting.max || (setting.min === 1 && setting.max === 0))) {
+      return [feature, { min: setting.min, max: setting.max }];
+    }
+    if (typeof setting?.include === "boolean" && typeof setting?.exclude === "boolean") {
+      if (setting.include === setting.exclude) return [feature, { min: 0, max: 3 }];
+      return [feature, setting.include ? { min: 1, max: 3 } : { min: 0, max: 0 }];
+    }
+    return [feature, fallback?.[feature] ?? { min: 0, max: 3 }];
   }));
 }
 
@@ -1585,6 +1618,7 @@ function targetRenderRecommendationFilter({ container, summary, options, setting
       }
       targetRecommendationDraft[settingKey] = [...selectedValues];
       syncCheckboxes();
+      targetScheduleRecommendationSettingsSave();
     });
   }
   container.querySelectorAll("input[data-filter-option]").forEach((input) => {
@@ -1595,21 +1629,83 @@ function targetRenderRecommendationFilter({ container, summary, options, setting
       });
       targetRecommendationDraft[settingKey] = [...selectedValues];
       syncCheckboxes();
+      targetScheduleRecommendationSettingsSave();
     });
   });
 }
+function targetNextRecommendationFeatureRange(range, value) {
+  const { min, max } = range;
+  if (min > max) return { min: value, max: value };
+  if (value < min) return { min: value, max };
+  if (value > max) return { min, max: value };
+  if (value === min && min < max) return { min: min + 1, max };
+  if (value === max && max > min) return { min, max: max - 1 };
+  return value - min < max - value
+    ? { min: value, max }
+    : { min, max: value };
+}
+
+function targetFindRecommendationFeatureRangeValue(group, clientX) {
+  let nearestValue = 0;
+  let nearestDistance = Infinity;
+  group.querySelectorAll("[data-recommendation-feature-range-value]").forEach((button) => {
+    const rect = button.getBoundingClientRect();
+    const distance = Math.abs(clientX - (rect.left + rect.width / 2));
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearestValue = Number(button.dataset.recommendationFeatureRangeValue);
+    }
+  });
+  return nearestValue;
+}
+
+function targetUpdateRecommendationFeatureRange(group, range) {
+  const min = Number(range.min);
+  const max = Number(range.max);
+  const empty = min > max;
+  group.dataset.min = String(min);
+  group.dataset.max = String(max);
+  group.classList.toggle("is-empty", empty);
+  group.style.setProperty("--range-start", `${min / 3 * 100}%`);
+  group.style.setProperty("--range-end", `${max / 3 * 100}%`);
+  group.setAttribute("aria-label", empty
+    ? `${group.dataset.featureName}: 対象なし`
+    : `${group.dataset.featureName}: ${targetRecommendationFeatureLevels[min]}～${targetRecommendationFeatureLevels[max]}`);
+  group.querySelectorAll("[data-recommendation-feature-range-value]").forEach((button) => {
+    const value = Number(button.dataset.recommendationFeatureRangeValue);
+    const selected = !empty && value >= min && value <= max;
+    button.classList.toggle("is-selected", selected);
+    button.classList.toggle("is-boundary", selected && (value === min || value === max));
+    button.setAttribute("aria-pressed", String(selected));
+  });
+}
+
+function targetUpdateRecommendationNoneFeatureGroup(group, settings) {
+  group.classList.toggle("is-connection-selected", Boolean(settings.include && settings.exclude));
+  for (const mode of ["include", "exclude"]) {
+    const selected = Boolean(settings[mode]);
+    group.dataset[mode] = String(selected);
+    const button = group.querySelector(`[data-recommendation-feature-mode="${mode}"]`);
+    button.classList.toggle("is-selected", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  }
+}
+
 function targetRenderRecommendationFeatureFilter() {
   const container = targetElements.recommendationFeatureOptions;
-  if (!container || !targetRecommendationDraft) {
-    return;
-  }
-  const values = targetGetFeatureOptions();
-  const featureFilters = targetNormalizeRecommendationFeatureFilters(
-    targetRecommendationDraft.featureFilters,
-  );
+  if (!container || !targetRecommendationDraft) return;
+  const available = targetGetFeatureOptions();
+  const values = [
+    ...targetFeatureNames,
+    ...available.filter((feature) => feature !== targetFeatureNone && !targetFeatureNames.includes(feature)),
+    targetFeatureNone,
+  ];
+  const featureFilters = targetNormalizeRecommendationFeatureFilters(targetRecommendationDraft.featureFilters);
   values.forEach((feature) => {
     if (!featureFilters[feature]) {
-      featureFilters[feature] = { include: true, exclude: true };
+      featureFilters[feature] = feature === targetFeatureNone
+        ? { include: true, exclude: true }
+        : { min: 0, max: 3 };
     }
   });
   targetRecommendationDraft.featureFilters = featureFilters;
@@ -1620,58 +1716,184 @@ function targetRenderRecommendationFeatureFilter() {
   const allInput = document.createElement("input");
   allInput.type = "checkbox";
   allInput.dataset.recommendationFeatureAll = "true";
+  allInput.setAttribute("aria-label", "Featureをすべて選択・解除");
   const allText = document.createElement("span");
   allText.textContent = "all";
   allLabel.append(allInput, allText);
   fragment.append(allLabel);
 
+  const legend = document.createElement("div");
+  legend.className = "target-recommendation-feature-legend";
+  const legendSpacer = document.createElement("span");
+  legendSpacer.setAttribute("aria-hidden", "true");
+  const legendValues = document.createElement("div");
+  targetRecommendationFeatureLevels.forEach((labelText) => {
+    const label = document.createElement("span");
+    label.textContent = labelText;
+    legendValues.append(label);
+  });
+  legend.append(legendSpacer, legendValues);
+  fragment.append(legend);
+
   for (const feature of values) {
     const row = document.createElement("div");
-    row.className = "multi-filter__option feature-filter__option";
+    row.className = "multi-filter__option target-recommendation-feature-row";
     const name = document.createElement("span");
-    name.className = "feature-filter__name";
+    name.className = "target-recommendation-feature-name";
     name.textContent = feature;
     row.append(name);
-     for (const [mode, labelText] of [["include", "含む"], ["exclude", "含まない"]]) {
-      const label = document.createElement("label");
-      label.className = "feature-filter__mode";
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.dataset.recommendationFeatureMode = mode;
-      checkbox.dataset.recommendationFeatureValue = feature;
-      checkbox.checked = featureFilters[feature][mode];
-      const text = document.createElement("span");
-      text.textContent = labelText;
-      label.append(checkbox, text);
-      row.append(label);
 
-      checkbox.addEventListener("change", () => {
-        featureFilters[feature][mode] = checkbox.checked;
-        syncCheckboxes();
+    if (feature === targetFeatureNone) {
+      const group = document.createElement("div");
+      group.className = "target-recommendation-feature-range target-recommendation-feature-range--none";
+      group.dataset.recommendationFeatureNoneGroup = "true";
+      group.dataset.featureName = feature;
+      group.setAttribute("role", "group");
+      group.setAttribute("aria-label", "特徴なしの譜面と特徴がある譜面の表示設定");
+      for (const mode of ["include", "exclude"]) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "target-recommendation-feature-dot";
+        button.dataset.recommendationFeatureMode = mode;
+        button.setAttribute("aria-label", mode === "include" ? "特徴なしの譜面を含む" : "特徴がある譜面を含む");
+        button.setAttribute("aria-pressed", "false");
+        button.addEventListener("click", () => {
+          featureFilters[feature][mode] = !featureFilters[feature][mode];
+          targetUpdateRecommendationNoneFeatureGroup(group, featureFilters[feature]);
+          syncAll();
+          targetScheduleRecommendationSettingsSave();
+        });
+        group.append(button);
+      }
+      for (let slot = 2; slot < 4; slot += 1) {
+        const placeholder = document.createElement("span");
+        placeholder.className = "target-recommendation-feature-dot-placeholder";
+        placeholder.setAttribute("aria-hidden", "true");
+        group.append(placeholder);
+      }
+      targetUpdateRecommendationNoneFeatureGroup(group, featureFilters[feature]);
+      row.append(group);
+    } else {
+      const group = document.createElement("div");
+      group.className = "target-recommendation-feature-range";
+      group.dataset.recommendationFeatureRangeGroup = "true";
+      group.dataset.featureName = feature;
+      group.setAttribute("role", "group");
+      let pointerDrag = null;
+      let pendingPointerClickValue = null;
+      let suppressNextClick = false;
+      for (let value = 0; value < targetRecommendationFeatureLevels.length; value += 1) {
+        const button = document.createElement("button");
+        const labelText = targetRecommendationFeatureLevels[value];
+        button.type = "button";
+        button.className = "target-recommendation-feature-dot";
+        button.dataset.recommendationFeatureRangeValue = String(value);
+        button.setAttribute("aria-label", feature + "：" + (value === 0 ? "含まない" : "含む（" + labelText + "）"));
+        button.setAttribute("aria-pressed", "false");
+        group.append(button);
+      }
+      targetUpdateRecommendationFeatureRange(group, featureFilters[feature]);
+      group.addEventListener("pointerdown", (event) => {
+        const button = event.target.closest("[data-recommendation-feature-range-value]");
+        if (!button || (event.pointerType === "mouse" && event.button !== 0)) return;
+        const startValue = Number(button.dataset.recommendationFeatureRangeValue);
+        const min = Number(group.dataset.min);
+        const max = Number(group.dataset.max);
+        const empty = min > max;
+        const edge = empty || min === max
+          ? "anchor"
+          : startValue === min
+            ? "min"
+            : startValue === max
+              ? "max"
+              : startValue - min <= max - startValue ? "min" : "max";
+        pointerDrag = { pointerId: event.pointerId, startValue, lastValue: startValue, min, max, edge, moved: false };
+        pendingPointerClickValue = startValue;
+        group.classList.add("is-dragging");
+        try { group.setPointerCapture(event.pointerId); } catch { /* Pointer capture may be unavailable. */ }
       });
+      group.addEventListener("pointermove", (event) => {
+        if (!pointerDrag || event.pointerId !== pointerDrag.pointerId) return;
+        const value = targetFindRecommendationFeatureRangeValue(group, event.clientX);
+        if (value === pointerDrag.lastValue) return;
+        pointerDrag.moved = true;
+        pointerDrag.lastValue = value;
+        let range;
+        if (pointerDrag.edge === "min") {
+          range = { min: Math.min(value, pointerDrag.max), max: pointerDrag.max };
+        } else if (pointerDrag.edge === "max") {
+          range = { min: pointerDrag.min, max: Math.max(value, pointerDrag.min) };
+        } else {
+          range = { min: Math.min(pointerDrag.startValue, value), max: Math.max(pointerDrag.startValue, value) };
+        }
+        featureFilters[feature] = range;
+        targetUpdateRecommendationFeatureRange(group, range);
+        syncAll();
+      });
+      const finishPointerDrag = (event) => {
+        if (!pointerDrag || event.pointerId !== pointerDrag.pointerId) return;
+        const moved = pointerDrag.moved;
+        if (moved) {
+          suppressNextClick = true;
+          window.setTimeout(() => { suppressNextClick = false; }, 0);
+        } else {
+          pendingPointerClickValue = pointerDrag.startValue;
+        }
+        pointerDrag = null;
+        group.classList.remove("is-dragging");
+        if (moved) targetScheduleRecommendationSettingsSave();
+      };
+      group.addEventListener("pointerup", finishPointerDrag);
+      group.addEventListener("pointercancel", (event) => {
+        finishPointerDrag(event);
+        pendingPointerClickValue = null;
+      });
+      group.addEventListener("click", (event) => {
+        if (suppressNextClick) {
+          suppressNextClick = false;
+          pendingPointerClickValue = null;
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+        const button = event.target.closest("[data-recommendation-feature-range-value]");
+        const value = button ? Number(button.dataset.recommendationFeatureRangeValue) : pendingPointerClickValue;
+        pendingPointerClickValue = null;
+        if (value === null || value === undefined) return;
+        const range = targetNextRecommendationFeatureRange(featureFilters[feature], value);
+        featureFilters[feature] = range;
+        targetUpdateRecommendationFeatureRange(group, range);
+        syncAll();
+        targetScheduleRecommendationSettingsSave();
+      });
+      row.append(group);
     }
     fragment.append(row);
   }
 
-  const syncCheckboxes = () => {
-    allInput.checked = values.every((feature) => {
-      const setting = featureFilters[feature];
-      return setting?.include === true && setting?.exclude === true;
-    });
-    container.querySelectorAll("input[data-recommendation-feature-mode]").forEach((input) => {
-      const setting = featureFilters[input.dataset.recommendationFeatureValue];
-      input.checked = setting?.[input.dataset.recommendationFeatureMode] === true;
-    });
-  };
-
   container.replaceChildren(fragment);
-  syncCheckboxes();
+  const rangeGroups = [...container.querySelectorAll("[data-recommendation-feature-range-group]")];
+  const noneGroup = container.querySelector("[data-recommendation-feature-none-group]");
+  const syncAll = () => {
+    const allRanges = rangeGroups.every((group) => group.dataset.min === "0" && group.dataset.max === "3");
+    const noneSelected = noneGroup.dataset.include === "true" && noneGroup.dataset.exclude === "true";
+    const allOff = rangeGroups.every((group) => Number(group.dataset.min) > Number(group.dataset.max))
+      && noneGroup.dataset.include !== "true" && noneGroup.dataset.exclude !== "true";
+    allInput.checked = allRanges && noneSelected;
+    allInput.indeterminate = !allInput.checked && !allOff;
+  };
+  syncAll();
   allInput.addEventListener("change", () => {
-    values.forEach((feature) => {
-      featureFilters[feature].include = allInput.checked;
-      featureFilters[feature].exclude = allInput.checked;
+    rangeGroups.forEach((group) => {
+      const range = allInput.checked ? { min: 0, max: 3 } : { min: 1, max: 0 };
+      featureFilters[group.dataset.featureName] = range;
+      targetUpdateRecommendationFeatureRange(group, range);
     });
-    syncCheckboxes();
+    const noneSettings = { include: allInput.checked, exclude: allInput.checked };
+    featureFilters[targetFeatureNone] = noneSettings;
+    targetUpdateRecommendationNoneFeatureGroup(noneGroup, noneSettings);
+    syncAll();
+    targetScheduleRecommendationSettingsSave();
   });
 }
 function targetUpdateRecommendationInputs() {
@@ -1679,6 +1901,11 @@ function targetUpdateRecommendationInputs() {
     return;
   }
   targetElements.recommendationCount.value = String(targetRecommendationDraft.count);
+  const showPredDifferences = targetRecommendationPredDifferencesVisibleDraft
+    ?? targetState.recommendationPredDifferencesVisible;
+  if (targetElements.recommendationPredDifferenceToggle) {
+    targetElements.recommendationPredDifferenceToggle.setAttribute("aria-checked", String(showPredDifferences));
+  }
 }
 
 function targetRenderRecommendationSettings() {
@@ -1743,10 +1970,36 @@ function targetCommitRecommendationCount() {
     targetElements.recommendationCount.value,
   );
   targetUpdateRecommendationInputs();
+  targetScheduleRecommendationSettingsSave();
+}
+function targetToggleRecommendationPredDifferences() {
+  if (targetRecommendationPredDifferencesVisibleDraft === null) {
+    return;
+  }
+  targetRecommendationPredDifferencesVisibleDraft = !targetRecommendationPredDifferencesVisibleDraft;
+  targetUpdateRecommendationInputs();
+  targetScheduleRecommendationSettingsSave();
+}
+function targetScheduleRecommendationSettingsSave() {
+  if (targetRecommendationSettingsSaveTimer !== null) {
+    window.clearTimeout(targetRecommendationSettingsSaveTimer);
+  }
+  targetRecommendationSettingsSaveTimer = window.setTimeout(() => {
+    targetRecommendationSettingsSaveTimer = null;
+    targetSaveRecommendationSettings();
+  }, 220);
+}
+function targetFlushRecommendationSettingsSave() {
+  if (targetRecommendationSettingsSaveTimer === null) return;
+  window.clearTimeout(targetRecommendationSettingsSaveTimer);
+  targetRecommendationSettingsSaveTimer = null;
+  targetSaveRecommendationSettings();
 }
 function targetOpenRecommendationSettings() {
+  targetFlushRecommendationSettingsSave();
   if (targetSyncRecommendationSettings()) targetRender();
   targetRecommendationDraft = targetCloneRecommendationSettings(targetState.recommendationSettings);
+  targetRecommendationPredDifferencesVisibleDraft = targetState.recommendationPredDifferencesVisible;
   targetRenderRecommendationSettings();
   targetElements.autoSettingsOverlay.hidden = false;
   targetElements.autoSettingsPanel.hidden = false;
@@ -1756,33 +2009,54 @@ function targetOpenRecommendationSettings() {
 }
 
 function targetCloseRecommendationSettings() {
+  targetFlushRecommendationSettingsSave();
   targetElements.autoSettingsOverlay.hidden = true;
   targetElements.autoSettingsPanel.hidden = true;
   document.body.classList.remove("target-settings-modal-open");
   targetElements.autoSettingsButton?.setAttribute("aria-expanded", "false");
   targetRecommendationDraft = null;
+  targetRecommendationPredDifferencesVisibleDraft = null;
 }
 
 function targetSaveRecommendationSettings() {
+  if (targetRecommendationSettingsSaveTimer !== null) {
+    window.clearTimeout(targetRecommendationSettingsSaveTimer);
+    targetRecommendationSettingsSaveTimer = null;
+  }
   const draft = targetRecommendationDraft
     ? targetCloneRecommendationSettings(targetRecommendationDraft)
     : targetCloneRecommendationSettings(targetState.recommendationSettings);
   draft.count = targetNormalizeRecommendationCount(targetElements.recommendationCount.value);
-  if (draft.targetGoals.length === 0
+  const showPredDifferences = targetRecommendationPredDifferencesVisibleDraft
+    ?? targetState.recommendationPredDifferencesVisible;
+  const targetGoalsChanged = JSON.stringify(draft.targetGoals) !== JSON.stringify(targetState.recommendationSettings.targetGoals);
+  if (draft.targetGoals.length === 0 && targetGoalsChanged
     && !window.confirm("マイターゲットに曲が表示されなくなります。よろしいですか？")) {
+    if (targetRecommendationDraft) {
+      targetRecommendationDraft.targetGoals = [...targetState.recommendationSettings.targetGoals];
+      targetRenderRecommendationSettings();
+    }
+    targetSetRecommendationSettingsMessage("目標ランプをすべて外す設定は保存されませんでした。", true);
     return;
   }
   try {
     const settingsChanged = JSON.stringify(draft) !== JSON.stringify(targetState.recommendationSettings);
+    const predDifferencesChanged = showPredDifferences !== targetState.recommendationPredDifferencesVisible;
+    if (!settingsChanged && !predDifferencesChanged) return;
     window.localStorage?.setItem(targetEmptyTargetGoalsConfirmedKey, draft.targetGoals.length === 0 ? "1" : "0");
     window.localStorage?.setItem(targetRecommendationSettingsKey, JSON.stringify(draft));
+    window.localStorage?.setItem(targetRecommendationPredDifferencesVisibleKey, showPredDifferences ? "1" : "0");
     targetState.recommendationSettings = targetCloneRecommendationSettings(draft);
+    targetState.recommendationPredDifferencesVisible = showPredDifferences;
     targetRecommendationDraft = targetCloneRecommendationSettings(draft);
-    targetRenderRecommendationSettings();
+    targetRecommendationPredDifferencesVisibleDraft = showPredDifferences;
+    targetUpdateRecommendationInputs();
     if (settingsChanged) targetState.autoRecommendationsInitialized = false;
     targetRender();
-    window.dispatchEvent(new Event("cpi:recommendation-settings-changed"));
-    targetSetRecommendationSettingsMessage("自動リコメンド設定を保存しました。");
+    if (settingsChanged) {
+      window.dispatchEvent(new Event("cpi:recommendation-settings-changed"));
+    }
+    targetSetRecommendationSettingsMessage("設定を自動保存しました。");
   } catch (error) {
     targetSetRecommendationSettingsMessage("自動リコメンド設定を保存できませんでした。", true);
   }
@@ -1790,8 +2064,9 @@ function targetSaveRecommendationSettings() {
 
 function targetResetRecommendationSettings() {
   targetRecommendationDraft = targetGetDefaultRecommendationSettings();
+  targetRecommendationPredDifferencesVisibleDraft = false;
   targetRenderRecommendationSettings();
-  targetSetRecommendationSettingsMessage("設定をデフォルトに戻しました。");
+  targetSaveRecommendationSettings();
 }
 
 function targetShuffleRows(rows) {
@@ -2315,7 +2590,7 @@ function targetInitializeElements() {
   targetElements.recommendationGoalOptions = document.getElementById("targetRecommendationGoalOptions");
   targetElements.recommendationFeatureSummary = document.getElementById("targetRecommendationFeatureSummary");
   targetElements.recommendationCount = document.getElementById("targetRecommendationCount");
-  targetElements.recommendationSave = document.getElementById("targetRecommendationSaveButton");
+  targetElements.recommendationPredDifferenceToggle = document.getElementById("targetRecommendationPredDifferenceToggle");
   targetElements.recommendationReset = document.getElementById("targetRecommendationResetButton");
   targetElements.autoEmpty = document.getElementById("targetAutoEmpty");
   targetElements.autoRowCount = document.getElementById("targetAutoRowCount");
@@ -2438,9 +2713,6 @@ function targetBindEvents() {
       targetCloseRecommendationSettings();
     }
   });
-  if (targetElements.recommendationSave) {
-    targetElements.recommendationSave.addEventListener("click", targetSaveRecommendationSettings);
-  }
   if (targetElements.recommendationReset) {
     targetElements.recommendationReset.addEventListener("click", targetResetRecommendationSettings);
   }
@@ -2449,6 +2721,7 @@ function targetBindEvents() {
   if (targetElements.recommendationCount) {
     targetElements.recommendationCount.addEventListener("change", targetCommitRecommendationCount);
   }
+  targetElements.recommendationPredDifferenceToggle?.addEventListener("click", targetToggleRecommendationPredDifferences);
   targetElements.autoRegenerate.addEventListener("click", () => {
     targetGenerateAutoRecommendations();
     targetRender();
@@ -2543,7 +2816,9 @@ async function targetInitialize() {
     targetElements.autoNotice.hidden = targetReadAutoRecommendationNoticeDismissed();
   }
   targetState.recommendationSettings = targetReadRecommendationSettings();
+  targetState.recommendationPredDifferencesVisible = targetReadRecommendationPredDifferencesVisible();
   targetRecommendationDraft = targetCloneRecommendationSettings(targetState.recommendationSettings);
+  targetRecommendationPredDifferencesVisibleDraft = targetState.recommendationPredDifferencesVisible;
   targetRenderRecommendationSettings();
   targetState.statusFilter = new Set(targetDefaultStatusFilter);
   targetSetupFilterDetails();

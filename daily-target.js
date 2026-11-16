@@ -647,12 +647,11 @@ function dailyRenderSelectedSongs() {
     const levelText = "☆" + String(row.level).replace(/\.0$/, "");
     const adjustedPred = dailyGetAdjustedPred(row, dailyGetPredModeForGoal(selectedGoal));
     return '<div class="daily-target-selected-song">'
-      + '<input class="memo-checkbox daily-target-selected-checkbox" type="checkbox" checked data-daily-selected-chart-id="' + dailyEscapeHtml(row.chartId) + '" aria-label="' + dailyEscapeHtml(row.title) + 'を今日の10曲から外す">'
+      + '<button class="daily-target-selected-remove" type="button" data-daily-selected-chart-id="' + dailyEscapeHtml(row.chartId) + '" aria-label="' + dailyEscapeHtml(row.title) + 'を今日の10曲から解除">解除</button>'
       + '<div class="daily-target-selected-song__body">'
       + '<div class="chart-title-cell daily-target-selected-song__title">' + dailyRenderChartLink(row) + '</div>'
-      + '<div class="daily-target-selected-song__meta"><span class="daily-target-selected-song__level mono numeric-value numeric-value--level">' + dailyEscapeHtml(levelText) + '</span><span aria-hidden="true">　</span><span class="daily-target-selected-song__adjusted-pred-label">目標補正Pred</span><span aria-hidden="true"> </span><strong class="daily-target-selected-song__adjusted-pred mono numeric-value numeric-value--pred" style="--numeric-color:' + dailyGetNumericColor(adjustedPred) + '">' + dailyEscapeHtml(dailyFormatPred(adjustedPred)) + '</strong></div>'
-      + '<div class="daily-target-selected-song__state-labels" aria-hidden="true"><span>現在</span><span>→</span><span>目標</span></div>'
-      + '<div class="daily-target-selected-song__state-values"><span class="daily-target-selected-song__status">' + dailyRenderStatus(status) + '</span><span aria-hidden="true"></span><span class="daily-target-selected-song__goal">' + dailyRenderGoalSelect(row, status, selectedGoal) + '</span></div>'
+      + '<div class="daily-target-selected-song__meta"><span class="daily-target-selected-song__level mono numeric-value numeric-value--level">' + dailyEscapeHtml(levelText) + '</span><span class="daily-target-selected-song__adjusted-pred-label">目標補正Pred</span><strong class="daily-target-selected-song__adjusted-pred mono numeric-value numeric-value--pred" style="--numeric-color:' + dailyGetNumericColor(adjustedPred) + '">' + dailyEscapeHtml(dailyFormatPred(adjustedPred)) + '</strong></div>'
+      + '<div class="daily-target-selected-song__state-line"><span class="daily-target-selected-song__status">' + dailyRenderStatus(status) + '</span><span class="daily-target-selected-song__arrow" aria-hidden="true">→</span><span class="daily-target-selected-song__goal">' + dailyRenderGoalSelect(row, status, selectedGoal) + '</span></div>'
       + '</div>'
       + '</div>';
   }).join("");
@@ -1281,11 +1280,11 @@ function dailyHandleCandidateChange(event) {
   dailyRenderCandidateTable();
 }
 
-function dailyHandleSelectedSongChange(event) {
+function dailyHandleSelectedSongRemove(event) {
   if (!dailyState.ready) return;
-  const checkbox = event.target.closest?.("[data-daily-selected-chart-id]");
-  if (!checkbox || checkbox.checked) return;
-  const chartId = checkbox.dataset.dailySelectedChartId;
+  const button = event.target.closest?.("[data-daily-selected-chart-id]");
+  if (!button) return;
+  const chartId = button.dataset.dailySelectedChartId;
   if (!dailyState.selected.has(chartId)) return;
   dailyState.selected.delete(chartId);
   dailyShowError("");
@@ -1673,7 +1672,7 @@ function dailyBindEvents() {
   dailyElements.lockedBody.addEventListener("change", dailyHandleLockedStatusChange);
   dailyElements.candidateBody.addEventListener("click", dailyHandleCandidateChange);
   dailyElements.candidateBody.addEventListener("change", dailyHandleGoalChange);
-  dailyElements.selectedSongsList.addEventListener("change", dailyHandleSelectedSongChange);
+  dailyElements.selectedSongsList.addEventListener("click", dailyHandleSelectedSongRemove);
   dailyElements.selectedSongsList.addEventListener("change", dailyHandleGoalChange);
   dailyElements.autoFillButton.addEventListener("click", dailyAutoFillSelection);
   dailyElements.manualAutoFillButton.addEventListener("click", dailyAutoFillFromManualMemos);

@@ -1,5 +1,5 @@
 .daily-target-panel {
-  padding: 18px;
+  padding: 0;
 }
 
 .daily-target-loading {
@@ -821,8 +821,8 @@
 
 .daily-target-selected-song {
   display: grid;
-  grid-template-columns: 1.5rem minmax(0, 1fr);
-  align-items: center;
+  grid-template-columns: 2.2rem minmax(0, 1fr);
+  align-items: stretch;
   gap: 0;
   min-width: 0;
   overflow: hidden;
@@ -835,10 +835,32 @@
   min-width: 0;
 }
 
-.daily-target-selected-checkbox {
-  justify-self: center;
-  align-self: center;
-  margin: 0;
+.daily-target-selected-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  padding: 8px 4px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-radius: 0;
+  background: rgba(254, 226, 226, 0.72);
+  color: #b91c1c;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1.2;
+  writing-mode: vertical-rl;
+}
+
+.daily-target-selected-remove:hover,
+.daily-target-selected-remove:focus-visible {
+  background: rgba(254, 202, 202, 0.86);
+  outline: 2px solid rgba(185, 28, 28, 0.45);
+  outline-offset: -3px;
 }
 
 .daily-target-selected-song__title {
@@ -865,8 +887,8 @@
   display: flex;
   align-items: baseline;
   justify-content: center;
-  gap: 0.65rem;
-  padding: 6px 12px 0;
+  gap: 1em;
+  padding: 9px 12px 4px;
   color: var(--ink);
   font-size: 0.88rem;
   line-height: 1.2;
@@ -882,31 +904,17 @@
   color: var(--numeric-color, currentColor);
 }
 
-.daily-target-selected-song__state-labels,
-.daily-target-selected-song__state-values {
-  display: grid;
-  grid-template-columns: minmax(5rem, 1fr) auto minmax(5rem, 1fr);
+.daily-target-selected-song__state-line {
+  display: flex;
   align-items: center;
-  column-gap: 8px;
-  max-width: 22rem;
-  width: 100%;
-  margin: 0 auto;
-}
-
-.daily-target-selected-song__state-labels {
-  padding-top: 7px;
-  color: var(--muted);
-  font-size: 0.7rem;
-  font-weight: 800;
-  text-align: center;
-}
-
-.daily-target-selected-song__state-values {
+  justify-content: center;
+  flex-wrap: nowrap;
+  gap: 0.65rem;
   padding: 0 12px 10px;
+  white-space: nowrap;
 }
 
-.daily-target-selected-song__state-values > * {
-  text-align: center;
+.daily-target-selected-song__state-line > * {
   white-space: nowrap;
 }
 
@@ -920,13 +928,6 @@
   padding: 4px 24px 4px 7px;
   color: #1d4ed8;
   background-color: rgba(219, 234, 254, 0.62);
-}
-
-@media (max-width: 720px) {
-  .daily-target-selected-song__state-labels,
-  .daily-target-selected-song__state-values {
-    max-width: 20rem;
-  }
 }
 
 .daily-locked-status-select {

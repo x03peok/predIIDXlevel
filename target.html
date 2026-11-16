@@ -19,8 +19,8 @@
   <script src="analytics.js?v=20261013-1" defer></script>
   <link rel="stylesheet" href="styles.css?v=20260916-2">
   <link rel="stylesheet" href="menu.css?v=20260904-2">
-  <link rel="stylesheet" href="target.css?v=20261112-2">
-  <link rel="stylesheet" href="daily-target.css?v=20261017-1">
+  <link rel="stylesheet" href="target.css?v=20261116-4">
+  <link rel="stylesheet" href="daily-target.css?v=20261116-4">
   <link rel="stylesheet" href="page-loading.css?v=20261018-1">
   <script defer src="page-loading.js?v=20261018-1"></script>
   <script src="menu.js?v=20260925-1" defer></script>
@@ -33,10 +33,10 @@
   <script src="update-history.js?v=20261002-1" defer></script>
   <script src="target-analysis.js?v=20261027-1" defer></script>
   <script defer src="recommendation-cache.js?v=20261018-1"></script>
-  <script src="target.js?v=20261106-1" defer></script>
+  <script src="target.js?v=20261116-3" defer></script>
   <script src="target-tabs.js?v=20260922-4" defer></script>
   <script defer src="share-text.js?v=20261018-1"></script>
-  <script src="daily-target.js?v=20261027-1" defer></script>
+  <script src="daily-target.js?v=20261116-2" defer></script>
   <link rel="icon" type="image/jpeg" href="site-icon.jpg">
   <link rel="apple-touch-icon" href="site-icon.jpg">
   <meta property="og:image" content="https://cpi-next.com/site-icon.jpg?v=20260904-2">
@@ -91,7 +91,7 @@
           <div class="target-highlights">
           <section id="targetDailyPanel" class="target-highlight-section target-mode-panel" hidden>
 <p id="dailyTargetLoading" class="daily-target-loading" role="status">読み込み中です。</p>
-      <div id="dailyTargetPanel" class="panel daily-target-panel" hidden inert>
+      <div id="dailyTargetPanel" class="daily-target-panel" hidden inert>
         <p id="dailyTargetError" class="daily-target-error" hidden></p>
 
         <section id="dailyTargetSelection" class="daily-target-section">
@@ -293,14 +293,19 @@
                       <div id="targetRecommendationFeatureOptions" class="target-auto-settings-options multi-filter__options"></div>
                     </div>
 
-                    <label class="target-auto-settings-number target-auto-settings-count">
-                      <span>表示件数（1〜20）</span>
-                      <input id="targetRecommendationCount" type="number" min="1" max="20" step="1" inputmode="numeric">
-                    </label>
+                    <div class="target-auto-settings-display-options">
+                      <label class="target-auto-settings-number target-auto-settings-count">
+                        <span>表示件数（1〜20）</span>
+                        <input id="targetRecommendationCount" type="number" min="1" max="20" step="1" inputmode="numeric">
+                      </label>
+                      <div class="target-auto-settings-pred-toggle">
+                        <span id="targetRecommendationPredDifferenceLabel">Pred詳細表示</span>
+                        <button id="targetRecommendationPredDifferenceToggle" class="target-auto-settings-pred-toggle__button" type="button" role="switch" aria-labelledby="targetRecommendationPredDifferenceLabel" aria-checked="false"><span class="target-auto-settings-pred-toggle__state" aria-hidden="true"></span><span class="target-auto-settings-pred-toggle__thumb" aria-hidden="true"></span></button>
+                      </div>
+                    </div>
                   </div>
                   <div class="target-auto-settings-actions">
-                    <button id="targetRecommendationSaveButton" class="target-auto-settings-primary" type="button">保存</button>
-                    <button id="targetRecommendationResetButton" class="target-auto-settings-secondary" type="button">デフォルトに戻す</button>
+                    <button id="targetRecommendationResetButton" class="target-auto-settings-primary" type="button">デフォルトに戻す</button>
                   </div>
                   <p id="targetAutoSettingsMessage" class="target-auto-settings-message" role="status" aria-live="polite"></p>
                 </section>

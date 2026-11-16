@@ -15,11 +15,23 @@
   color: var(--accent);
 }
 
-.diagnosis-header p:last-child,
+.diagnosis-header p,
 .diagnosis-step__heading p {
   margin: 0;
   color: var(--muted);
+  font-size: 0.9rem;
   line-height: 1.7;
+}
+
+.diagnosis-header p + p {
+  margin-top: 0.45rem;
+}
+
+.diagnosis-registration-link {
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
 }
 
 .diagnosis-eyebrow {
@@ -566,6 +578,7 @@
 .diagnosis-feature-result__notice {
   margin: 0;
   color: var(--muted);
+  font-size: 0.9rem;
   font-weight: 800;
   line-height: 1.6;
   text-align: center;

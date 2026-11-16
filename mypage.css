@@ -1337,6 +1337,13 @@
   line-height: 1.4;
 }
 
+.mypage-recommendation-card__title .chart-title-cell__name,
+body[data-page="mypage"] .chart-title-cell .chart-title-cell__name {
+  text-decoration: underline;
+  text-decoration-color: rgba(37, 99, 235, 0.42);
+  text-underline-offset: 2px;
+}
+
 .mypage-recommendation-card__pred,
 .mypage-recommendation-card__probability {
   color: var(--muted);
@@ -1361,6 +1368,17 @@
 .mypage-recommendation-card .feature-chips {
   justify-content: center;
   min-height: 1.2rem;
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__level-features {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  white-space: normal;
+}
+
+.mypage-recommendation-card--update .mypage-recommendation-card__level-features > .feature-chips {
+  min-width: 0;
 }
 
 .mypage-recommendation-more {
