@@ -820,8 +820,7 @@
 }
 
 .daily-target-selected-song {
-  display: grid;
-  grid-template-columns: 2.2rem minmax(0, 1fr);
+  display: flex;
   align-items: stretch;
   gap: 0;
   min-width: 0;
@@ -832,6 +831,7 @@
 }
 
 .daily-target-selected-song__body {
+  flex: 1 1 0;
   min-width: 0;
 }
 
@@ -840,7 +840,8 @@
   align-items: center;
   justify-content: center;
   align-self: stretch;
-  width: 100%;
+  flex: 0 0 2.2rem;
+  width: 2.2rem;
   min-width: 0;
   padding: 8px 4px;
   border: 0;
@@ -853,7 +854,7 @@
   font-size: 0.7rem;
   font-weight: 800;
   line-height: 1.2;
-  writing-mode: vertical-rl;
+  writing-mode: horizontal-tb;
 }
 
 .daily-target-selected-remove:hover,

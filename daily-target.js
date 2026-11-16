@@ -647,7 +647,7 @@ function dailyRenderSelectedSongs() {
     const levelText = "☆" + String(row.level).replace(/\.0$/, "");
     const adjustedPred = dailyGetAdjustedPred(row, dailyGetPredModeForGoal(selectedGoal));
     return '<div class="daily-target-selected-song">'
-      + '<button class="daily-target-selected-remove" type="button" data-daily-selected-chart-id="' + dailyEscapeHtml(row.chartId) + '" aria-label="' + dailyEscapeHtml(row.title) + 'を今日の10曲から解除">解除</button>'
+      + '<button class="daily-target-selected-remove" type="button" data-daily-selected-chart-id="' + dailyEscapeHtml(row.chartId) + '" aria-label="' + dailyEscapeHtml(row.title) + 'を今日の10曲から解除"><span aria-hidden="true">解<br>除</span></button>'
       + '<div class="daily-target-selected-song__body">'
       + '<div class="chart-title-cell daily-target-selected-song__title">' + dailyRenderChartLink(row) + '</div>'
       + '<div class="daily-target-selected-song__meta"><span class="daily-target-selected-song__level mono numeric-value numeric-value--level">' + dailyEscapeHtml(levelText) + '</span><span class="daily-target-selected-song__adjusted-pred-label">目標補正Pred</span><strong class="daily-target-selected-song__adjusted-pred mono numeric-value numeric-value--pred" style="--numeric-color:' + dailyGetNumericColor(adjustedPred) + '">' + dailyEscapeHtml(dailyFormatPred(adjustedPred)) + '</strong></div>'
