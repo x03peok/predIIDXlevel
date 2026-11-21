@@ -132,6 +132,13 @@ function replaceOnce(source, search, replacement, label) {
   return source.slice(0, firstIndex) + replacement + source.slice(firstIndex + search.length);
 }
 
+function readChartPlatforms(value, chartId) {
+  const platforms = String(value ?? "").trim().toLowerCase();
+  if (!platforms || platforms === "ac|inf" || platforms === "inf|ac") return ["ac", "inf"];
+  if (platforms === "ac" || platforms === "inf") return [platforms];
+  throw new Error("Invalid platforms for chart " + chartId + ": " + platforms);
+}
+
 function loadRows(sourcePath = dataPath, sourceText = fs.readFileSync(sourcePath, "utf8")) {
   const context = { window: {} };
   vm.runInNewContext(sourceText, context, { filename: sourcePath, timeout: 5000 });
@@ -161,10 +168,15 @@ function loadRows(sourcePath = dataPath, sourceText = fs.readFileSync(sourcePath
     }
   }
 
-  return parsed.map((cells) => Object.fromEntries(requiredHeaders.map((header) => [
-    header,
-    (cells[headerIndex.get(header)] ?? "").trim(),
-  ])));
+  return parsed.map((cells) => {
+    const row = Object.fromEntries(requiredHeaders.map((header) => [
+      header,
+      (cells[headerIndex.get(header)] ?? "").trim(),
+    ]));
+    // Missing or blank platform metadata keeps legacy charts available in both catalogs.
+    row.platforms = readChartPlatforms(cells[headerIndex.get("platforms")], row.chart_id);
+    return row;
+  });
 }
 
 function createPage(template, row) {
@@ -207,6 +219,7 @@ function createPage(template, row) {
   page = replaceOnce(page, "  <!-- Google Analytics -->", `${metadata}\n  <!-- Google Analytics -->`, "OGP");
   page = page.replace('<body data-page="chart">', `<body data-page="chart" data-static-chart-page="true" data-chart-id="${escapeHtml(chartId)}">`);
   page = page.replace('href="styles.css?', 'href="../styles.css?');
+  page = page.replace('href="personal-platform.css?', 'href="../personal-platform.css?');
   page = page.replace('href="menu.css?v=20260904-2"', 'href="../menu.css?v=20260904-2"');
   page = page.replace('src="menu.js?', 'src="../menu.js?');
   page = page.replace('src="analytics.js?', 'src="../analytics.js?');
@@ -216,6 +229,7 @@ function createPage(template, row) {
   page = page.replace('src="chart-options.js?', 'src="../chart-options.js?');
   page = page.replace('src="share-text.js?', 'src="../share-text.js?');
   page = page.replace('src="storage.js?', 'src="../storage.js?');
+  page = page.replace('src="platform-migration.js?', 'src="../platform-migration.js?');
   page = page.replace('src="status-toast.js?', 'src="../status-toast.js?');
   page = page.replace('src="update-history.js?', 'src="../update-history.js?');
   page = page.replace('data-href="pred.html"', 'data-href="../pred.html"');
@@ -234,7 +248,7 @@ function updateChartSitemap(rows) {
   fs.writeFileSync(sitemapPath, withoutCharts.replace("</urlset>", `${entries}\n</urlset>`), "utf8");
 }
 
-module.exports = { loadRows, normalizeTitle };
+module.exports = { loadRows, normalizeTitle, readChartPlatforms };
 
 if (require.main === module) {
   require("./generate_public_data.js").generatePublicData(rootDir);

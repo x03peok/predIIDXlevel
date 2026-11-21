@@ -1658,6 +1658,46 @@ body .title-lock {
   color: #475569;
 }
 
+.chart-platform-badge {
+  display: inline-block;
+  margin-inline-start: 0.35rem;
+  padding: 0.28rem 0.55rem;
+  border: 1px solid #93b8f3;
+  border-radius: 999px;
+  background: #e3efff;
+  color: #1e40af;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chart-platform-badge:not(:disabled):hover {
+  border-color: currentColor;
+}
+
+.chart-platform-badge:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.chart-platform-badge:disabled {
+  cursor: wait;
+}
+
+[data-chart-platform="inf"] .chart-platform-badge {
+  border-color: #6abf9f;
+  background: #d9f6e9;
+  color: #065f46;
+}
+
+.chart-detail__option-line[hidden] {
+  display: none;
+}
+
 .chart-current-status {
   width: 8.4rem;
   max-width: 100%;

@@ -38,9 +38,14 @@ const recordStatuses = [
 const recordStatusValues = new Set(recordStatuses.map(({ value }) => value));
 const recordImportDifficulties = ["NORMAL", "HYPER", "ANOTHER", "LEGGENDARIA"];
 const recordImportMinimumLevel = 8;
+const recordPlatformKey = "cpi-next-record-platform";
+const recordPlatformLabels = { ac: "AC", inf: "INFINITAS" };
 let recordImportIndex = null;
 
 const recordState = {
+  platform: "ac",
+  busy: false,
+  reconnect: false,
   rows: [],
   rowsByChartId: new Map(),
   records: new Map(),
@@ -306,12 +311,26 @@ function recordWriteStatuses(statuses, options = {}) {
     transaction.onabort = () => reject(transaction.error ?? new Error("記録を保存できませんでした。"));
   });
 }
-function recordParseOfficialCsv(text) {
+function recordGetCsvPlatform(headers) {
+  const has = (suffix) => recordImportDifficulties.some((difficulty) => headers.has(difficulty + suffix));
+  const ac = has(" 難易度");
+  const inf = has(" 最終スコア更新時刻") && has(" 最終プレー日時");
+  return ac === inf ? null : ac ? "ac" : "inf";
+}
+
+function recordParseOfficialCsv(text, platform) {
   const parsed = recordParseCsv(text);
   if (!parsed.length) throw new Error("CSVが空です。");
   const headers = parsed.shift().map((header) => header.trim());
   const headerIndex = new Map(headers.map((header, index) => [header, index]));
   if (!headerIndex.has("バージョン") || !headerIndex.has("タイトル")) throw new Error("公式CSVの列を確認できませんでした。");
+  if (platform) {
+    const csvPlatform = recordGetCsvPlatform(headerIndex);
+    if (!csvPlatform) throw new Error("CSVがAC版かINFINITAS版か判別できません。公式のSP CSVを選択してください。");
+    if (csvPlatform !== platform) {
+      throw new Error("このCSVは" + recordPlatformLabels[csvPlatform] + "版です。登録先を" + recordPlatformLabels[csvPlatform] + "に切り替えてから、再度インポートしてください。");
+    }
+  }
   const availableDifficulties = recordImportDifficulties.filter((difficulty) => headerIndex.has(difficulty + " クリアタイプ"));
   if (!availableDifficulties.length) throw new Error("対応するクリアタイプ列がありません。");
   const get = (cells, key) => (cells[headerIndex.get(key)] ?? "").trim();
@@ -329,8 +348,9 @@ function recordParseOfficialCsv(text) {
       const status = recordMapImportClearType(get(cells, difficulty + " クリアタイプ"));
       if (status === null) continue;
       if (status === undefined) { unsupported += 1; continue; }
+      if (platform === "inf" && status === "no-play") continue;
       const csvLevel = Number(get(cells, difficulty + " 難易度"));
-      const countAsUnmatched = Number.isFinite(csvLevel) && csvLevel >= recordImportMinimumLevel;
+      const countAsUnmatched = platform === "inf" || (Number.isFinite(csvLevel) && csvLevel >= recordImportMinimumLevel);
       const chartIds = recordGetImportChartIds(title, version, difficulty);
       if (chartIds.length === 0) {
         if (countAsUnmatched) unmatched += 1;
@@ -354,14 +374,14 @@ function recordHideCsvImportLinks() {
 }
 function recordGetCsvFileNotice(file) {
   const fileName = String(file?.name ?? "").trim();
-  if (/_DP_score\.csv$/i.test(fileName)) {
+  if (/_DP_score(?:\s*\(\d+\))?\.csv$/i.test(fileName)) {
     return {
       allowed: false,
       warning: false,
       message: "DPのCSVは登録できません。SPの公式CSVを選択してください。",
     };
   }
-  if (/_SP_score\.csv$/i.test(fileName)) {
+  if (/_SP_score(?:\s*\(\d+\))?\.csv$/i.test(fileName)) {
     return {
       allowed: true,
       warning: false,
@@ -379,7 +399,7 @@ function recordHasCsvImportSource() {
 }
 function recordSyncCsvImportButton() {
   if (recordElements.csvImportButton) {
-    recordElements.csvImportButton.disabled = !recordHasCsvImportSource() || !recordState.db;
+    recordElements.csvImportButton.disabled = recordState.busy || !recordHasCsvImportSource() || !recordState.db;
   }
 }
 function recordHandleCsvFileChange() {
@@ -429,7 +449,9 @@ async function recordHandleCsvImport() {
   const pastedText = recordState.importText;
   const fileWarning = recordState.importFileWarning;
   const showImportCta = recordState.records.size === 0;
-  if (!file && !pastedText.trim()) return;
+  if (recordState.busy || !recordState.db || (!file && !pastedText.trim())) return;
+  const platform = recordState.platform;
+  recordSetBusy(true);
   recordHideCsvImportLinks();
   recordElements.csvInput.disabled = true;
   recordElements.csvText.disabled = true;
@@ -437,8 +459,11 @@ async function recordHandleCsvImport() {
   recordSetCsvMessage("CSVを読み込んでいます。");
   try {
     const csvText = pastedText.trim() ? pastedText : await file.text();
-    const result = recordParseOfficialCsv(csvText);
-    if (!result.updates.size) throw new Error("対応する譜面が見つかりませんでした。");
+    const result = recordParseOfficialCsv(csvText, platform);
+    if (!result.updates.size) {
+      const skipped = result.unmatched + result.ambiguous;
+      throw new Error("登録できる譜面が見つかりませんでした。" + (skipped ? " 照合できない譜面: " + skipped.toLocaleString() + "件。" : ""));
+    }
     const previousStatuses = new Map(
       [...result.updates.keys()].map((chartId) => [
         chartId,
@@ -450,7 +475,7 @@ async function recordHandleCsvImport() {
       source: "csv-import",
       beforeStatuses: previousStatuses,
     });
-    window.cpiRecommendationCache?.invalidate();
+    window.cpiRecommendationCache?.invalidate(platform);
     for (const [chartId, status] of result.updates) {
       const previousRecord = recordState.records.get(chartId);
       if (previousRecord?.status === status) {
@@ -468,13 +493,13 @@ async function recordHandleCsvImport() {
       }
     }
     recordRender();
-    let message = result.updates.size.toLocaleString() + "譜面を登録しました。";
+    let message = recordPlatformLabels[platform] + "に" + result.updates.size.toLocaleString() + "譜面を登録しました。";
     if (result.unmatched) message += " 対応しない譜面 " + result.unmatched.toLocaleString() + "件は変更していません。";
     if (result.ambiguous) message += " 判別できない譜面 " + result.ambiguous.toLocaleString() + "件は変更していません。";
     if (fileWarning) message += " " + fileWarning;
     recordSetCsvMessage(message, false, Boolean(fileWarning));
     window.cpiStatusToast?.show({
-      onUndo: async () => {
+      onUndo: recordWrapUndo(async () => {
         await recordWriteStatuses(previousStatuses, {
           source: "csv-undo",
           beforeStatuses: result.updates,
@@ -497,11 +522,11 @@ async function recordHandleCsvImport() {
         }
         recordRender();
         recordSetCsvMessage("CSV登録を元に戻しました。", false);
-      },
+      }),
     });
     if (showImportCta && recordElements.csvImportLinks) recordElements.csvImportLinks.hidden = false;
     if (!showImportCta) {
-      window.location.assign("mypage.html?tab=history");
+      window.location.assign("mypage.html?tab=history&platform=" + platform);
     }
   } catch (error) {
     recordHideCsvImportLinks();
@@ -509,7 +534,7 @@ async function recordHandleCsvImport() {
   } finally {
     recordElements.csvInput.disabled = false;
     recordElements.csvText.disabled = false;
-    recordSyncCsvImportButton();
+    recordSetBusy(false);
   }
 }
 function recordDecodeEntities(value) {
@@ -533,7 +558,7 @@ function recordEscapeHtml(value) {
   }[character]));
 }
 
-function recordLoadRows() {
+function recordLoadRows(platform = "ac") {
   const csvText = window.__CSV_BUNDLE__;
   if (typeof csvText !== "string") {
     throw new Error("データを読み込めませんでした。");
@@ -568,23 +593,19 @@ function recordLoadRows() {
       officialVersion: get("official_version"),
       difficulty: get("difficulty").toUpperCase(),
       level: get("original_level"),
+      platforms: get("platforms").toLowerCase().split("|"),
     };
-  }).filter((row) => /^\d+$/.test(row.chartId));
+  }).filter((row) => /^\d+$/.test(row.chartId) && (row.platforms[0] === "" || row.platforms.includes(platform)));
 }
 
 
-function recordOpenDatabase() {
-  return window.cpiStorage.open();
+function recordOpenDatabase(platform = recordState.platform) {
+  return window.cpiStorage.open(platform);
 }
-window.addEventListener("cpi:storage-versionchange", () => {
-  if (recordState.db) {
-    recordOpenDatabase().then(database => { recordState.db = database; }).catch(error => console.warn(error));
-  }
-});
 
-function recordReadAll() {
+function recordReadAll(database = recordState.db) {
   return new Promise((resolve, reject) => {
-    const transaction = recordState.db.transaction(recordStoreName, "readonly");
+    const transaction = database.transaction(recordStoreName, "readonly");
     const request = transaction.objectStore(recordStoreName).getAll();
     request.onsuccess = () => resolve(request.result ?? []);
     request.onerror = () => reject(request.error ?? new Error("記録を読み込めませんでした。"));
@@ -907,7 +928,8 @@ function recordRender() {
     const status = recordGetStatus(row);
     const title = recordEscapeHtml(row.title);
     const chartId = recordEscapeHtml(row.chartId);
-    const chartHref = "chart-pages/" + encodeURIComponent(row.chartId) + ".html";
+    const chartHref = "chart-pages/" + encodeURIComponent(row.chartId) + ".html"
+      + (recordState.platform === "inf" ? "?platform=inf" : "");
     const titleLink = [
       '<a class="record-title-link ' + difficultyClass + '" href="' + chartHref + '">',
       "<span>" + title + "</span>",
@@ -961,14 +983,104 @@ function recordSetMessage(message, isError = false) {
   recordElements.message.dataset.state = isError ? "error" : "ok";
 }
 
+function recordReadPlatform() {
+  const explicit = new URLSearchParams(window.location.search).get("platform");
+  if (explicit === "ac" || explicit === "inf") return explicit;
+  try {
+    if (window.localStorage.getItem(recordPlatformKey) === "inf") return "inf";
+  } catch { /* The switch still works without localStorage. */ }
+  return "ac";
+}
+
+function recordSyncPlatformControl() {
+  const platform = recordState.platform;
+  document.body.dataset.platform = platform;
+  recordElements.platformPicker.dataset.platform = platform;
+  recordElements.platformBadge.textContent = recordPlatformLabels[platform];
+  const nextPlatform = platform === "inf" ? "ac" : "inf";
+  recordElements.platformBadge.setAttribute("aria-label", "現在の登録先：" + recordPlatformLabels[platform] + "。" + recordPlatformLabels[nextPlatform] + "に切り替える");
+  for (const input of recordElements.platformInputs) input.checked = input.value === platform;
+  recordElements.csvImportButton.textContent = recordPlatformLabels[platform] + "版にインポート";
+  for (const link of recordElements.csvImportLinks.querySelectorAll("[data-platform-href]")) {
+    link.href = link.dataset.platformHref + "?platform=" + platform;
+  }
+  for (const item of document.querySelectorAll('#siteMenu :is([data-page="mypage"], [data-page="target"], [data-page="settings"])')) {
+    item.dataset.href = item.dataset.page + ".html?platform=" + platform;
+  }
+}
+
+function recordSetBusy(busy) {
+  recordState.busy = busy;
+  recordElements.tableBody.inert = busy || !recordState.db;
+  recordElements.platformBadge.disabled = busy;
+  for (const input of recordElements.platformInputs) input.disabled = busy;
+  recordSyncCsvImportButton();
+  if (!busy && recordState.reconnect) {
+    recordState.reconnect = false;
+    if (!recordState.db) void recordSelectPlatform(recordState.platform);
+  }
+}
+
+function recordWrapUndo(undo) {
+  const platform = recordState.platform;
+  return async () => {
+    if (platform !== recordState.platform || !recordState.db || recordState.busy) {
+      throw new Error("現在の登録先では、この変更を元に戻せません。");
+    }
+    recordSetBusy(true);
+    try { await undo(); } finally { recordSetBusy(false); }
+  };
+}
+
+async function recordSelectPlatform(platform) {
+  if (recordState.busy || !Object.hasOwn(recordPlatformLabels, platform)) return;
+  if (platform === recordState.platform && recordState.db) return;
+  recordSyncPlatformControl();
+  recordSetBusy(true);
+  window.cpiStatusToast?.hide();
+  recordHideCsvImportLinks();
+  recordSetMessage("");
+  recordSetCsvMessage("");
+  try {
+    const rows = recordLoadRows(platform);
+    const importIndex = recordBuildImportIndex(rows);
+    const database = await recordOpenDatabase(platform);
+    const records = await recordReadAll(database);
+    recordState.platform = platform;
+    recordState.db = database;
+    recordState.rows = rows;
+    recordState.rowsByChartId = new Map(rows.map(row => [row.chartId, row]));
+    recordImportIndex = importIndex;
+    recordApplyRecords(records);
+    recordState.levelFilter = null;
+    recordState.visibleLimit = recordPageSize;
+    recordPopulateFilters();
+    recordRender();
+    try { window.localStorage.setItem(recordPlatformKey, platform); } catch { /* Optional persistence. */ }
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("platform") && url.searchParams.get("platform") !== platform) {
+      url.searchParams.set("platform", platform);
+      window.history.replaceState(null, "", url.href);
+    }
+  } catch (error) {
+    const message = error.message || "登録先を読み込めませんでした。";
+    recordSetMessage(message, true);
+    recordSetCsvMessage(message, true);
+  } finally {
+    recordSyncPlatformControl();
+    recordSetBusy(false);
+  }
+}
+
 async function recordHandleStatusChange(event) {
   const select = event.target.closest(".record-status-select");
-  if (!select) {
+  if (!select || recordState.busy || !recordState.db) {
     return;
   }
   const chartId = select.dataset.chartId;
   const previousStatus = recordState.records.get(chartId)?.status ?? "unregistered";
   const status = select.value;
+  recordSetBusy(true);
   select.disabled = true;
   try {
     await recordWriteStatus(chartId, status);
@@ -981,7 +1093,7 @@ async function recordHandleStatusChange(event) {
     recordRender();
     recordSetMessage("記録を保存しました。");
     window.cpiStatusToast?.show({
-      onUndo: async () => {
+      onUndo: recordWrapUndo(async () => {
         await recordWriteStatus(chartId, previousStatus);
         if (previousStatus === "unregistered") {
           recordState.records.delete(chartId);
@@ -994,16 +1106,24 @@ async function recordHandleStatusChange(event) {
         }
         recordRender();
         recordSetMessage("記録を元に戻しました。");
-      },
+      }),
     });
   } catch (error) {
+    recordRender();
     recordSetMessage(error.message || "記録を保存できませんでした。", true);
   } finally {
     select.disabled = false;
+    recordSetBusy(false);
   }
 }
 
 function recordBindEvents() {
+  recordElements.platformBadge.addEventListener("click", () => {
+    void recordSelectPlatform(recordState.platform === "inf" ? "ac" : "inf");
+  });
+  for (const input of recordElements.platformInputs) {
+    input.addEventListener("change", () => { if (input.checked) void recordSelectPlatform(input.value); });
+  }
   recordElements.table.querySelectorAll("thead button[data-sort-key]").forEach((button) => {
     button.addEventListener("click", () => recordSetSort(button.dataset.sortKey));
   });
@@ -1044,20 +1164,20 @@ async function recordInitialize() {
   recordElements.csvMessage = document.getElementById("recordCsvImportMessage");
   recordElements.csvImportLinks = document.getElementById("recordCsvImportLinks");
 
-  try {
-    recordState.rows = recordLoadRows();
-    recordImportIndex = recordBuildImportIndex(recordState.rows);
-    recordState.rowsByChartId = new Map(recordState.rows.map((row) => [String(row.chartId), row]));
-    recordPopulateFilters();
-    recordBindEvents();
-    recordRender();
-    recordState.db = await recordOpenDatabase();
-    recordSyncCsvImportButton();
-    recordApplyRecords(await recordReadAll());
-    recordRender();
-  } catch (error) {
-    recordSetMessage(error.message || "記録ページを初期化できませんでした。", true);
+  recordElements.platformPicker = document.getElementById("recordPlatformPicker");
+  recordElements.platformBadge = document.getElementById("recordPlatformBadge");
+  recordElements.platformInputs = recordElements.platformPicker.querySelectorAll('input[name="recordPlatform"]');
+  recordState.platform = recordReadPlatform();
+  recordBindEvents();
+  for (const platform of Object.keys(recordPlatformLabels)) {
+    window.addEventListener("cpi:storage-versionchange" + (platform === "inf" ? "-inf" : ""), () => {
+      if (recordState.platform !== platform) return;
+      recordState.db = null;
+      if (recordState.busy) recordState.reconnect = true;
+      else void recordSelectPlatform(platform);
+    });
   }
+  await recordSelectPlatform(recordState.platform);
 }
 
 document.addEventListener("DOMContentLoaded", recordInitialize);

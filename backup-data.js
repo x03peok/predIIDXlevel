@@ -55,14 +55,19 @@
       });
       return { date: day.date, lockedAt: timestamp(day.lockedAt), charts };
     });
-    const optionMemos = payload.version >= 4 ? window.cpiChartOptions.validateRecords(payload.optionMemos) : undefined;
+    // Early INFINITAS backups did not contain the shared option memos.
+    const optionMemos = payload.version >= 4
+      && (payload.platform !== "inf" || Object.hasOwn(payload, "optionMemos"))
+      ? window.cpiChartOptions.validateRecords(payload.optionMemos)
+      : undefined;
     return { updateHistory, dailyTargets, ...(optionMemos ? { optionMemos } : {}) };
   }
-  function readSnapshot(database) {
+  function readSnapshot(database, { includeOptionMemos = true } = {}) {
     return new Promise((resolve, reject) => {
       const result = {};
-      const transaction = database.transaction(Object.keys(storeFields), "readonly");
-      for (const [store, field] of Object.entries(storeFields)) {
+      const fields = Object.entries(storeFields).filter(([, field]) => includeOptionMemos || field !== "optionMemos");
+      const transaction = database.transaction(fields.map(([store]) => store), "readonly");
+      for (const [store, field] of fields) {
         const request = transaction.objectStore(store).getAll();
         request.onsuccess = () => { result[field] = request.result; };
       }

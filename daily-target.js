@@ -1,6 +1,7 @@
 "use strict";
 
 const dailyDatabaseName = "cpi-next-clear-status";
+const dailyPlatform = window.cpiPersonalPlatform;
 
 const dailyStatusStoreName = "chart-statuses";
 const dailyTargetsStoreName = "daily-targets";
@@ -179,7 +180,7 @@ function dailyGetNumber(value) {
 }
 
 function dailyNormalizeRows(parsedRows) {
-  return parsedRows.map((source, index) => {
+  return (dailyPlatform?.filterCharts(parsedRows) ?? parsedRows).map((source, index) => {
     const chartId = String(source.chart_id ?? "").trim();
     const title = dailyNormalizeTitle(source.title);
     const difficulty = dailyNormalizeDifficulty(source.difficulty);
@@ -591,7 +592,8 @@ function dailyGetAutoFillCandidates() {
 }
 
 function dailyGetChartHref(row) {
-  return "chart-pages/" + encodeURIComponent(row.chartId) + ".html";
+  const href = "chart-pages/" + encodeURIComponent(row.chartId) + ".html";
+  return dailyPlatform?.chartHref(href) ?? href;
 }
 
 function dailyRenderChartLink(row) {
@@ -867,6 +869,11 @@ function dailyRenderMissingLockedRow(entry) {
     + "</tr>";
 }
 
+function dailyGetVisibleLockedEntries() {
+  const entries = Array.isArray(dailyState.today?.charts) ? dailyState.today.charts : [];
+  return dailyPlatform?.filterRecords(entries) ?? entries;
+}
+
 function dailyRenderLocked() {
   if (!dailyState.today) {
     dailyElements.selection.hidden = false;
@@ -877,7 +884,7 @@ function dailyRenderLocked() {
   }
   dailyElements.selection.hidden = true;
   dailyElements.locked.hidden = false;
-  const entries = Array.isArray(dailyState.today.charts) ? dailyState.today.charts : [];
+  const entries = dailyGetVisibleLockedEntries();
   let achievedCount = 0;
   let missingCount = 0;
   const renderedRows = entries.map((entry) => {
@@ -977,7 +984,7 @@ function dailyPopulateFilters() {
 function dailyReadRecords() {
   return new Promise((resolve, reject) => {
     const request = dailyState.database.transaction(dailyStatusStoreName, "readonly").objectStore(dailyStatusStoreName).getAll();
-    request.onsuccess = () => resolve(request.result ?? []);
+    request.onsuccess = () => resolve(dailyPlatform?.filterRecords(request.result ?? []) ?? request.result ?? []);
     request.onerror = () => reject(request.error ?? new Error("クリア状況を読み込めませんでした。"));
   });
 }
@@ -1116,9 +1123,9 @@ function dailyWriteToday(record) {
 }
 
 function dailyOpenDatabase() {
-  return window.cpiStorage.open();
+  return window.cpiStorage.open(dailyPlatform?.platform);
 }
-window.addEventListener("cpi:storage-versionchange", () => {
+window.addEventListener(dailyPlatform?.event("cpi:storage-versionchange") ?? "cpi:storage-versionchange", () => {
   if (dailyState.database) {
     dailyOpenDatabase().then(database => { dailyState.database = database; }).catch(error => console.warn(error));
   }
@@ -1419,7 +1426,7 @@ async function dailyConfirmSelection() {
 const dailyShareWeightedLimit = 275;
 const dailyShareFallbackUrl = "https://cpi-next.com/target.html?utm_source=x&utm_medium=share&utm_campaign=daily_target#daily";
 function dailyBuildSharePayload() {
-  const entries = Array.isArray(dailyState.today?.charts) ? dailyState.today.charts : [];
+  const entries = dailyGetVisibleLockedEntries();
   return {
     d: String(dailyState.today?.date ?? dailyGetDateKey()),
     i: entries.map((entry) => {
@@ -1557,7 +1564,7 @@ function dailyFitShareTitlesToLength(lines, availableLength) {
 }
 
 function dailyBuildShareText({ includeAchievementMarkers = true, shareUrl = dailyBuildShareUrl() } = {}) {
-  const entries = Array.isArray(dailyState.today?.charts) ? dailyState.today.charts : [];
+  const entries = dailyGetVisibleLockedEntries();
   let achieved = 0;
   let missingCount = 0;
   const lines = entries.map((entry) => {
@@ -1629,12 +1636,15 @@ function dailyBuildShareIntentUrl(options = {}) {
 }
 
 function dailyUpdateShareLinks() {
-  const hasToday = dailyState.ready && Boolean(dailyState.today);
+  const hasToday = dailyState.ready && dailyGetVisibleLockedEntries().length > 0;
   const shareHref = hasToday ? dailyBuildShareIntentUrl() : "#";
   const confirmShareHref = hasToday
     ? dailyBuildShareIntentUrl({ includeAchievementMarkers: false })
     : "#";
-  if (dailyElements.share) dailyElements.share.href = shareHref;
+  if (dailyElements.share) {
+    dailyElements.share.href = shareHref;
+    dailyElements.share.hidden = !hasToday;
+  }
   if (dailyElements.confirmNoticeShare) dailyElements.confirmNoticeShare.href = confirmShareHref;
   if (dailyElements.completionNoticeShare) dailyElements.completionNoticeShare.href = shareHref;
 }
@@ -1709,7 +1719,7 @@ function dailyBindEvents() {
   document.addEventListener("visibilitychange", refreshOnReturn);
   window.addEventListener("focus", refreshOnReturn);
   window.addEventListener("pageshow", refreshOnReturn);
-  window.addEventListener("cpi:storage-changed", () => { void dailyRefreshPersistedState(); });
+  window.addEventListener(dailyPlatform?.event("cpi:storage-changed") ?? "cpi:storage-changed", () => { void dailyRefreshPersistedState(); });
   window.addEventListener("scroll", () => {
     if (dailyElements.scrollTop) dailyElements.scrollTop.hidden = window.scrollY < 360;
   }, { passive: true });

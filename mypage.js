@@ -1,6 +1,7 @@
 "use strict";
 
 const mypageDatabaseName = "cpi-next-clear-status";
+const mypagePlatform = window.cpiPersonalPlatform;
 
 const mypageStoreName = "chart-statuses";
 const mypageManualMemoStoreName = "manual-targets";
@@ -814,7 +815,8 @@ function mypageRenderFeatureChips(row) {
   }).join("") + "</div>";
 }
 function mypageGetChartPageHref(chartId) {
-  return "chart-pages/" + encodeURIComponent(String(chartId ?? "").trim()) + ".html";
+  const href = "chart-pages/" + encodeURIComponent(String(chartId ?? "").trim()) + ".html";
+  return mypagePlatform?.chartHref(href) ?? href;
 }
 
 function mypageRenderMemoCheckbox(row) {
@@ -1515,7 +1517,7 @@ function mypageRenderPredEstimate() {
     note.append(document.createTextNode(message));
     if (mypageState.records.size === 0) {
       const link = document.createElement("a");
-      link.href = "record.html";
+      link.href = mypagePlatform?.href("record.html") ?? "record.html";
       link.textContent = "クリアランプ登録";
       note.append(document.createElement("br"), link, document.createTextNode("を行ってください"));
     }
@@ -1681,7 +1683,7 @@ function mypageRenderUpdateHistory() {
   const message = mypageElements.historyMessage;
   if (!container || !message) return;
 
-  const events = mypageState.updateHistoryEvents
+  const events = (mypagePlatform?.filterRecords(mypageState.updateHistoryEvents) ?? mypageState.updateHistoryEvents)
     .filter((event) => /^\d{4}-\d{2}-\d{2}$/.test(String(event?.cycleKey ?? "").trim()))
     .slice();
 
@@ -2223,7 +2225,13 @@ function mypageSetActiveTab(tabName) {
 }
 function mypageBindEvents() {
   [mypageElements.summaryTab, mypageElements.detailTab, mypageElements.historyTab].forEach((tab) => {
-    tab?.addEventListener("click", () => mypageSetActiveTab(tab.dataset.mypageTab));
+    tab?.addEventListener("click", () => {
+      mypageSetActiveTab(tab.dataset.mypageTab);
+      const url = new URL(window.location.href);
+      if (mypageState.activeTab === "summary") url.searchParams.delete("tab");
+      else url.searchParams.set("tab", mypageState.activeTab);
+      window.history.replaceState(null, "", url.href);
+    });
   });
   mypageElements.statusDistributionDetailsButton.addEventListener("click", () => {
     mypageRenderStatusDistributionDetails();
@@ -2284,7 +2292,7 @@ function mypageBindEvents() {
     void mypageRefreshFromStorage();
   };
   window.addEventListener("cpi:status-changed", refreshFromStorage);
-  window.addEventListener("cpi:storage-changed", refreshFromStorage);
+  window.addEventListener(mypagePlatform?.event("cpi:storage-changed") ?? "cpi:storage-changed", refreshFromStorage);
   window.addEventListener("pageshow", refreshFromStorage);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
@@ -2304,13 +2312,13 @@ function mypageLoadRows() {
   if (!rows.length) {
     throw new Error("譜面データが空です。");
   }
-  return rows;
+  return mypagePlatform?.filterCharts(rows) ?? rows;
 }
 
 function mypageOpenDatabase() {
-  return window.cpiStorage.open();
+  return window.cpiStorage.open(mypagePlatform?.platform);
 }
-window.addEventListener("cpi:storage-versionchange", () => {
+window.addEventListener(mypagePlatform?.event("cpi:storage-versionchange") ?? "cpi:storage-versionchange", () => {
   if (mypageState.db) {
     mypageOpenDatabase().then(database => { mypageState.db = database; }).catch(error => console.warn(error));
   }
@@ -2320,7 +2328,7 @@ function mypageReadAllRecords() {
   return new Promise((resolve, reject) => {
     const transaction = mypageState.db.transaction(mypageStoreName, "readonly");
     const request = transaction.objectStore(mypageStoreName).getAll();
-    request.onsuccess = () => resolve(request.result ?? []);
+    request.onsuccess = () => resolve(mypagePlatform?.filterRecords(request.result ?? []) ?? request.result ?? []);
     request.onerror = () => reject(request.error ?? new Error("記録を読み込めませんでした。"));
   });
 }

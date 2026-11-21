@@ -1,0 +1,45 @@
+.platform-migration {
+  width: min(460px, calc(100% - 32px));
+  box-sizing: border-box;
+  padding: clamp(18px, 5vw, 28px);
+  border: 1px solid #9dafe0;
+  border-radius: 18px;
+  background: #fff;
+  color: #16243b;
+  box-shadow: 0 18px 65px rgba(24, 39, 74, 0.22);
+  font-family: inherit;
+}
+
+.platform-migration::backdrop {
+  background: rgba(17, 30, 54, 0.55);
+}
+
+.platform-migration p {
+  margin: 0;
+  line-height: 1.65;
+}
+
+.platform-migration__choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0 10px;
+}
+
+.platform-migration__choices button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 9px;
+  background: #1e40af;
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.platform-migration__choices button[value="inf"] { background: #065f46; }
+.platform-migration__choices button:hover { filter: brightness(1.12); }
+.platform-migration__choices button:disabled { cursor: wait; opacity: 0.65; }
+.platform-migration__note { color: #52647c; font-size: 0.8rem; }
+.platform-migration .platform-migration__note--mixed { margin-top: 8px; }
+.platform-migration .platform-migration__error { margin-top: 10px; color: #b91c1c; }

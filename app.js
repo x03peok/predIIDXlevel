@@ -162,6 +162,7 @@ function normalizeRows(text) {
 
   return parsed.map((cells, index) => {
     const row = { __order: index };
+    row.platforms = (cells[headerIndex.get("platforms")] ?? "").trim();
 
     for (const column of columns) {
       if (column.key === "bpm") {

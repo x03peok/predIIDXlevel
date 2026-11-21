@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const { buildCharts } = require("./generate_public_data.js");
+const { loadRows, readChartPlatforms } = require("./generate_chart_pages.js");
 
 function readCsv(text) {
   const records = [];
@@ -42,7 +43,7 @@ function normalizeSourceTitle(title, chartId) {
   return ["6042", "6043"].includes(String(chartId)) && title === "9月1日" ? "9-1" : title;
 }
 
-function normalizeRows(source) {
+function normalizeRows(source, existingPlatforms = new Map()) {
   const rows = source.map(row => {
     const match = String(row.bpm ?? "").trim().match(/^(\d+(?:\.\d+)?)(?:[~\uFF5E\u301C-](\d+(?:\.\d+)?))?$/);
     if (row.bpm && !match) throw new Error(`Invalid BPM for chart ${row.chart_id}.`);
@@ -61,6 +62,10 @@ function normalizeRows(source) {
       official_title: normalizeSourceTitle(row.official_title, row.chart_id),
       official_version: row.official_version,
       url: row.url,
+      platforms: readChartPlatforms(
+        row.platform ?? row.platforms ?? existingPlatforms.get(String(row.chart_id).trim()),
+        row.chart_id,
+      ).join("|"),
     };
   });
   if (!rows.length || rows.some(row => Object.values(row).some(value => value === undefined))) {
@@ -103,7 +108,17 @@ function serializeCsv(rows) {
 
 function importDataset(directory, root = __dirname, elementsPath) {
   const source = readCsv(fs.readFileSync(path.join(directory, "data.csv"), "utf8"));
-  let charts = normalizeRows(source);
+  const dataPath = path.join(root, "data.js");
+  const existingPlatforms = new Map();
+  if (source.length && !Object.hasOwn(source[0], "platform") && !Object.hasOwn(source[0], "platforms") && fs.existsSync(dataPath)) {
+    const existingData = fs.readFileSync(dataPath, "utf8");
+    if (existingData.includes("__CSV_BUNDLE__")) {
+      for (const row of loadRows(dataPath, existingData)) {
+        existingPlatforms.set(row.chart_id, row.platforms.join("|"));
+      }
+    }
+  }
+  let charts = normalizeRows(source, existingPlatforms);
   const courses = readCsv(fs.readFileSync(path.join(directory, "stage_skills.csv"), "utf8"));
   const context = { window: {} };
   vm.runInNewContext(fs.readFileSync(path.join(root, "danilabo-data.js"), "utf8"), context, { timeout: 5000 });
@@ -126,7 +141,7 @@ function importDataset(directory, root = __dirname, elementsPath) {
     throw new Error("Continuous Feature data requires embedded metrics, chart_elements_48.csv, or an explicit metrics CSV argument. No files were changed.");
   }
   // Validate both sources before replacing either runtime bundle.
-  fs.writeFileSync(path.join(root, "data.js"), bundles?.charts ?? `window.__CSV_BUNDLE__ = ${JSON.stringify(serializeCsv(charts))};\n`);
+  fs.writeFileSync(dataPath, bundles?.charts ?? `window.__CSV_BUNDLE__ = ${JSON.stringify(serializeCsv(charts))};\n`);
   if (bundles) fs.writeFileSync(path.join(root, "feature-data.js"), bundles.corrections);
   fs.writeFileSync(path.join(root, "danilabo-data.js"), `window.__DANILABO_ROWS__ = ${JSON.stringify(stages)};\n`);
   console.log(`Imported ${charts.length} charts and ${courses.length} courses (${stages.length} stages including retained versions).`);

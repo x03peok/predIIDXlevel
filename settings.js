@@ -1,14 +1,14 @@
 "use strict";
 
-const settingsDatabaseName = "cpi-next-clear-status";
-
 const settingsStoreName = "chart-statuses";
 const settingsManualMemoStoreName = "manual-targets";
 const settingsDailyTargetsStoreName = "daily-targets";
 const settingsUpdateHistoryStoreName = "status-update-events";
 const settingsOptionMemoStoreName = "chart-option-memos";
 const settingsBackupFormat = "cpi-next-clear-status-backup";
-const settingsBackupVersion = 4;
+const settingsBackupVersion = 5;
+const settingsPlatformKey = "cpi-next-record-platform";
+const settingsPlatformLabels = { ac: "AC", inf: "INFINITAS" };
 const settingsMaxBackupBytes = 10 * 1024 * 1024;
 const settingsMaxRecords = 100000;
 const settingsStatusValues = new Set([
@@ -20,79 +20,27 @@ const settingsStatusValues = new Set([
   "clear",
   "hard",
 ]);
-const settingsRecommendationSettingsKey = "cpi-next-target-recommendation-statuses";
-const settingsRecommendationStatuses = [
-  { value: "unregistered", label: "未登録" },
-  { value: "unowned", label: "未所持・未解禁" },
-  { value: "no-play", label: "NO PLAY" },
-  { value: "failed", label: "FAILED" },
-  { value: "assisted", label: "ASSISTED" },
-  { value: "easy", label: "EASY" },
-  { value: "clear", label: "CLEAR" },
-  { value: "hard", label: "HARD以上" },
-];
-const settingsRecommendationStatusValues = new Set(
-  settingsRecommendationStatuses.map(({ value }) => value),
-);
-const settingsRecommendationLevelValues = [8, 9, 10, 11, 12];
-const settingsRecommendationLevelOptions = settingsRecommendationLevelValues.map((value) => ({
-  value,
-  label: "☆" + value,
-}));
-const settingsRecommendationCountValues = [5, 10, 20];
-const settingsDefaultRecommendationStatuses = ["unregistered", "no-play", "failed", "assisted", "easy"];
-const settingsTargetGoalOptions = [
-  { value: "easy", label: "EASY" },
-  { value: "clear", label: "CLEAR" },
-  { value: "hard", label: "HARD以上" },
-];
-const settingsTargetGoalValues = new Set(settingsTargetGoalOptions.map(({ value }) => value));
-const settingsDefaultTargetGoals = settingsTargetGoalOptions.map(({ value }) => value);
-
 const settingsElements = {};
 let settingsDatabase = null;
 let settingsBusy = false;
-let settingsRecommendationSettings = settingsGetDefaultRecommendationSettings();
+let settingsPlatform = "ac";
+let settingsImportPlatform = null;
 
 function settingsSetMessage(message, isError = false) {
   settingsElements.message.textContent = message;
   settingsElements.message.dataset.state = isError ? "error" : "ok";
 }
 
-function settingsOpenDatabase() {
-  return window.cpiStorage.open();
+function settingsOpenDatabase(platform = settingsPlatform) {
+  return window.cpiStorage.open(platform);
 }
-window.addEventListener("cpi:storage-versionchange", () => {
-  if (settingsDatabase) {
-    settingsOpenDatabase().then(database => { settingsDatabase = database; }).catch(error => console.warn(error));
-  }
-});
 
-function settingsReadAll() {
+function settingsReadAll(database) {
   return new Promise((resolve, reject) => {
-    if (!settingsDatabase) {
-      reject(new Error("ローカル保存を開けませんでした。"));
-      return;
-    }
-
-    const transaction = settingsDatabase.transaction(settingsStoreName, "readonly");
+    const transaction = database.transaction(settingsStoreName, "readonly");
     const request = transaction.objectStore(settingsStoreName).getAll();
     request.onsuccess = () => resolve(request.result ?? []);
     request.onerror = () => reject(request.error ?? new Error("記録を読み込めませんでした。"));
-  });
-}
-
-function settingsReadAllManualMemos() {
-  return new Promise((resolve, reject) => {
-    if (!settingsDatabase) {
-      reject(new Error("ローカル保存を開けませんでした。"));
-      return;
-    }
-
-    const transaction = settingsDatabase.transaction(settingsManualMemoStoreName, "readonly");
-    const request = transaction.objectStore(settingsManualMemoStoreName).getAll();
-    request.onsuccess = () => resolve(request.result ?? []);
-    request.onerror = () => reject(request.error ?? new Error("手動メモを読み込めませんでした。"));
   });
 }
 
@@ -214,369 +162,130 @@ function settingsWriteAll(records, manualMemos, historyChanges = [], historySour
 }
 
 function settingsClearAll() {
-  return settingsWriteAll([]).then(() => new Promise((resolve, reject) => {
-    const stores = [settingsDailyTargetsStoreName];
-    const hasHistory = Boolean(
-      window.cpiUpdateHistory
-      && settingsDatabase.objectStoreNames.contains(settingsUpdateHistoryStoreName),
-    );
-    if (hasHistory) stores.push(settingsUpdateHistoryStoreName);
+  return new Promise((resolve, reject) => {
+    const stores = [settingsStoreName, settingsDailyTargetsStoreName, settingsUpdateHistoryStoreName];
     const transaction = settingsDatabase.transaction(stores, "readwrite");
-    transaction.objectStore(settingsDailyTargetsStoreName).clear();
-    if (hasHistory) transaction.objectStore(settingsUpdateHistoryStoreName).clear();
+    for (const name of stores) transaction.objectStore(name).clear();
     transaction.oncomplete = resolve;
     transaction.onerror = () => reject(transaction.error ?? new Error("保存データを削除できませんでした。"));
     transaction.onabort = () => reject(transaction.error ?? new Error("保存データを削除できませんでした。"));
-  }));
+  });
+}
+
+async function settingsReadBackupSnapshot(includeOptionMemos) {
+  const separateOptions = includeOptionMemos && settingsPlatform === "inf";
+  const snapshot = await window.cpiBackupData.readSnapshot(settingsDatabase, {
+    includeOptionMemos: includeOptionMemos && !separateOptions,
+  });
+  if (separateOptions) {
+    snapshot.optionMemos = await window.cpiChartOptions.readAll(await settingsOpenDatabase("ac"));
+  }
+  return snapshot;
+}
+
+function settingsWriteSharedOptionMemos(database, memos) {
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(settingsOptionMemoStoreName, "readwrite");
+    transaction.oncomplete = resolve;
+    transaction.onabort = () => reject(transaction.error ?? new Error("共通オプションメモを保存できませんでした。"));
+    try {
+      const store = transaction.objectStore(settingsOptionMemoStoreName);
+      store.clear();
+      for (const memo of memos) store.put(memo);
+    } catch (error) {
+      transaction.abort();
+      reject(error);
+    }
+  });
+}
+
+async function settingsWriteBackup(records, manualMemos, historyChanges, source, snapshot, rollbackSnapshot) {
+  if (settingsPlatform !== "inf" || !Array.isArray(snapshot?.optionMemos)) {
+    await settingsWriteAll(records, manualMemos, historyChanges, source, snapshot);
+    return;
+  }
+  const database = await settingsOpenDatabase("ac");
+  await settingsWriteAll(records, manualMemos, historyChanges, source, { ...snapshot, optionMemos: undefined });
+  try {
+    await settingsWriteSharedOptionMemos(database, snapshot.optionMemos);
+  } catch {
+    // IndexedDB cannot group writes across the AC and INFINITAS databases.
+    const previousRecords = settingsGetValidRecords(rollbackSnapshot.records);
+    try {
+      await settingsWriteAll(previousRecords, settingsGetValidManualMemos(rollbackSnapshot.manualMemos),
+        [], source, { ...rollbackSnapshot, optionMemos: undefined });
+    } catch {
+      settingsUpdateCount(records);
+      throw new Error("共通オプションメモの保存に失敗し、INFINITAS版の記録を元に戻せませんでした。");
+    }
+    settingsUpdateCount(previousRecords);
+    throw new Error("共通オプションメモを保存できなかったため、INFINITAS版の記録を元に戻しました。");
+  }
 }
 
 function settingsUpdateCount(records) {
-  settingsElements.recordCount.textContent = "保存: " + records.length.toLocaleString() + "譜面";
+  settingsElements.recordCount.textContent = settingsPlatformLabels[settingsPlatform] + "版の保存: " + records.length.toLocaleString() + "譜面";
 }
 
 function settingsSetBusy(busy) {
   settingsBusy = busy;
-  settingsElements.exportButton.disabled = busy;
-  settingsElements.importButton.disabled = busy;
-  settingsElements.resetButton.disabled = busy;
+  settingsElements.exportButton.disabled = busy || !settingsDatabase;
+  settingsElements.importButton.disabled = busy || !settingsDatabase;
+  settingsElements.resetButton.disabled = busy || !settingsDatabase;
+  settingsElements.platformBadge.disabled = busy;
+  for (const input of settingsElements.platformInputs) input.disabled = busy;
 }
 
-function settingsGetDefaultRecommendationSettings() {
-  return {
-    probabilityMin: 40,
-    probabilityMax: 60,
-    count: 10,
-    levels: [...settingsRecommendationLevelValues],
-    statuses: [...settingsDefaultRecommendationStatuses],
-    targetGoals: [...settingsDefaultTargetGoals],
-  };
+function settingsSyncPlatform() {
+  const label = settingsPlatformLabels[settingsPlatform];
+  document.body.dataset.platform = settingsPlatform;
+  settingsElements.platformPicker.dataset.platform = settingsPlatform;
+  settingsElements.platformBadge.textContent = label;
+  settingsElements.platformBadge.setAttribute("aria-label", "現在の管理対象：" + label + "。別の版に切り替える");
+  for (const input of settingsElements.platformInputs) input.checked = input.value === settingsPlatform;
+  for (const item of document.querySelectorAll('#siteMenu :is([data-page="record"], [data-page="mypage"], [data-page="target"])')) {
+    item.dataset.href = item.dataset.page + ".html?platform=" + settingsPlatform;
+  }
 }
 
-function settingsNormalizeRecommendationProbability(value, fallback) {
-  const numeric = Number(value);
-  return Number.isInteger(numeric)
-    ? Math.min(100, Math.max(0, numeric))
-    : fallback;
-}
-
-function settingsNormalizeRecommendationCount(value, fallback) {
-  const numeric = Number(value);
-  return settingsRecommendationCountValues.includes(numeric) ? numeric : fallback;
-}
-
-function settingsReadRecommendationSettings() {
-  const fallback = settingsGetDefaultRecommendationSettings();
+async function settingsSelectPlatform(platform) {
+  if (settingsBusy || !Object.hasOwn(settingsPlatformLabels, platform)) return;
+  if (platform === settingsPlatform && settingsDatabase) return;
+  settingsSyncPlatform();
+  settingsSetBusy(true);
+  window.cpiStatusToast?.hide();
+  settingsSetMessage("");
   try {
-    const parsed = JSON.parse(window.localStorage?.getItem(settingsRecommendationSettingsKey) ?? "null");
-    if (Array.isArray(parsed)) {
-      return {
-        ...fallback,
-        statuses: [...new Set(parsed.filter((value) => settingsRecommendationStatusValues.has(value)))],
-      };
+    const database = await settingsOpenDatabase(platform);
+    const records = settingsGetValidRecords(await settingsReadAll(database));
+    settingsDatabase = database;
+    settingsPlatform = platform;
+    settingsUpdateCount(records);
+    try { window.localStorage.setItem(settingsPlatformKey, platform); } catch { /* Optional persistence. */ }
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("platform") && url.searchParams.get("platform") !== platform) {
+      url.searchParams.set("platform", platform);
+      window.history.replaceState(null, "", url.href);
     }
-    if (!parsed || typeof parsed !== "object") {
-      return fallback;
-    }
-
-    let probabilityMin = settingsNormalizeRecommendationProbability(
-      parsed.probabilityMin,
-      fallback.probabilityMin,
-    );
-    let probabilityMax = settingsNormalizeRecommendationProbability(
-      parsed.probabilityMax,
-      fallback.probabilityMax,
-    );
-    const count = settingsNormalizeRecommendationCount(parsed.count, fallback.count);
-    if (probabilityMin > probabilityMax) {
-      [probabilityMin, probabilityMax] = [probabilityMax, probabilityMin];
-    }
-
-    const levels = Array.isArray(parsed.levels)
-      ? [...new Set(parsed.levels
-        .map((value) => Number(value))
-        .filter((value) => settingsRecommendationLevelValues.includes(value)))]
-      : [...fallback.levels];
-    const statuses = Array.isArray(parsed.statuses)
-      ? [...new Set(parsed.statuses.filter((value) => settingsRecommendationStatusValues.has(value)))]
-      : [...fallback.statuses];
-    const targetGoals = Array.isArray(parsed.targetGoals)
-      ? [...new Set(parsed.targetGoals.filter((value) => settingsTargetGoalValues.has(value)))]
-      : [...fallback.targetGoals];
-    return { probabilityMin, probabilityMax, count, levels, statuses, targetGoals };
   } catch (error) {
-    // Fall back to the default when local storage is unavailable or invalid.
+    settingsSetMessage(error.message || "管理対象のデータを読み込めませんでした。", true);
+    if (!settingsDatabase) settingsElements.recordCount.textContent = "保存件数を取得できませんでした。";
+  } finally {
+    settingsSyncPlatform();
+    settingsSetBusy(false);
   }
-  return fallback;
-}
-
-function settingsSaveRecommendationSettings() {
-  const savedSettings = settingsReadRecommendationSettings();
-  const payload = {
-    probabilityMin: settingsRecommendationSettings.probabilityMin,
-    probabilityMax: settingsRecommendationSettings.probabilityMax,
-    count: settingsRecommendationSettings.count,
-    levels: [...settingsRecommendationSettings.levels],
-    statuses: [...settingsRecommendationSettings.statuses],
-    targetGoals: [...savedSettings.targetGoals],
-  };
-  try {
-    window.localStorage?.setItem(settingsRecommendationSettingsKey, JSON.stringify(payload));
-  } catch (error) {
-    settingsSetMessage("自動リコメンド設定を保存できませんでした。", true);
-    return;
-  }
-  settingsSetMessage("自動リコメンド設定を保存しました。");
-}
-
-function settingsSaveTargetSettings() {
-  if (settingsRecommendationSettings.targetGoals.length === 0
-    && !window.confirm("マイターゲットに曲が表示されなくなります。よろしいですか？")) {
-    return;
-  }
-  const savedSettings = settingsReadRecommendationSettings();
-  const payload = {
-    probabilityMin: savedSettings.probabilityMin,
-    probabilityMax: savedSettings.probabilityMax,
-    count: savedSettings.count,
-    levels: [...savedSettings.levels],
-    statuses: [...savedSettings.statuses],
-    targetGoals: [...settingsRecommendationSettings.targetGoals],
-  };
-  try {
-    window.localStorage?.setItem(settingsRecommendationSettingsKey, JSON.stringify(payload));
-  } catch (error) {
-    settingsSetMessage("ターゲット設定を保存できませんでした。", true);
-    return;
-  }
-  settingsSetMessage("ターゲット設定を保存しました。");
-}
-
-function settingsAreAllRecommendationValuesSelected(selectedValues, options) {
-  return selectedValues.size === options.length
-    && options.every(({ value }) => selectedValues.has(value));
-}
-
-function settingsUpdateRecommendationSummary(summary, selectedValues, options) {
-  if (settingsAreAllRecommendationValuesSelected(selectedValues, options)) {
-    summary.textContent = "all";
-    summary.title = "";
-    return;
-  }
-  if (selectedValues.size === 0) {
-    summary.textContent = "none";
-    summary.title = "";
-    return;
-  }
-  const labels = options
-    .filter(({ value }) => selectedValues.has(value))
-    .map(({ label }) => label);
-  summary.textContent = labels.length === 1 ? labels[0] : labels.length + " selected";
-  summary.title = labels.join(", ");
-}
-
-function settingsRenderRecommendationFilter({ container, summary, options, settingKey }) {
-  const values = options.map(({ value }) => value);
-  const selectedValues = new Set(settingsRecommendationSettings[settingKey]);
-  const convertValue = (value) => typeof values[0] === "number" ? Number(value) : value;
-
-  const syncCheckboxes = () => {
-    const allInput = container.querySelector("input[data-filter-all]");
-    if (allInput) {
-      allInput.checked = settingsAreAllRecommendationValuesSelected(selectedValues, options);
-    }
-    container.querySelectorAll("input[data-filter-option]").forEach((input) => {
-      input.checked = selectedValues.has(convertValue(input.value));
-    });
-    settingsUpdateRecommendationSummary(summary, selectedValues, options);
-  };
-
-  const fragment = document.createDocumentFragment();
-  const allLabel = document.createElement("label");
-  allLabel.className = "multi-filter__option multi-filter__option--all";
-  const allInput = document.createElement("input");
-  allInput.type = "checkbox";
-  allInput.dataset.filterAll = "true";
-  const allText = document.createElement("span");
-  allText.textContent = "all";
-  allLabel.append(allInput, allText);
-  fragment.append(allLabel);
-
-  for (const option of options) {
-    const label = document.createElement("label");
-    label.className = "multi-filter__option";
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    input.dataset.filterOption = "true";
-    input.value = String(option.value);
-    const text = document.createElement("span");
-    text.textContent = option.label;
-    label.append(input, text);
-    fragment.append(label);
-  }
-  container.replaceChildren(fragment);
-  syncCheckboxes();
-
-  allInput.addEventListener("change", () => {
-    selectedValues.clear();
-    if (allInput.checked) {
-      values.forEach((value) => selectedValues.add(value));
-    }
-    settingsRecommendationSettings[settingKey] = [...selectedValues];
-    syncCheckboxes();
-  });
-  container.querySelectorAll("input[data-filter-option]").forEach((input) => {
-    input.addEventListener("change", () => {
-      selectedValues.clear();
-      container.querySelectorAll("input[data-filter-option]:checked").forEach((checkedInput) => {
-        selectedValues.add(convertValue(checkedInput.value));
-      });
-      settingsRecommendationSettings[settingKey] = [...selectedValues];
-      syncCheckboxes();
-    });
-  });
-}
-
-function settingsRenderTargetGoalOptions() {
-  const selectedValues = new Set(settingsRecommendationSettings.targetGoals);
-  const fragment = document.createDocumentFragment();
-  for (const option of settingsTargetGoalOptions) {
-    const label = document.createElement("label");
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    input.value = option.value;
-    input.checked = selectedValues.has(option.value);
-    const text = document.createElement("span");
-    text.textContent = option.label;
-    label.append(input, text);
-    fragment.append(label);
-  }
-  settingsElements.targetGoalOptions.replaceChildren(fragment);
-  settingsElements.targetGoalOptions.querySelectorAll("input").forEach((input) => {
-    input.addEventListener("change", () => {
-      settingsRecommendationSettings.targetGoals = Array.from(
-        settingsElements.targetGoalOptions.querySelectorAll("input:checked"),
-        (checkedInput) => checkedInput.value,
-      );
-    });
-  });
-}
-
-function settingsUpdateRecommendationInputs() {
-  settingsElements.recommendationProbabilityMin.value = String(settingsRecommendationSettings.probabilityMin);
-  settingsElements.recommendationProbabilityMax.value = String(settingsRecommendationSettings.probabilityMax);
-  settingsElements.recommendationCount.value = String(settingsRecommendationSettings.count);
-}
-
-function settingsRenderRecommendationOptions() {
-  settingsRecommendationSettings = settingsReadRecommendationSettings();
-  settingsUpdateRecommendationInputs();
-  settingsRenderRecommendationFilter({
-    container: settingsElements.recommendationLevelOptions,
-    summary: settingsElements.recommendationLevelSummary,
-    options: settingsRecommendationLevelOptions,
-    settingKey: "levels",
-  });
-  settingsRenderRecommendationFilter({
-    container: settingsElements.recommendationStatusOptions,
-    summary: settingsElements.recommendationStatusSummary,
-    options: settingsRecommendationStatuses,
-    settingKey: "statuses",
-  });
-  settingsRenderTargetGoalOptions();
-}
-
-function settingsReadRecommendationProbability(input, fallback) {
-  const rawValue = String(input.value ?? "").trim();
-  if (!rawValue) {
-    return fallback;
-  }
-  return settingsNormalizeRecommendationProbability(rawValue, fallback);
-}
-
-function settingsCommitRecommendationProbability(changedKey) {
-  let probabilityMin = settingsReadRecommendationProbability(
-    settingsElements.recommendationProbabilityMin,
-    settingsRecommendationSettings.probabilityMin,
-  );
-  let probabilityMax = settingsReadRecommendationProbability(
-    settingsElements.recommendationProbabilityMax,
-    settingsRecommendationSettings.probabilityMax,
-  );
-  if (probabilityMin > probabilityMax) {
-    if (changedKey === "min") {
-      probabilityMax = probabilityMin;
-    } else {
-      probabilityMin = probabilityMax;
-    }
-  }
-  settingsRecommendationSettings.probabilityMin = probabilityMin;
-  settingsRecommendationSettings.probabilityMax = probabilityMax;
-  settingsUpdateRecommendationInputs();
-}
-
-function settingsCommitRecommendationCount() {
-  const count = settingsNormalizeRecommendationCount(
-    settingsElements.recommendationCount.value,
-    settingsRecommendationSettings.count,
-  );
-  settingsRecommendationSettings.count = count;
-  settingsUpdateRecommendationInputs();
-}
-
-function settingsCommitRecommendationSettings() {
-  let probabilityMin = settingsReadRecommendationProbability(
-    settingsElements.recommendationProbabilityMin,
-    settingsRecommendationSettings.probabilityMin,
-  );
-  let probabilityMax = settingsReadRecommendationProbability(
-    settingsElements.recommendationProbabilityMax,
-    settingsRecommendationSettings.probabilityMax,
-  );
-  if (probabilityMin > probabilityMax) {
-    [probabilityMin, probabilityMax] = [probabilityMax, probabilityMin];
-  }
-  settingsRecommendationSettings.probabilityMin = probabilityMin;
-  settingsRecommendationSettings.probabilityMax = probabilityMax;
-  settingsRecommendationSettings.count = settingsNormalizeRecommendationCount(
-    settingsElements.recommendationCount.value,
-    settingsRecommendationSettings.count,
-  );
-  settingsUpdateRecommendationInputs();
-  settingsSaveRecommendationSettings();
-}
-
-function settingsResetRecommendationSettings() {
-  const targetGoals = [...settingsRecommendationSettings.targetGoals];
-  settingsRecommendationSettings = {
-    ...settingsGetDefaultRecommendationSettings(),
-    targetGoals,
-  };
-  settingsUpdateRecommendationInputs();
-  settingsRenderRecommendationFilter({
-    container: settingsElements.recommendationLevelOptions,
-    summary: settingsElements.recommendationLevelSummary,
-    options: settingsRecommendationLevelOptions,
-    settingKey: "levels",
-  });
-  settingsRenderRecommendationFilter({
-    container: settingsElements.recommendationStatusOptions,
-    summary: settingsElements.recommendationStatusSummary,
-    options: settingsRecommendationStatuses,
-    settingKey: "statuses",
-  });
-}
-
-function settingsResetTargetSettings() {
-  settingsRecommendationSettings.targetGoals = [...settingsDefaultTargetGoals];
-  settingsRenderTargetGoalOptions();
 }
 
 function settingsValidateBackup(payload) {
   if (!payload || typeof payload !== "object"
     || payload.format !== settingsBackupFormat
-    || ![1, 2, 3, settingsBackupVersion].includes(payload.version)
+    || ![1, 2, 3, 4, settingsBackupVersion].includes(payload.version)
     || !Array.isArray(payload.records)) {
     throw new Error("対応していないバックアップ形式です。");
+  }
+  const platform = payload.version >= 5 ? payload.platform : "ac";
+  if (!Object.hasOwn(settingsPlatformLabels, platform)) {
+    throw new Error("バックアップの版情報が不正です。");
   }
   if (payload.records.length > settingsMaxRecords) {
     throw new Error("記録件数が多すぎます。");
@@ -625,8 +334,8 @@ function settingsValidateBackup(payload) {
     };
   });
 
-  const extra = payload.version >= 3 ? window.cpiBackupData.validateExtra(payload) : {};
-  return { records, manualMemos, version: payload.version, ...extra };
+  const extra = payload.version >= 3 ? window.cpiBackupData.validateExtra({ ...payload, platform }) : {};
+  return { records, manualMemos, platform, version: payload.version, ...extra };
 }
 async function settingsHandleExport() {
   if (settingsBusy) {
@@ -636,12 +345,13 @@ async function settingsHandleExport() {
   settingsSetBusy(true);
   try {
     settingsDatabase = await settingsOpenDatabase();
-    const snapshot = await window.cpiBackupData.readSnapshot(settingsDatabase);
+    const snapshot = await settingsReadBackupSnapshot(true);
     const records = settingsGetValidRecords(snapshot.records);
     const manualMemos = settingsGetValidManualMemos(snapshot.manualMemos);
     const payload = {
       format: settingsBackupFormat,
       version: settingsBackupVersion,
+      platform: settingsPlatform,
       exportedAt: new Date().toISOString(),
       records,
       manualMemos,
@@ -656,7 +366,7 @@ async function settingsHandleExport() {
     const link = document.createElement("a");
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
     link.href = downloadUrl;
-    link.download = "cpi-next-clear-status-" + date + ".json";
+    link.download = "cpi-next-clear-status-" + settingsPlatform + "-" + date + ".json";
     document.body.append(link);
     link.click();
     link.remove();
@@ -676,6 +386,8 @@ async function settingsHandleExport() {
 
 async function settingsHandleImport(event) {
   const file = event.target.files?.[0];
+  const destination = settingsImportPlatform ?? settingsPlatform;
+  settingsImportPlatform = null;
   event.target.value = "";
   if (!file || settingsBusy) {
     return;
@@ -685,51 +397,50 @@ async function settingsHandleImport(event) {
     return;
   }
 
-  let backup;
-  try {
-    const payload = JSON.parse(await file.text());
-    backup = settingsValidateBackup(payload);
-  } catch (error) {
-    settingsSetMessage(error.message || "バックアップを読み込めませんでした。", true);
+  if (destination !== settingsPlatform) {
+    settingsSetMessage("管理する版が変わりました。ファイルを選び直してください。", true);
     return;
   }
-
-  const importConfirmation = backup.version >= 4
-    ? "現在のクリアランプ記録、手動メモ、今日の10曲、更新履歴、オプションメモを、このバックアップで置き換えます。よろしいですか？"
-    : backup.version >= 3
-    ? "現在のクリアランプ記録、手動メモ、今日の10曲、更新履歴を、このバックアップで置き換えます。よろしいですか？"
-    : backup.version >= 2
-    ? "現在のクリアランプ記録と手動メモを、このバックアップで置き換えます。よろしいですか？"
-    : "現在のクリアランプ記録を、このバックアップで置き換えます。手動メモは保持されます。";
-  if (!window.confirm(importConfirmation)) {
-    return;
-  }
-
   settingsSetBusy(true);
   try {
+    const payload = JSON.parse(await file.text());
+    const backup = settingsValidateBackup(payload);
+    if (backup.platform !== destination) {
+      throw new Error("このバックアップは" + settingsPlatformLabels[backup.platform] + "版です。管理対象を切り替えてからインポートしてください。");
+    }
+    const label = settingsPlatformLabels[destination];
+    const affected = ["クリアランプ記録"];
+    if (backup.version >= 2) affected.push("手動メモ");
+    if (backup.version >= 3) affected.push("今日の10曲", "更新履歴");
+    const shared = Array.isArray(backup.optionMemos) ? "AC／INFINITAS共通のオプションメモも置き換えます。" : "";
+    if (!window.confirm(label + "版の" + affected.join("、") + "を、このバックアップで置き換えます。" + shared + "よろしいですか？")) return;
     settingsDatabase = await settingsOpenDatabase();
-    const previousSnapshot = await window.cpiBackupData.readSnapshot(settingsDatabase);
+    const previousSnapshot = await settingsReadBackupSnapshot(Boolean(shared));
     const previousRecords = settingsGetValidRecords(previousSnapshot.records);
     const previousManualMemos = settingsGetValidManualMemos(previousSnapshot.manualMemos);
-    await settingsWriteAll(
+    await settingsWriteBackup(
       backup.records,
       backup.version >= 2 ? backup.manualMemos : undefined,
       settingsBuildStatusChanges(previousRecords, backup.records),
       "backup-import",
       backup.version >= 3 ? backup : null,
+      previousSnapshot,
     );
     settingsUpdateCount(backup.records);
     settingsSetMessage("データをインポートしました。");
     window.cpiStatusToast?.show({
       onUndo: async () => {
+        if (settingsBusy || settingsPlatform !== destination) throw new Error("この版ではインポートを元に戻せません。");
         settingsSetBusy(true);
         try {
-          await settingsWriteAll(
+          settingsDatabase = await settingsOpenDatabase(destination);
+          await settingsWriteBackup(
             previousRecords,
             previousManualMemos,
             settingsBuildStatusChanges(backup.records, previousRecords, { useUpdatedAt: false }),
             "backup-undo",
             previousSnapshot,
+            backup,
           );
           settingsUpdateCount(previousRecords);
           settingsSetMessage("インポートを元に戻しました。");
@@ -750,12 +461,13 @@ async function settingsHandleImport(event) {
 }
 
 async function settingsHandleReset() {
-  if (settingsBusy || !window.confirm("保存されているクリアランプ記録、今日の10曲、更新履歴を削除します。手動メモ・オプションメモは保持されます。よろしいですか？")) {
+  if (settingsBusy || !window.confirm(settingsPlatformLabels[settingsPlatform] + "版のクリアランプ記録、今日の10曲、更新履歴を削除します。手動メモ・オプションメモは保持されます。よろしいですか？")) {
     return;
   }
 
   settingsSetBusy(true);
   try {
+    settingsDatabase = await settingsOpenDatabase();
     await settingsClearAll();
     settingsUpdateCount([]);
     settingsSetMessage("クリアランプ記録と更新履歴をリセットしました。");
@@ -768,9 +480,14 @@ async function settingsHandleReset() {
 }
 
 function settingsBindEvents() {
+  settingsElements.platformBadge.addEventListener("click", () => { void settingsSelectPlatform(settingsPlatform === "ac" ? "inf" : "ac"); });
+  for (const input of settingsElements.platformInputs) {
+    input.addEventListener("change", () => { if (input.checked) void settingsSelectPlatform(input.value); });
+  }
   settingsElements.exportButton.addEventListener("click", settingsHandleExport);
   settingsElements.importButton.addEventListener("click", () => {
     if (!settingsBusy) {
+      settingsImportPlatform = settingsPlatform;
       settingsElements.importInput.click();
     }
   });
@@ -785,24 +502,19 @@ async function settingsInitialize() {
   settingsElements.resetButton = document.getElementById("settingsResetButton");
   settingsElements.recordCount = document.getElementById("settingsRecordCount");
   settingsElements.message = document.getElementById("settingsMessage");
-  settingsElements.recommendationProbabilityMin = document.getElementById("settingsRecommendationProbabilityMin");
-  settingsElements.recommendationProbabilityMax = document.getElementById("settingsRecommendationProbabilityMax");
-  settingsElements.recommendationCount = document.getElementById("settingsRecommendationCount");
-  settingsElements.recommendationLevelOptions = document.getElementById("settingsRecommendationLevelOptions");
-  settingsElements.recommendationLevelSummary = document.getElementById("settingsRecommendationLevelSummary");
-  settingsElements.recommendationStatusOptions = document.getElementById("settingsRecommendationStatusOptions");
-  settingsElements.recommendationStatusSummary = document.getElementById("settingsRecommendationStatusSummary");
-  settingsElements.recommendationSaveButton = document.getElementById("settingsRecommendationSaveButton");
-  settingsElements.recommendationResetButton = document.getElementById("settingsRecommendationResetButton");
+  settingsElements.platformBadge = document.getElementById("settingsPlatformBadge");
+  settingsElements.platformPicker = document.getElementById("settingsPlatformPicker");
+  settingsElements.platformInputs = settingsElements.platformPicker.querySelectorAll('input[name="settingsPlatform"]');
   settingsBindEvents();
 
-  try {
-    settingsDatabase = await settingsOpenDatabase();
-    settingsUpdateCount(settingsGetValidRecords(await settingsReadAll()));
-  } catch (error) {
-    settingsSetMessage(error.message || "設定ページを初期化できませんでした。", true);
-    settingsSetBusy(true);
+  const explicit = new URLSearchParams(window.location.search).get("platform");
+  if (explicit === "ac" || explicit === "inf") {
+    settingsPlatform = explicit;
+  } else {
+    try { if (window.localStorage.getItem(settingsPlatformKey) === "inf") settingsPlatform = "inf"; }
+    catch { /* Optional persistence. */ }
   }
+  await settingsSelectPlatform(settingsPlatform);
 }
 
 document.addEventListener("DOMContentLoaded", settingsInitialize);

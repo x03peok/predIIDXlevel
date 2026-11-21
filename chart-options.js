@@ -10,6 +10,12 @@
     Object.freeze({ value: "s-random", label: "S乱" }),
   ]);
   const allowed = new Set(definitions.map(item => item.value));
+  function supportsChart(platforms) {
+    const value = String(platforms ?? "").trim().toLowerCase();
+    if (!value) return true;
+    const editions = value.split("|");
+    return editions.includes("ac") && editions.includes("inf");
+  }
   function validateRecords(records) {
     if (!Array.isArray(records) || records.length > 100000) throw new Error("オプションメモの形式が不正です。");
     const ids = new Set();
@@ -77,5 +83,5 @@
       transaction.onerror = transaction.onabort = () => reject(transaction.error ?? new Error("オプションメモを保存できませんでした。"));
     });
   }
-  window.cpiChartOptions = Object.freeze({ definitions, storeName, validateRecords, read, readAll, toggle });
+  window.cpiChartOptions = Object.freeze({ definitions, storeName, supportsChart, validateRecords, read, readAll, toggle });
 })();

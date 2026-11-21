@@ -1,6 +1,8 @@
 "use strict";
 
 const targetDatabaseName = "cpi-next-clear-status";
+const targetPlatform = window.cpiPersonalPlatform;
+const targetPlatformKey = name => targetPlatform?.key(name) ?? name;
 
 const targetStoreName = "chart-statuses";
 const targetManualMemoStoreName = "manual-targets";
@@ -72,11 +74,12 @@ const targetDefaultStatusFilter = targetStatuses
   .filter(({ value }) => !["unowned", "clear", "hard"].includes(value))
   .map(({ value }) => value);
 const targetDefaultRecommendationStatusFilter = targetStatuses
-  .filter(({ value }) => !["unowned", "hard"].includes(value))
+  .filter(({ value }) => !["unowned", "hard"].includes(value)
+    && (targetPlatform?.platform !== "inf" || value !== "unregistered"))
   .map(({ value }) => value);
-const targetRecommendationSettingsKey = "cpi-next-target-recommendation-statuses";
-const targetRecommendationPredDifferencesVisibleKey = "cpi-next-target-recommendation-pred-differences-visible";
-const targetEmptyTargetGoalsConfirmedKey = "cpi-next-target-recommendation-empty-target-goals-confirmed";
+const targetRecommendationSettingsKey = targetPlatformKey("cpi-next-target-recommendation-statuses");
+const targetRecommendationPredDifferencesVisibleKey = targetPlatformKey("cpi-next-target-recommendation-pred-differences-visible");
+const targetEmptyTargetGoalsConfirmedKey = targetPlatformKey("cpi-next-target-recommendation-empty-target-goals-confirmed");
 const targetAutoRecommendationNoticeStorageKey = "cpi-next-target-auto-recommendation-notice-dismissed-v2";
 const targetRecommendationLevelValues = [8, 9, 10, 11, 12];
 const targetRecommendationCountMin = 1;
@@ -307,7 +310,7 @@ function targetNormalizeDifficulty(value) {
 }
 
 function targetNormalizeRows(parsedRows) {
-  return parsedRows
+  return (targetPlatform?.filterCharts(parsedRows) ?? parsedRows)
     .map((source, index) => {
       const chartId = String(source.chart_id ?? "").trim();
       const title = targetNormalizeTitle(source.title);
@@ -333,6 +336,7 @@ function targetNormalizeRows(parsedRows) {
         bpm_min: bpmMin,
         bpm_max: bpmMax,
         features,
+        platforms: source.platforms,
         __order: Number.isFinite(source.__order) ? source.__order : index,
         __search: (title + " " + difficulty).toLocaleLowerCase("ja"),
       };
@@ -763,7 +767,8 @@ function targetGetFilteredRows() {
 }
 
 function targetGetChartHref(row) {
-  return "chart-pages/" + encodeURIComponent(row.chart_id) + ".html";
+  const href = "chart-pages/" + encodeURIComponent(row.chart_id) + ".html";
+  return targetPlatform?.chartHref(href) ?? href;
 }
 
 function targetGetDifficultyClass(difficulty) {
@@ -1178,6 +1183,7 @@ function targetGenerateAutoRecommendations() {
     targetState.recommendationSettings,
     selected.map(candidate => ({ chartId: String(candidate.row.chart_id), goal: candidate.goal })),
     candidates.length,
+    targetPlatform?.platform,
   );
 }
 
@@ -1200,7 +1206,7 @@ function targetGetRetainedRecommendationCandidate(row, goal) {
 }
 
 function targetRestoreAutoRecommendations() {
-  const cache = window.cpiRecommendationCache?.read(targetState.recommendationSettings);
+  const cache = window.cpiRecommendationCache?.read(targetState.recommendationSettings, targetPlatform?.platform);
   if (!cache) return false;
   const candidates = cache.items.flatMap(({ chartId, goal }) => {
     const row = targetState.rowsByChartId.get(chartId);
@@ -2233,12 +2239,13 @@ function targetUpdateAvailability() {
   const availability = targetGetAvailability();
   targetUpdateMissingDataMessage();
   const available = availability.available;
-  const dailyRoute = window.location.hash === "#daily";
   if (!available) {
-     targetElements.insufficientMessageText.textContent = "あとクリア" + availability.clearShortage.toLocaleString() + "件、未クリア" + availability.notClearShortage.toLocaleString() + "件、合計" + availability.totalShortage.toLocaleString() + "件登録で、マイターゲットが利用可能になります。";
+    if (targetElements.autoSettingsOverlay && !targetElements.autoSettingsOverlay.hidden) targetCloseRecommendationSettings();
+    targetElements.insufficientMessageText.textContent = "あとクリア" + availability.clearShortage.toLocaleString() + "件、未クリア" + availability.notClearShortage.toLocaleString() + "件、合計" + availability.totalShortage.toLocaleString() + "件登録で、自動リコメンドが利用可能になります。";
   }
-  targetElements.content.hidden = !(available || dailyRoute);
-  targetElements.insufficientMessage.hidden = available || dailyRoute;
+  targetElements.content.hidden = false;
+  targetElements.autoRecommendations.hidden = !available;
+  targetElements.insufficientMessage.hidden = available;
   if (available && !targetState.targetWasAvailable) {
     targetTrackUnlockEvent(availability);
   }
@@ -2250,9 +2257,9 @@ function targetUpdateAvailability() {
 
 
 function targetOpenDatabase() {
-  return window.cpiStorage.open();
+  return window.cpiStorage.open(targetPlatform?.platform);
 }
-window.addEventListener("cpi:storage-versionchange", () => {
+window.addEventListener(targetPlatform?.event("cpi:storage-versionchange") ?? "cpi:storage-versionchange", () => {
   if (targetState.db) {
     targetOpenDatabase().then(database => { targetState.db = database; }).catch(error => console.warn(error));
   }
@@ -2262,7 +2269,7 @@ function targetReadAllRecords() {
   return new Promise((resolve, reject) => {
     const transaction = targetState.db.transaction(targetStoreName, "readonly");
     const request = transaction.objectStore(targetStoreName).getAll();
-    request.onsuccess = () => resolve(request.result ?? []);
+    request.onsuccess = () => resolve(targetPlatform?.filterRecords(request.result ?? []) ?? request.result ?? []);
     request.onerror = () => reject(request.error ?? new Error("Unable to read records"));
   });
 }
@@ -2282,7 +2289,7 @@ function targetReadAllManualMemos() {
   return new Promise((resolve, reject) => {
     const transaction = targetState.db.transaction(targetManualMemoStoreName, "readonly");
     const request = transaction.objectStore(targetManualMemoStoreName).getAll();
-    request.onsuccess = () => resolve(request.result ?? []);
+    request.onsuccess = () => resolve(targetPlatform?.filterRecords(request.result ?? []) ?? request.result ?? []);
     request.onerror = () => reject(request.error ?? new Error("Unable to read manual memos"));
   });
 }
@@ -2299,7 +2306,8 @@ async function targetLoadOptionMemos() {
   const previousError = targetState.optionMemosError;
   try {
     if (!window.cpiChartOptions) throw new Error("オプションメモを読み込めませんでした。再読み込みしてください。");
-    const memos = await window.cpiChartOptions.readAll(targetState.db);
+    const database = await window.cpiStorage.open("ac");
+    const memos = await window.cpiChartOptions.readAll(database);
     const changed = memos.length !== targetState.optionMemos.size || memos.some(memo =>
       JSON.stringify(memo.options) !== JSON.stringify(targetState.optionMemos.get(memo.chartId)));
     targetState.optionMemos = new Map(memos.map(memo => [memo.chartId, memo.options]));
@@ -2360,11 +2368,14 @@ async function targetRefreshFromExternalDataChange() {
 }
 window.addEventListener("cpi:status-changed", targetRefreshFromExternalDataChange);
 window.addEventListener("cpi:manual-memo-changed", targetRefreshFromExternalDataChange);
-window.addEventListener("cpi:storage-changed", targetRefreshFromExternalDataChange);
+window.addEventListener(targetPlatform?.event("cpi:storage-changed") ?? "cpi:storage-changed", targetRefreshFromExternalDataChange);
+if (targetPlatform?.platform === "inf") {
+  window.addEventListener("cpi:storage-changed", targetRefreshFromExternalDataChange);
+}
 window.addEventListener("pageshow", targetRefreshFromExternalDataChange);
 window.addEventListener("focus", targetRefreshFromExternalDataChange);
 window.addEventListener("storage", event => {
-  if (event.key === window.cpiRecommendationCache?.key || event.key === null) {
+  if (event.key === targetPlatformKey(window.cpiRecommendationCache?.key) || event.key === null) {
     targetState.autoRecommendationsInitialized = false;
     void targetRefreshFromExternalDataChange();
     return;
@@ -2610,6 +2621,7 @@ function targetInitializeElements() {
   targetElements.featureMenu = document.getElementById("targetFeatureFilterMenu");
   targetElements.featureSummary = document.getElementById("targetFeatureFilterSummary");
   targetElements.content = document.getElementById("targetContent");
+  targetElements.autoRecommendations = document.getElementById("targetAutoRecommendations");
   targetElements.insufficientMessage = document.getElementById("targetInsufficientMessage");
   targetElements.insufficientMessageText = document.getElementById("targetInsufficientMessageText");
   targetElements.missingDataMessage = document.getElementById("targetMissingDataMessage");
@@ -2860,7 +2872,5 @@ async function targetInitialize() {
     window.cpiPageLoading?.fail(error instanceof Error ? error.message : "マイターゲットを表示できませんでした。");
   }
 }
-
-window.addEventListener("cpi:target-mode-changed", targetUpdateAvailability);
 
 document.addEventListener("DOMContentLoaded", targetInitialize);

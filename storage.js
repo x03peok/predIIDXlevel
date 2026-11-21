@@ -1,17 +1,26 @@
 "use strict";
 
 (() => {
-  const name = "cpi-next-clear-status";
+  const databaseNames = new Map([
+    ["ac", "cpi-next-clear-status"],
+    ["inf", "cpi-next-clear-status-inf"],
+  ]);
   const stores = ["chart-statuses", "manual-targets", "daily-targets", "status-update-events", "chart-option-memos"];
-  let opening = null;
-  let channel = null;
-  try {
-    if (typeof window.BroadcastChannel === "function") {
-      channel = new window.BroadcastChannel("cpi-next-storage");
-      channel.onmessage = () => window.dispatchEvent(new Event("cpi:storage-changed"));
-    }
-  } catch { /* Focus/pageshow refresh remains available. */ }
-  function watch(database) {
+  const openings = new Map();
+  const channels = new Map();
+  function getChannel(suffix) {
+    if (channels.has(suffix)) return channels.get(suffix);
+    let channel = null;
+    try {
+      if (typeof window.BroadcastChannel === "function") {
+        channel = new window.BroadcastChannel("cpi-next-storage" + suffix);
+        channel.onmessage = () => window.dispatchEvent(new Event("cpi:storage-changed" + suffix));
+      }
+    } catch { /* Focus/pageshow refresh remains available. */ }
+    channels.set(suffix, channel);
+    return channel;
+  }
+  function watch(database, channel) {
     const transact = database.transaction.bind(database);
     database.transaction = (...args) => {
       const transaction = transact(...args);
@@ -41,9 +50,16 @@
     const history = database.transaction("status-update-events").objectStore("status-update-events");
     return ["cycleKey", "changedAt"].every(key => history.indexNames.contains(key));
   }
-  function open() {
-    if (opening) return opening;
-    opening = new Promise((resolve, reject) => {
+  function open(platform = "ac") {
+    const name = databaseNames.get(platform);
+    if (!name) return Promise.reject(new RangeError("Unknown storage platform: " + platform));
+    if (openings.has(platform)) return openings.get(platform);
+    const suffix = platform === "ac" ? "" : "-inf";
+    const channel = getChannel(suffix);
+    function release() {
+      if (openings.get(platform) === opening) openings.delete(platform);
+    }
+    const opening = new Promise((resolve, reject) => {
       if (!window.indexedDB) {
         reject(new Error("このブラウザではローカル保存を利用できません。"));
         return;
@@ -66,23 +82,24 @@
           if (settled) { database.close(); return; }
           database.onversionchange = () => {
             database.close();
-            opening = null;
-            window.dispatchEvent(new Event("cpi:storage-versionchange"));
+            release();
+            window.dispatchEvent(new Event("cpi:storage-versionchange" + suffix));
           };
-          database.onclose = () => { opening = null; };
+          database.onclose = release;
           if (!complete(database)) {
             const next = Math.max(5, database.version + 1);
             database.close();
             attempt(next);
             return;
           }
-          watch(database);
+          watch(database, channel);
           settled = true;
           resolve(database);
         };
       }
       attempt();
-    }).catch(error => { opening = null; throw error; });
+    }).catch(error => { release(); throw error; });
+    openings.set(platform, opening);
     return opening;
   }
   window.cpiStorage = Object.freeze({ open });

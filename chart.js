@@ -5,14 +5,15 @@ const chartManualMemoStoreName = "manual-targets";
 const chartDailyTargetsStoreName = "daily-targets";
 const chartUpdateHistoryStoreName = "status-update-events";
 const chartState = {
-  db: null,
   chartId: "",
   manualMemo: false,
   manualMemoBusy: false,
+  manualMemoLoadVersion: 0,
   optionMemos: new Set(),
   optionMemoReady: false,
   optionMemoBusy: false,
   currentStatus: "unregistered",
+  statusPlatform: "ac",
   statusReady: false,
   statusBusy: false,
   statusLoadVersion: 0,
@@ -29,6 +30,7 @@ const chartDifficultyNames = {
   ANOTHER: "ANOTHER",
   LEGGENDARIA: "LEGGENDARIA",
 };
+const chartDifficultyCycle = ["NORMAL", "HYPER", "ANOTHER", "LEGGENDARIA"];
 
 const chartDifficultyLabels = {
   NORMAL: "N",
@@ -150,6 +152,7 @@ function getChartRows(csvText) {
   return parsed.map((cells) => ({
     chart_id: (cells[headerIndex.get("chart_id")] ?? "").trim(),
     title: normalizeChartTitle((cells[headerIndex.get("title")] ?? "").trim()),
+    officialVersion: (cells[headerIndex.get("official_version")] ?? "").trim(),
     difficulty: (cells[headerIndex.get("difficulty")] ?? "").trim(),
     original_level: (cells[headerIndex.get("original_level")] ?? "").trim(),
     easy_pred_skill: (cells[headerIndex.get("easy_pred_skill")] ?? "").trim(),
@@ -158,6 +161,7 @@ function getChartRows(csvText) {
     bpm_min: (cells[headerIndex.get("bpm_min")] ?? "").trim(),
     bpm_max: (cells[headerIndex.get("bpm_max")] ?? "").trim(),
     features: (cells[headerIndex.get("features")] ?? "").trim(),
+    platforms: (cells[headerIndex.get("platforms")] ?? "").trim().toLowerCase(),
     url: headerIndex.has("url") ? (cells[headerIndex.get("url")] ?? "").trim() : "",
   }));
 }
@@ -522,6 +526,50 @@ function getChartPageHref(chartId) {
     : "chart-pages/" + encodedId + ".html";
 }
 
+function chartGetSongPath(row) {
+  if (!row.url) return "";
+  try {
+    const url = new URL(row.url);
+    return url.hostname === "textage.cc" && url.pathname.startsWith("/score/") ? url.pathname : "";
+  } catch { return ""; }
+}
+
+function chartFindNextDifficulty(row, rows, platform) {
+  const difficulty = row.difficulty.trim().toUpperCase();
+  const start = chartDifficultyCycle.indexOf(difficulty);
+  if (start < 0) return null;
+  const path = chartGetSongPath(row);
+  const siblings = rows.filter(candidate => {
+    if (candidate.chart_id === row.chart_id || candidate.title !== row.title || !chartSupportsPlatform(platform, candidate)) return false;
+    const candidatePath = chartGetSongPath(candidate);
+    return path && candidatePath ? path === candidatePath : row.officialVersion === candidate.officialVersion;
+  });
+  for (let offset = 1; offset < chartDifficultyCycle.length; offset += 1) {
+    const next = chartDifficultyCycle[(start + offset) % chartDifficultyCycle.length];
+    const matches = siblings.filter(candidate => candidate.difficulty.trim().toUpperCase() === next);
+    if (matches.length === 1) return matches[0];
+  }
+  return null;
+}
+
+function chartRenderDifficultyChip() {
+  const chip = document.getElementById("chartDifficulty");
+  const { predRow, predRows, statusPlatform } = chartState;
+  if (!chip || !predRow || !predRows) return;
+  const difficulty = predRow.difficulty.trim().toUpperCase();
+  const next = chartFindNextDifficulty(predRow, predRows, statusPlatform);
+  const replacement = document.createElement(next ? "a" : "span");
+  replacement.id = chip.id;
+  replacement.className = "chart-detail__difficulty " + (chartDifficultyClasses[difficulty] ?? "");
+  replacement.textContent = chartDifficultyNames[difficulty] ?? difficulty;
+  if (next) {
+    replacement.href = getChartPageHref(next.chart_id) + (statusPlatform === "inf" ? "?platform=inf" : "");
+    replacement.title = next.difficulty + "の譜面へ";
+    replacement.setAttribute("aria-label", replacement.textContent + "。次の難易度 " + next.difficulty + " の譜面へ");
+  }
+  chip.replaceWith(replacement);
+}
+
 function getPublicChartUrl(chartId) {
   const encodedId = encodeURIComponent(normalizeChartId(chartId));
   if (/^https?:$/.test(window.location.protocol)) {
@@ -553,18 +601,13 @@ function setTextageLink(element, url) {
   element.tabIndex = -1;
 }
 
-function chartOpenDatabase() {
-  return window.cpiStorage.open();
+function chartOpenDatabase(platform = "ac") {
+  return window.cpiStorage.open(platform);
 }
-window.addEventListener("cpi:storage-versionchange", () => {
-  if (chartState.db) {
-    chartOpenDatabase().then(database => { chartState.db = database; }).catch(error => console.warn(error));
-  }
-});
 
-function chartReadManualMemo(chartId) {
+function chartReadManualMemo(database, chartId) {
   return new Promise((resolve, reject) => {
-    const transaction = chartState.db.transaction(chartManualMemoStoreName, "readonly");
+    const transaction = database.transaction(chartManualMemoStoreName, "readonly");
     const request = transaction.objectStore(chartManualMemoStoreName).get(chartId);
     request.onsuccess = () => resolve(Boolean(request.result));
     request.onerror = () => reject(request.error ?? new Error("手動メモを読み込めませんでした。"));
@@ -590,22 +633,52 @@ function chartNormalizeStatus(value) {
   return Object.hasOwn(window.cpiUpdateHistory?.statusLabels ?? {}, status) ? status : "unregistered";
 }
 
+function chartSupportsPlatform(platform, row = chartState.predRow) {
+  const platforms = row?.platforms;
+  return !platforms || platforms.split("|").includes(platform);
+}
+
+function chartUpdateStatusPlatform() {
+  const isInf = chartState.statusPlatform === "inf";
+  const badge = document.getElementById("chartPlatformBadge");
+  const label = document.getElementById("chartCurrentStatusLabel");
+  document.body.dataset.chartPlatform = chartState.statusPlatform;
+  if (label) label.textContent = isInf ? "現在Status (INF)" : "現在Status (AC)";
+  if (badge) {
+    const otherPlatform = isInf ? "ac" : "inf";
+    const exclusive = chartSupportsPlatform(chartState.statusPlatform) && !chartSupportsPlatform(otherPlatform);
+    badge.textContent = isInf ? "INFINITAS" : "AC";
+    badge.setAttribute("aria-label", exclusive ? badge.textContent + "版専用の譜面"
+      : isInf ? "現在の登録先：INFINITAS。ACに切り替える" : "現在の登録先：AC。INFINITASに切り替える");
+    badge.toggleAttribute("data-exclusive", exclusive);
+    badge.disabled = exclusive || chartState.statusBusy || chartState.manualMemoBusy;
+  }
+}
+
 function chartUpdateStatusSelect() {
   const select = document.getElementById("chartCurrentStatus");
   if (!select) return;
   select.value = chartState.statusReady ? chartState.currentStatus : "";
   select.dataset.status = chartState.statusReady ? chartState.currentStatus : "loading";
   select.disabled = !chartState.statusReady || chartState.statusBusy;
+  chartUpdateStatusPlatform();
 }
 
 async function chartLoadStatusState() {
   if (!chartState.chartId || !document.getElementById("chartCurrentStatus")) return;
   if (chartState.statusBusy) { chartState.statusRefreshPending = true; return; }
   const version = ++chartState.statusLoadVersion;
+  const platform = chartState.statusPlatform;
+  if (!chartSupportsPlatform(platform)) {
+    chartState.statusReady = false;
+    chartSetStatusMessage("この版では対象外の譜面です。");
+    chartUpdateStatusSelect();
+    return;
+  }
   try {
-    chartState.db = await chartOpenDatabase();
+    const database = await chartOpenDatabase(platform);
     const status = await new Promise((resolve, reject) => {
-      const transaction = chartState.db.transaction(chartStatusStoreName, "readonly");
+      const transaction = database.transaction(chartStatusStoreName, "readonly");
       const request = transaction.objectStore(chartStatusStoreName).get(chartState.chartId);
       let value = "unregistered";
       request.onsuccess = () => { value = chartNormalizeStatus(request.result?.status); };
@@ -624,7 +697,7 @@ async function chartLoadStatusState() {
   chartUpdateStatusSelect();
 }
 
-function chartWriteCurrentStatus(database, chartId, status) {
+function chartWriteCurrentStatus(database, chartId, status, platform = "ac") {
   if (!/^\d{1,32}$/.test(chartId) || !Object.hasOwn(window.cpiUpdateHistory?.statusLabels ?? {}, status)) {
     return Promise.reject(new Error("Statusの指定が不正です。"));
   }
@@ -653,21 +726,21 @@ function chartWriteCurrentStatus(database, chartId, status) {
     transaction.oncomplete = () => {
       resolve(result);
       if (result.changed) window.dispatchEvent(new CustomEvent("cpi:status-changed", {
-        detail: { source: "chart", chartId, status },
+        detail: { source: "chart", chartId, status, platform },
       }));
     };
     transaction.onerror = transaction.onabort = () => reject(transaction.error ?? new Error("Statusを保存できませんでした。"));
   });
 }
 
-async function chartSaveCurrentStatus(status) {
-  if (!chartState.statusReady || chartState.statusBusy) return null;
+async function chartSaveCurrentStatus(status, platform = chartState.statusPlatform) {
+  if (!chartState.statusReady || chartState.statusBusy || platform !== chartState.statusPlatform) return null;
   chartState.statusBusy = true;
   chartState.statusLoadVersion += 1;
   chartUpdateStatusSelect();
   try {
-    chartState.db = await chartOpenDatabase();
-    const result = await chartWriteCurrentStatus(chartState.db, chartState.chartId, status);
+    const database = await chartOpenDatabase(platform);
+    const result = await chartWriteCurrentStatus(database, chartState.chartId, status, platform);
     chartState.currentStatus = result.afterStatus;
     chartSetStatusMessage("");
     return result;
@@ -685,12 +758,38 @@ async function chartSaveCurrentStatus(status) {
 }
 
 async function chartHandleStatusChange(event) {
+  const platform = chartState.statusPlatform;
   try {
-    const result = await chartSaveCurrentStatus(event.target.value);
+    const result = await chartSaveCurrentStatus(event.target.value, platform);
     if (result?.changed) window.cpiStatusToast?.show({
-      onUndo: () => chartSaveCurrentStatus(result.beforeStatus),
+      onUndo: () => chartSaveCurrentStatus(result.beforeStatus, platform),
     });
   } catch { /* The inline message explains the failure; the saved value remains selected. */ }
+}
+
+function chartInitializePlatform() {
+  const badge = document.getElementById("chartPlatformBadge");
+  chartState.statusPlatform = new URLSearchParams(window.location.search).get("platform") === "inf" ? "inf" : "ac";
+  if (badge) badge.addEventListener("click", () => {
+    if (chartState.statusBusy || chartState.manualMemoBusy) return;
+    const next = chartState.statusPlatform === "inf" ? "ac" : "inf";
+    if (!chartSupportsPlatform(next)) return;
+    if (!chartSupportsPlatform(chartState.statusPlatform)) {
+      const url = new URL(window.location.href);
+      url.searchParams.set("platform", next);
+      window.location.replace(url.href);
+      return;
+    }
+    window.cpiStatusToast?.hide();
+    chartState.statusPlatform = next;
+    chartState.statusReady = false;
+    chartRenderDifficultyChip();
+    chartSetStatusMessage("");
+    chartUpdateStatusSelect();
+    void chartLoadStatusState();
+    void chartLoadManualMemoState();
+  });
+  chartUpdateStatusPlatform();
 }
 
 function chartInitializeCurrentStatus() {
@@ -721,8 +820,8 @@ function chartUpdateOptionMemoButtons() {
 async function chartLoadOptionMemoState() {
   if (!chartState.chartId || !window.cpiChartOptions || chartState.optionMemoBusy) return;
   try {
-    chartState.db = await chartOpenDatabase();
-    const options = await window.cpiChartOptions.read(chartState.db, chartState.chartId);
+    const database = await chartOpenDatabase("ac");
+    const options = await window.cpiChartOptions.read(database, chartState.chartId);
     if (chartState.optionMemoBusy) return;
     chartState.optionMemos = new Set(options);
     chartState.optionMemoReady = true;
@@ -740,8 +839,8 @@ async function chartHandleOptionMemo(event) {
   chartState.optionMemoBusy = true;
   chartUpdateOptionMemoButtons();
   try {
-    chartState.db = await chartOpenDatabase();
-    const options = await window.cpiChartOptions.toggle(chartState.db, chartState.chartId, button.dataset.chartOption);
+    const database = await chartOpenDatabase("ac");
+    const options = await window.cpiChartOptions.toggle(database, chartState.chartId, button.dataset.chartOption);
     chartState.optionMemos = new Set(options);
     chartSetOptionMemoMessage("");
     window.cpiAnalytics?.track("chart_option_memo_change", {
@@ -774,13 +873,9 @@ function chartInitializeOptionMemos() {
   void chartLoadOptionMemoState();
 }
 
-function chartWriteManualMemo(chartId, registered) {
+function chartWriteManualMemo(database, chartId, registered) {
   return new Promise((resolve, reject) => {
-    if (!chartState.db) {
-      reject(new Error("ローカル保存を開けませんでした。"));
-      return;
-    }
-    const transaction = chartState.db.transaction(chartManualMemoStoreName, "readwrite");
+    const transaction = database.transaction(chartManualMemoStoreName, "readwrite");
     const store = transaction.objectStore(chartManualMemoStoreName);
     if (registered) {
       store.put({ chartId, updatedAt: new Date().toISOString() });
@@ -788,7 +883,7 @@ function chartWriteManualMemo(chartId, registered) {
       store.delete(chartId);
     }
     transaction.oncomplete = resolve;
-    transaction.onerror = () => reject(
+    transaction.onerror = transaction.onabort = () => reject(
       transaction.error ?? new Error("手動メモを保存できませんでした。"),
     );
   });
@@ -804,30 +899,38 @@ function chartUpdateManualMemoButton() {
   button.hidden = false;
 }
 
-async function chartLoadManualMemoState(chartId) {
+async function chartLoadManualMemoState() {
   const button = document.getElementById("chartManualMemoButton");
-  if (!button) {
-    return;
-  }
+  if (!button || !chartState.chartId || chartState.manualMemoBusy) return;
+  const platform = chartState.statusPlatform;
+  const version = ++chartState.manualMemoLoadVersion;
+  button.hidden = true;
+  if (!chartSupportsPlatform(platform)) return;
   try {
-    chartState.db = chartState.db ?? await chartOpenDatabase();
-    chartState.manualMemo = await chartReadManualMemo(chartId);
+    const database = await chartOpenDatabase(platform);
+    const registered = await chartReadManualMemo(database, chartState.chartId);
+    if (version !== chartState.manualMemoLoadVersion) return;
+    chartState.manualMemo = registered;
     chartUpdateManualMemoButton();
   } catch (error) {
-    button.hidden = true;
+    if (version === chartState.manualMemoLoadVersion) button.hidden = true;
   }
 }
 
 async function chartHandleManualMemo() {
   const button = document.getElementById("chartManualMemoButton");
-  if (!button || chartState.manualMemoBusy || !chartState.db || !chartState.chartId) {
+  if (!button || button.hidden || chartState.manualMemoBusy || !chartState.chartId) {
     return;
   }
   chartState.manualMemoBusy = true;
+  chartState.manualMemoLoadVersion += 1;
+  chartUpdateStatusPlatform();
   button.disabled = true;
+  const platform = chartState.statusPlatform;
   const nextValue = !chartState.manualMemo;
   try {
-    await chartWriteManualMemo(chartState.chartId, nextValue);
+    const database = await chartOpenDatabase(platform);
+    await chartWriteManualMemo(database, chartState.chartId, nextValue);
     chartState.manualMemo = nextValue;
     chartUpdateManualMemoButton();
     window.cpiAnalytics?.track(nextValue ? "manual_memo_add" : "manual_memo_remove", {
@@ -838,6 +941,7 @@ async function chartHandleManualMemo() {
   } finally {
     chartState.manualMemoBusy = false;
     button.disabled = false;
+    chartUpdateStatusPlatform();
   }
 }
 
@@ -846,7 +950,7 @@ function getSimilarChartRows(targetRow, rowsById) {
   const similarIds = similarMap[normalizeChartId(targetRow.chart_id)] ?? [];
   return similarIds
     .map((chartId) => rowsById.get(normalizeChartId(chartId)))
-    .filter(Boolean)
+    .filter(row => row && chartSupportsPlatform(chartState.statusPlatform, row))
     .slice(0, 10);
 }
 
@@ -918,6 +1022,15 @@ function renderChart() {
       return;
     }
 
+    chartState.predRow = row;
+    chartInitializePlatform();
+    if (!chartSupportsPlatform(chartState.statusPlatform)) {
+      showChartError(chartState.statusPlatform === "inf"
+        ? "この譜面はAC版専用です。INFINITAS版では表示できません。"
+        : "この譜面はINFINITAS版専用です。AC版では表示できません。");
+      return;
+    }
+
     const chartDetailElement = document.getElementById("chartDetail");
     if (chartDetailElement) {
       chartDetailElement.hidden = false;
@@ -932,9 +1045,6 @@ function renderChart() {
     }
     const titleElement = document.getElementById("chartTitle");
     titleElement.textContent = row.title;
-    const difficultyElement = document.getElementById("chartDifficulty");
-    difficultyElement.className = "chart-detail__difficulty " + (chartDifficultyClasses[difficulty] ?? "");
-    difficultyElement.textContent = chartDifficultyNames[difficulty] ?? difficulty;
 
     const numericScale = getChartNumericScale(rows);
     const chartLevelElement = document.getElementById("chartLevel");
@@ -947,7 +1057,7 @@ function renderChart() {
 
     const numericScales = Object.fromEntries(Object.keys(chartPredModes).map((mode) => [mode, getChartNumericScale(rows, mode)]));
     chartState.predRows = rows;
-    chartState.predRow = row;
+    chartRenderDifficultyChip();
     chartState.predNumericScales = numericScales;
     const predPositions = renderChartPredHistogramsForCurrentWidth();
 
@@ -990,7 +1100,7 @@ function renderChart() {
       shareButton.hidden = false;
     }
     document.getElementById("chartDetail").hidden = false;
-    void chartLoadManualMemoState(chartId);
+    void chartLoadManualMemoState();
     renderSimilarChartRows(row, rowsById);
     document.querySelectorAll("[data-similar-pred-mode]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -1020,16 +1130,31 @@ function renderChart() {
 
 window.addEventListener("resize", scheduleChartPredHistogramResize, { passive: true });
 window.addEventListener("cpi:storage-changed", chartLoadOptionMemoState);
-window.addEventListener("cpi:storage-changed", chartLoadStatusState);
-window.addEventListener("cpi:status-changed", chartLoadStatusState);
+for (const platform of ["ac", "inf"]) {
+  const suffix = platform === "inf" ? "-inf" : "";
+  for (const event of ["cpi:storage-changed", "cpi:storage-versionchange"]) {
+    window.addEventListener(event + suffix, () => {
+      if (chartState.statusPlatform === platform) {
+        void chartLoadStatusState();
+        void chartLoadManualMemoState();
+      }
+    });
+  }
+}
+window.addEventListener("cpi:status-changed", event => {
+  if ((event.detail?.platform ?? "ac") === chartState.statusPlatform) void chartLoadStatusState();
+});
 window.addEventListener("pageshow", chartLoadOptionMemoState);
 window.addEventListener("pageshow", chartLoadStatusState);
+window.addEventListener("pageshow", chartLoadManualMemoState);
 window.addEventListener("focus", chartLoadOptionMemoState);
 window.addEventListener("focus", chartLoadStatusState);
+window.addEventListener("focus", chartLoadManualMemoState);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     void chartLoadOptionMemoState();
     void chartLoadStatusState();
+    void chartLoadManualMemoState();
   }
 });
 document.addEventListener("DOMContentLoaded", renderChart);

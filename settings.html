@@ -28,15 +28,18 @@
   <!-- Google Analytics -->
   <script defer src="analytics.js?v=20261013-1"></script>
   <link rel="stylesheet" href="styles.css?v=20260916-2">
-  <link rel="stylesheet" href="settings.css?v=20260908-3">
+  <link rel="stylesheet" href="record.css?v=20261121-5">
+  <link rel="stylesheet" href="settings.css?v=20261121-1">
+  <link rel="stylesheet" href="personal-platform.css?v=20261121-4">
   <link rel="stylesheet" href="menu.css?v=20260904-2">
   <script defer src="menu.js?v=20260925-1"></script>
   <script defer src="status-toast.js?v=20260908-1"></script>
-  <script defer src="storage.js?v=20261016-1"></script>
+  <script defer src="storage.js?v=20261121-1"></script>
   <script defer src="update-history.js?v=20261002-1"></script>
   <script defer src="chart-options.js?v=20261016-1"></script>
-  <script defer src="backup-data.js?v=20261016-1"></script>
-  <script defer src="settings.js?v=20261016-1"></script>
+  <script defer src="backup-data.js?v=20261121-2"></script>
+  <script defer src="settings.js?v=20261121-2"></script>
+  <script defer src="platform-migration.js?v=20261121-1"></script>
 </head>
 <body data-page="settings">
   <main class="app">
@@ -62,31 +65,34 @@
             <button type="button" class="menu-item" data-page="settings" data-href="settings.html">設定</button>
           </div>
         </div>
-        <h1>設定</h1>
+        <h1>設定 <button id="settingsPlatformBadge" class="personal-platform-badge" type="button" disabled>AC</button></h1>
       </div>
     </header>
-    <div class="site-release-notice" role="status">新作対応を順次実施中です</div>
 
     <section class="view view--settings" aria-live="polite">
       <div class="panel settings-panel">
         <div class="settings-heading">
           <h2>登録クリアランプ管理</h2>
-          <p id="settingsRecordCount" class="settings-record-count" aria-live="polite">保存: 確認中...</p>
         </div>
+        <fieldset id="settingsPlatformPicker" class="record-platform settings-platform" data-platform="ac" aria-describedby="settingsPlatformHint">
+          <legend>管理対象の版</legend>
+          <div class="record-platform__choices">
+            <label><input type="radio" name="settingsPlatform" value="ac" checked disabled><span>AC</span></label>
+            <label><input type="radio" name="settingsPlatform" value="inf" disabled><span>INFINITAS</span></label>
+          </div>
+          <p id="settingsPlatformHint">選択中の版のデータを管理します。</p>
+        </fieldset>
+        <p id="settingsRecordCount" class="settings-record-count" aria-live="polite">保存: 確認中...</p>
 
         <div class="settings-actions">
-          <button id="settingsExportButton" class="settings-button settings-button--primary" type="button">データをエクスポート</button>
-          <button id="settingsImportButton" class="settings-button" type="button">データをインポート</button>
-          <button id="settingsResetButton" class="settings-button settings-button--danger" type="button">クリアランプ記録をリセット</button>
+          <button id="settingsExportButton" class="settings-button settings-button--primary" type="button" disabled>データをエクスポート</button>
+          <button id="settingsImportButton" class="settings-button" type="button" disabled>データをインポート</button>
+          <button id="settingsResetButton" class="settings-button settings-button--danger" type="button" disabled>クリアランプ記録をリセット</button>
         </div>
         <input id="settingsImportInput" type="file" accept="application/json,.json" hidden>
         <p id="settingsMessage" class="settings-message" role="status" aria-live="polite"></p>
 
-        <section class="settings-recommendation settings-recommendation--moved" aria-labelledby="settingsRecommendationTitle">
-          <h3 id="settingsRecommendationTitle">自動リコメンド・ターゲット設定</h3>
-          <p>自動リコメンドとターゲットの設定は、マイターゲットの自動リコメンドタブにある歯車から変更できます。</p>
-          <p><a class="settings-moved-link" href="target.html">マイターゲットで設定を開く</a></p>
-        </section>
+        <p class="settings-note">AC／INFINITAS共通のオプションメモは、どちらの版のバックアップにも含まれます。</p>
 
       </div>
     </section>

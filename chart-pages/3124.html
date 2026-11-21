@@ -28,18 +28,20 @@
   <meta name="twitter:description" content="☆11 PENDUAL TALISMAN [A]。イージーPred 10.56 / ノマゲPred 10.96 / ハードPred 11.51 / BPM 150~160 / Feature 同時押し">
   <!-- Google Analytics -->
   <script defer src="../analytics.js?v=20261013-1"></script>
-  <link rel="stylesheet" href="../styles.css?v=20261106-6">
+  <link rel="stylesheet" href="../styles.css?v=20261121-2">
+  <link rel="stylesheet" href="../personal-platform.css?v=20261121-4">
   <link rel="stylesheet" href="../menu.css?v=20260904-2">
   <script defer src="../menu.js?v=20260925-1"></script>
-  <script defer src="../data.js?v=20261114-1"></script>
+  <script defer src="../data.js?v=20261121-1"></script>
 
   <script defer src="../chart-similar-data.js?v=20261013-2"></script>
-  <script defer src="../storage.js?v=20261016-1"></script>
-  <script defer src="../chart-options.js?v=20261106-1"></script>
+  <script defer src="../storage.js?v=20261121-1"></script>
+  <script defer src="../chart-options.js?v=20261121-1"></script>
   <script defer src="../status-toast.js?v=20260908-1"></script>
   <script defer src="../update-history.js?v=20261002-1"></script>
   <script defer src="../share-text.js?v=20261018-1"></script>
-  <script defer src="../chart.js?v=20261106-1"></script>
+  <script defer src="../chart.js?v=20261121-3"></script>
+  <script defer src="../platform-migration.js?v=20261121-1"></script>
 </head>
 <body data-page="chart" data-static-chart-page="true" data-chart-id="3124">
   <main class="app">
@@ -64,10 +66,9 @@
             <button type="button" class="menu-item" data-page="diagnosis" data-href="../diagnosis.html">適正診断</button>
           </div>
         </div>
-        <h1>譜面詳細</h1>
+        <h1>譜面詳細 <button id="chartPlatformBadge" class="chart-platform-badge" type="button" aria-label="現在の登録先：AC。INFINITASに切り替える" disabled>AC</button></h1>
       </div>
     </header>
-    <div class="site-release-notice" role="status">新作対応を順次実施中です</div>
 
     <section class="view">
       <div class="panel chart-detail-panel">
@@ -116,7 +117,7 @@
             <div class="chart-detail__status-options-group">
               <div class="chart-detail__line chart-detail__status-line">
                 <div class="chart-detail__metric chart-detail__metric--status">
-                  <label for="chartCurrentStatus" class="chart-detail__label">現在Status</label>
+                  <label id="chartCurrentStatusLabel" for="chartCurrentStatus" class="chart-detail__label">現在Status (AC)</label>
                   <select id="chartCurrentStatus" class="chart-current-status" data-status="loading" disabled>
                     <option value="">読み込み中…</option>
                   </select>

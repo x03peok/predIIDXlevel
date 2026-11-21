@@ -2,11 +2,12 @@
 
 (() => {
   const key = "cpi-next-auto-recommendation-selection-v1";
+  const keyFor = platform => platform === "inf" ? key + "-inf" : key;
   window.cpiRecommendationCache = Object.freeze({
     key,
-    read(settings) {
+    read(settings, platform = "ac") {
       try {
-        const raw = window.localStorage.getItem(key);
+        const raw = window.localStorage.getItem(keyFor(platform));
         if (!raw || raw.length > 10000) return null;
         const cache = JSON.parse(raw);
         if (cache.version !== 1 || cache.settings !== JSON.stringify(settings)
@@ -23,15 +24,15 @@
         return cache;
       } catch { return null; }
     },
-    write(settings, items, candidateCount) {
+    write(settings, items, candidateCount, platform = "ac") {
       try {
-        window.localStorage.setItem(key, JSON.stringify({
+        window.localStorage.setItem(keyFor(platform), JSON.stringify({
           version: 1, settings: JSON.stringify(settings), items, candidateCount,
         }));
       } catch { /* The current page still retains its selection when storage is unavailable. */ }
     },
-    invalidate() {
-      try { window.localStorage.removeItem(key); } catch { /* Storage may be unavailable. */ }
+    invalidate(platform = "ac") {
+      try { window.localStorage.removeItem(keyFor(platform)); } catch { /* Storage may be unavailable. */ }
     },
   });
 })();

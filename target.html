@@ -22,21 +22,23 @@
   <link rel="stylesheet" href="target.css?v=20261116-4">
   <link rel="stylesheet" href="daily-target.css?v=20261116-5">
   <link rel="stylesheet" href="page-loading.css?v=20261018-1">
+  <link rel="stylesheet" href="personal-platform.css?v=20261121-4">
   <script defer src="page-loading.js?v=20261018-1"></script>
   <script src="menu.js?v=20260925-1" defer></script>
-  <script src="data.js?v=20261114-1" defer></script>
-  <script src="feature-data.js?v=20261114-1" defer></script>
+  <script src="data.js?v=20261121-1" defer></script>
+  <script src="feature-data.js?v=20261121-1" defer></script>
   <script src="share-payload.js?v=20261013-1" defer></script>
   <script src="status-toast.js?v=20260908-1" defer></script>
-  <script defer src="storage.js?v=20261002-1"></script>
-  <script defer src="chart-options.js?v=20261106-1"></script>
+  <script defer src="storage.js?v=20261121-1"></script>
+  <script defer src="personal-platform.js?v=20261121-3"></script>
+  <script defer src="chart-options.js?v=20261121-1"></script>
   <script src="update-history.js?v=20261002-1" defer></script>
   <script src="target-analysis.js?v=20261027-1" defer></script>
-  <script defer src="recommendation-cache.js?v=20261018-1"></script>
-  <script src="target.js?v=20261116-3" defer></script>
-  <script src="target-tabs.js?v=20260922-4" defer></script>
+  <script defer src="recommendation-cache.js?v=20261121-1"></script>
+  <script src="target.js?v=20261121-5" defer></script>
+  <script src="target-tabs.js?v=20261121-1" defer></script>
   <script defer src="share-text.js?v=20261018-1"></script>
-  <script src="daily-target.js?v=20261116-5" defer></script>
+  <script src="daily-target.js?v=20261121-2" defer></script>
   <link rel="icon" type="image/jpeg" href="site-icon.jpg">
   <link rel="apple-touch-icon" href="site-icon.jpg">
   <meta property="og:image" content="https://cpi-next.com/site-icon.jpg?v=20260904-2">
@@ -47,6 +49,7 @@
   <meta property="og:image:alt" content="CPI:Next">
   <meta name="twitter:image" content="https://cpi-next.com/site-icon.jpg?v=20260904-2">
   <meta name="twitter:image:alt" content="CPI:Next">
+  <script defer src="platform-migration.js?v=20261121-1"></script>
 </head>
 <body data-page="target">
   <main class="app">
@@ -71,10 +74,9 @@
             <button type="button" class="menu-item" data-page="diagnosis" data-href="diagnosis.html">適正診断</button>
           </div>
         </div>
-        <h1>マイターゲット</h1>
+        <h1>マイターゲット <button id="personalPlatformBadge" class="personal-platform-badge" type="button" disabled>AC</button></h1>
       </div>
     </header>
-    <div class="site-release-notice" role="status">新作対応を順次実施中です</div>
 
     <div id="pageLoading" class="panel page-loading" role="status" aria-live="polite">
       <span class="page-loading__spinner" aria-hidden="true"></span>
@@ -84,9 +86,6 @@
     <noscript><p>このページを利用するにはJavaScriptを有効にしてください。</p></noscript>
     <section id="personalPageContent" class="view view--main personal-page-content" aria-live="polite" aria-busy="true" hidden inert>
       <div class="panel target-panel">
-        <p id="targetInsufficientMessage" class="target-insufficient-message">
-          <span id="targetInsufficientMessageText"></span> <a href="record.html">クリアランプ登録</a>
-        </p>
         <div id="targetContent" hidden>
           <div class="target-highlights">
           <section id="targetDailyPanel" class="target-highlight-section target-mode-panel" hidden>
@@ -258,7 +257,12 @@
         </section>
       </div>
 
-          </section>                        <section id="targetAutoPanel" class="target-highlight-section">
+          </section>
+            <section id="targetAutoPanel" class="target-highlight-section">
+              <p id="targetInsufficientMessage" class="target-insufficient-message" hidden>
+                <span id="targetInsufficientMessageText"></span> <a href="record.html" data-personal-platform-link>クリアランプ登録</a>
+              </p>
+              <div id="targetAutoRecommendations" hidden>
               <div id="targetAutoSettingsOverlay" class="target-auto-settings-overlay" hidden>
                 <section id="targetAutoSettingsPanel" class="target-auto-settings-panel" role="dialog" aria-modal="true" aria-labelledby="targetAutoSettingsTitle">
                   <div class="target-auto-settings-heading">
@@ -325,7 +329,9 @@
                 </div>
               </div>
               <div id="targetAutoCards" class="target-recommendation-cards" aria-live="polite"></div>
-            </section><section id="targetManualPanel" class="target-highlight-section">
+              </div>
+            </section>
+            <section id="targetManualPanel" class="target-highlight-section">
               <p id="targetManualRowCount" class="row-count" aria-live="polite"></p>
               <p id="targetManualEmpty" class="target-manual-empty">譜面詳細ページで「手動メモに登録」を押した譜面を表示します。譜面表のチェックボックスからも直接登録できます。</p>
               <div id="targetManualTableShell" class="table-shell" hidden>

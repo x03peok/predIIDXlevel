@@ -1,3 +1,128 @@
+body[data-page="record"][data-platform="inf"] {
+  --bg-start: #ecfaf2;
+  --bg-end: #d7eee2;
+  --accent: #087051;
+  --record-tint: 167, 236, 204;
+  --record-accent-rgb: 8, 112, 81;
+  --record-accent-deep: #06523d;
+  accent-color: var(--accent);
+  background:
+    radial-gradient(1000px 620px at 10% -12%, rgba(20, 145, 97, 0.25), transparent 62%),
+    radial-gradient(780px 560px at 100% 0%, rgba(13, 148, 136, 0.17), transparent 60%),
+    linear-gradient(180deg, var(--bg-start), var(--bg-end));
+}
+
+body[data-page="record"][data-platform="inf"] :is(.record-search input, .record-filter-details > summary, .record-import-text textarea):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.record-platform-badge {
+  display: inline-block;
+  cursor: pointer;
+  font-family: inherit;
+  margin-inline-start: 0.35rem;
+  padding: 0.28rem 0.55rem;
+  border: 1px solid rgba(var(--record-accent-rgb, 37, 99, 235), 0.26);
+  border-radius: 999px;
+  background: rgba(var(--record-tint, 219, 234, 254), 0.72);
+  color: var(--record-accent-deep, #1e40af);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.record-platform-badge:not(:disabled):hover {
+  border-color: currentColor;
+}
+
+.record-platform-badge:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.record-platform-badge:disabled {
+  cursor: wait;
+}
+
+.record-platform {
+  --record-platform-color: #1e40af;
+  --record-platform-bg: #eff6ff;
+  --record-platform-line: #93b8f3;
+  min-inline-size: 0;
+  margin: 0 0 16px;
+  padding: 10px 12px 12px;
+  border: 2px solid var(--record-platform-line);
+  border-radius: 12px;
+  background: var(--record-platform-bg);
+  color: var(--record-platform-color);
+}
+
+.record-platform[data-platform="inf"] {
+  --record-platform-color: #065f46;
+  --record-platform-bg: #ecfdf5;
+  --record-platform-line: #6abf9f;
+}
+
+.record-platform legend {
+  padding: 0 6px;
+  font-weight: 800;
+}
+
+.record-platform__choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 24rem;
+  gap: 6px;
+}
+
+.record-platform__choices label {
+  position: relative;
+}
+
+.record-platform__choices input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.record-platform__choices span {
+  display: grid;
+  min-height: 44px;
+  place-items: center;
+  border: 1px solid var(--record-platform-line);
+  border-radius: 8px;
+  background: #fff;
+  font-weight: 800;
+}
+
+.record-platform__choices input:checked + span {
+  background: var(--record-platform-color);
+  border-color: var(--record-platform-color);
+  color: #fff;
+}
+
+.record-platform__choices input:focus-visible + span {
+  outline: 2px solid var(--record-platform-color);
+  outline-offset: 2px;
+}
+
+.record-platform__choices input:disabled {
+  cursor: wait;
+}
+
+.record-platform p {
+  margin: 8px 0 0;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
 .record-mode-switch {
   display: flex;
   flex-wrap: wrap;
@@ -26,13 +151,13 @@
 
 .record-mode-switch__button:hover,
 .record-mode-switch__button:focus-visible {
-  background: rgba(219, 234, 254, 0.42);
+  background: rgba(var(--record-tint, 219, 234, 254), 0.42);
   color: var(--accent);
 }
 
 .record-mode-switch__button.is-active {
   border-bottom-color: var(--accent);
-  background: rgba(219, 234, 254, 0.26);
+  background: rgba(var(--record-tint, 219, 234, 254), 0.26);
   color: var(--accent);
 }
 
@@ -59,6 +184,12 @@
 .record-import-description {
   padding-left: 1.2rem;
 }
+
+body:not([data-platform="inf"]) .record-csv-download--inf,
+body[data-platform="inf"] .record-csv-download--ac {
+  display: none;
+}
+
 .record-import-description li + li {
   margin-top: 4px;
 }
@@ -121,9 +252,9 @@
   font-weight: 700;
 }
 .record-import-privacy {
-  border: 1px solid rgba(37, 99, 235, 0.22);
-  background: rgba(219, 234, 254, 0.42);
-  color: #1e40af;
+  border: 1px solid rgba(var(--record-accent-rgb, 37, 99, 235), 0.22);
+  background: rgba(var(--record-tint, 219, 234, 254), 0.42);
+  color: var(--record-accent-deep, #1e40af);
 }
 .record-import-links {
   display: grid;
@@ -206,8 +337,8 @@
 }
 
 .record-filter-details[open] > summary {
-  border-color: rgba(37, 99, 235, 0.7);
-  background: rgba(219, 234, 254, 0.55);
+  border-color: rgba(var(--record-accent-rgb, 37, 99, 235), 0.7);
+  background: rgba(var(--record-tint, 219, 234, 254), 0.55);
 }
 .record-button {
   display: inline-flex;
@@ -229,7 +360,7 @@
 
 .record-button:hover,
 .record-button:focus-visible {
-  background: #1d4ed8;
+  background: var(--record-accent-deep, #1d4ed8);
 }
 
 .record-button--secondary {
@@ -240,7 +371,7 @@
 
 .record-button--secondary:hover,
 .record-button--secondary:focus-visible {
-  background: rgba(219, 234, 254, 0.55);
+  background: rgba(var(--record-tint, 219, 234, 254), 0.55);
 }
 .record-button:disabled,
 .record-button:disabled:hover,

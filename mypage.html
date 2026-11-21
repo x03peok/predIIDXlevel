@@ -31,18 +31,21 @@
   <link rel="stylesheet" href="mypage.css?v=20261116-1">
   <link rel="stylesheet" href="menu.css?v=20260904-2">
   <link rel="stylesheet" href="page-loading.css?v=20261018-1">
+  <link rel="stylesheet" href="personal-platform.css?v=20261121-4">
   <script defer src="page-loading.js?v=20261018-1"></script>
   <script defer src="menu.js?v=20260925-1"></script>
-  <script defer src="data.js?v=20261114-1"></script>
-  <script defer src="feature-data.js?v=20261114-1"></script>
+  <script defer src="data.js?v=20261121-1"></script>
+  <script defer src="feature-data.js?v=20261121-1"></script>
   <script defer src="share-payload.js?v=20261013-1"></script>
-  <script defer src="app.js?v=20261025-1"></script>
+  <script defer src="app.js?v=20261121-1"></script>
   <script defer src="status-toast.js?v=20260908-1"></script>
-  <script defer src="storage.js?v=20261002-1"></script>
+  <script defer src="storage.js?v=20261121-1"></script>
+  <script defer src="personal-platform.js?v=20261121-3"></script>
   <script defer src="update-history.js?v=20261002-1"></script>
   <script defer src="target-analysis.js?v=20261027-1"></script>
   <script defer src="share-text.js?v=20261018-1"></script>
-  <script defer src="mypage.js?v=20261116-3"></script>
+  <script defer src="mypage.js?v=20261121-2"></script>
+  <script defer src="platform-migration.js?v=20261121-1"></script>
 </head>
 <body data-page="mypage">
   <main class="app">
@@ -67,10 +70,9 @@
             <button type="button" class="menu-item" data-page="diagnosis" data-href="diagnosis.html">適正診断</button>
           </div>
         </div>
-        <h1>マイページ</h1>
+        <h1>マイページ <button id="personalPlatformBadge" class="personal-platform-badge" type="button" disabled>AC</button></h1>
       </div>
     </header>
-    <div class="site-release-notice" role="status">新作対応を順次実施中です</div>
 
     <div id="pageLoading" class="panel page-loading" role="status" aria-live="polite">
       <span class="page-loading__spinner" aria-hidden="true"></span>
@@ -135,7 +137,7 @@
           <p class="mypage-recommendation-block__note">登録データから推定された、次のランプ更新を狙いやすい譜面です。</p>
           <div id="mypageUpdateTargetMessage" class="mypage-recommendation-block__message" role="status" hidden></div>
           <div id="mypageUpdateTargetCards" class="mypage-recommendation-cards"></div>
-          <a class="mypage-recommendation-more mypage-update-target-link" href="target.html">マイターゲットを見る</a>
+          <a class="mypage-recommendation-more mypage-update-target-link" href="target.html" data-personal-platform-link>マイターゲットを見る</a>
         </section>
           <section id="mypageFeatureResult" class="mypage-status-distribution mypage-feature-result" aria-labelledby="mypageFeatureResultTitle" hidden>
             <h3 id="mypageFeatureResultTitle" class="mypage-status-distribution__title mypage-feature-result__title">譜面傾向</h3>

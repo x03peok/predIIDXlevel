@@ -43,14 +43,14 @@ function targetSetupRecommendationTabs() {
     manualPanel.hidden = !isManual;
     dailyPanel.hidden = !isDaily;
     if (updateHash) {
-      const nextHash = isDaily ? "#daily" : "";
+      const nextHash = isDaily ? "#daily" : isManual ? "#manual" : "";
       window.history.replaceState(null, "", window.location.pathname + window.location.search + nextHash);
       window.dispatchEvent(new Event("cpi:target-mode-changed"));
     }
     if (isDaily) window.dispatchEvent(new Event("cpi:daily-target-visible"));
   };
 
-  const setActiveFromHash = () => setActiveTab(window.location.hash === "#daily" ? "daily" : "auto");
+  const setActiveFromHash = () => setActiveTab(window.location.hash.slice(1));
   autoTab.addEventListener("click", () => setActiveTab("auto", true));
   manualTab.addEventListener("click", () => setActiveTab("manual", true));
   dailyTab.addEventListener("click", () => setActiveTab("daily", true));

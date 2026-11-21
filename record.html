@@ -28,16 +28,17 @@
   <!-- Google Analytics -->
   <script defer src="analytics.js?v=20261013-1"></script>
   <link rel="stylesheet" href="styles.css?v=20260916-2">
-  <link rel="stylesheet" href="record.css?v=20260906-2">
+  <link rel="stylesheet" href="record.css?v=20261121-5">
   <link rel="stylesheet" href="menu.css?v=20260904-2">
   <script defer src="menu.js?v=20260925-1"></script>
-  <script defer src="data.js?v=20261114-1"></script>
+  <script defer src="data.js?v=20261121-1"></script>
   <script defer src="record-import-index.js?v=20261013-2"></script>
   <script defer src="status-toast.js?v=20260908-1"></script>
-  <script defer src="storage.js?v=20261002-1"></script>
+  <script defer src="storage.js?v=20261121-1"></script>
   <script defer src="update-history.js?v=20261002-1"></script>
-  <script defer src="recommendation-cache.js?v=20261018-1"></script>
-  <script defer src="record.js?v=20261112-1"></script>
+  <script defer src="recommendation-cache.js?v=20261121-1"></script>
+  <script defer src="record.js?v=20261121-8"></script>
+  <script defer src="platform-migration.js?v=20261121-1"></script>
 </head>
 <body data-page="record">
   <main class="app">
@@ -62,13 +63,20 @@
             <button type="button" class="menu-item" data-page="diagnosis" data-href="diagnosis.html">適正診断</button>
           </div>
         </div>
-        <h1>クリアランプ登録</h1>
+        <h1>クリアランプ登録 <button id="recordPlatformBadge" class="record-platform-badge" type="button" aria-label="現在の登録先：AC。INFINITASに切り替える" disabled>AC</button></h1>
       </div>
     </header>
-    <div class="site-release-notice" role="status">新作対応を順次実施中です</div>
 
     <section class="view view--record" aria-live="polite">
       <div class="panel record-panel">
+        <fieldset id="recordPlatformPicker" class="record-platform" data-platform="ac" aria-describedby="recordPlatformHint">
+          <legend>クリアランプの登録先</legend>
+          <div class="record-platform__choices">
+            <label><input type="radio" name="recordPlatform" value="ac" checked disabled><span>AC</span></label>
+            <label><input type="radio" name="recordPlatform" value="inf" disabled><span>INFINITAS</span></label>
+          </div>
+          <p id="recordPlatformHint">登録したランプは、選択中の版に保存されます。</p>
+        </fieldset>
         <div class="record-mode-switch" role="tablist" aria-label="クリアランプ登録方法">
           <button
             id="recordManualTab"
@@ -147,7 +155,8 @@
         <section id="recordCsvPanel" class="record-mode-panel" role="tabpanel" aria-labelledby="recordCsvTab" hidden>
           <div class="record-import-card">
             <ul class="record-import-description">
-              <li><a href="https://p.eagate.573.jp/game/2dx/34/djdata/score_download.html?style=SP" target="_blank" rel="noopener noreferrer">公式CSV</a>を読み込み、対応譜面のランプを上書き登録します。</li>
+              <li class="record-csv-download--ac"><a href="https://p.eagate.573.jp/game/2dx/34/djdata/score_download.html?style=SP" target="_blank" rel="noopener noreferrer">AC版の公式CSVダウンロード</a></li>
+              <li class="record-csv-download--inf"><a href="https://p.eagate.573.jp/game/infinitas/2/djdata/score_download.html&amp;play_style=0" target="_blank" rel="noopener noreferrer">INFINITAS版の公式CSVダウンロード</a></li>
               <li>CSVの内容はこのブラウザ内で処理され、サーバーには送信されません。</li>
               <li>SPのプレーデータのみ対応しています。</li>
               <li>未対応譜面のクリアランプは変更しません。</li>
@@ -162,20 +171,20 @@
               <textarea id="recordCsvText" rows="8" spellcheck="false" placeholder="CSVテキストをここに貼り付け"></textarea>
             </label>
             <div class="record-import-actions">
-              <button id="recordCsvImportButton" class="record-button" type="button" disabled>CSVをインポート</button>
+              <button id="recordCsvImportButton" class="record-button" type="button" disabled>AC版にインポート</button>
             </div>
             <p id="recordCsvImportMessage" class="record-import-message" role="status" aria-live="polite"></p>
             <div id="recordCsvImportLinks" class="record-import-links" hidden>
               <div class="record-import-links__item">
                 <p class="record-import-links__message">あなたの推定クリア力や、得意な譜面傾向を確認できます。</p>
                 <div class="record-import-links__actions">
-                  <a class="record-button" href="mypage.html">マイページを見る</a>
+                  <a class="record-button" href="mypage.html" data-platform-href="mypage.html">マイページを見る</a>
                 </div>
               </div>
               <div class="record-import-links__item">
                 <p class="record-import-links__message">クリア力や得意傾向に基づく、専用のリコメンドを確認できます。</p>
                 <div class="record-import-links__actions">
-                  <a class="record-button" href="target.html">マイターゲットを見る</a>
+                  <a class="record-button" href="target.html" data-platform-href="target.html">マイターゲットを見る</a>
                 </div>
               </div>
             </div>
