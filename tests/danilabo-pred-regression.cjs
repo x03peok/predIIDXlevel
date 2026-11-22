@@ -17,7 +17,7 @@ function render(rows, version = "ZINRAI") {
   vm.runInNewContext(source, {
     window: {
       __DANILABO_ROWS__: rows,
-      __CSV_BUNDLE__: "chart_id,calibrated_pred_skill\n" + rows.map(row => row.chart_id + "," + (row.pred ?? "")).join("\n"),
+      __CSV_BUNDLE__: "chart_id,calibrated_pred_skill\n" + rows.map(row => row.chart_id + ",8.00").join("\n"),
     },
     document: { querySelectorAll: () => [tab], getElementById: () => tables },
   });
@@ -39,16 +39,18 @@ test("passing and FINAL Stage estimates use the same rounding at decimal boundar
   }
 });
 
-test("all current ZINRAI passing estimates match their FINAL Stage label", () => {
+test("all current passing estimates match their FINAL Stage label in both versions", () => {
   const context = { window: {} };
   vm.runInNewContext(fs.readFileSync(path.join(root, "danilabo-data.js"), "utf8"), context);
-  const html = render(context.window.__DANILABO_ROWS__);
-  const sections = html.match(/<section class="danilabo-rank"[\s\S]*?<\/section>/g);
-  assert.equal(sections.length, 9);
-  for (const section of sections) {
-    const labels = predLabels(section);
-    assert.equal(labels.length, 5);
-    assert.equal(labels[0], labels[4]);
+  for (const version of ["ZINRAI", "INFINITAS"]) {
+    const html = render(context.window.__DANILABO_ROWS__, version);
+    const sections = html.match(/<section class="danilabo-rank"[\s\S]*?<\/section>/g);
+    assert.equal(sections.length, 9);
+    for (const section of sections) {
+      const labels = predLabels(section);
+      assert.equal(labels.length, 5);
+      assert.equal(labels[0], labels[4]);
+    }
   }
 });
 
@@ -60,10 +62,14 @@ test("missing and invalid FINAL estimates do not appear as zero passing estimate
   }
 });
 
-test("INFINITAS average retains two decimal places", () => {
-  const rows = [10, 11, 12, 13].map((pred, index) => ({
+test("INFINITAS shows its stage estimates, not chart Pred or the course average", () => {
+  const rows = [10.05, 11.28, 12.14, 12.85].map((pred, index) => ({
     ...stage(pred), chart_id: String(index + 1), version: "INFINITAS", stage: ["1st", "2nd", "3rd", "FINAL"][index],
   }));
-  assert.equal(predLabels(render(rows, "INFINITAS"))[0], "11.50");
+  const html = render(rows, "INFINITAS");
+  assert.deepEqual(predLabels(html), ["12.9", "10.1", "11.3", "12.1", "12.9"]);
+  assert.match(html, /Stage適正Pred/);
+  assert.match(html, /合格適正Pred/);
+  assert.doesNotMatch(html, /ノマゲPred/);
 });
 

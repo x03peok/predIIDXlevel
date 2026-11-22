@@ -45,14 +45,15 @@ function normalizeSourceTitle(title, chartId) {
 
 function normalizeRows(source, existingPlatforms = new Map()) {
   const rows = source.map(row => {
-    const match = String(row.bpm ?? "").trim().match(/^(\d+(?:\.\d+)?)(?:[~\uFF5E\u301C-](\d+(?:\.\d+)?))?$/);
-    if (row.bpm && !match) throw new Error(`Invalid BPM for chart ${row.chart_id}.`);
+    const bpm = row.bpm ?? row.textage_bpm ?? "";
+    const match = bpm.trim().match(/^(\d+(?:\.\d+)?)(?:[~\uFF5E\u301C-](\d+(?:\.\d+)?))?$/);
+    if (bpm && !match) throw new Error(`Invalid BPM for chart ${row.chart_id}.`);
     if (match && Number(match[1]) > Number(match[2] ?? match[1])) throw new Error(`Reversed BPM for chart ${row.chart_id}.`);
     return {
       chart_id: row.chart_id,
       title: normalizeSourceTitle(row.title, row.chart_id),
-      difficulty: row.diff_label_from_query,
-      original_level: row.level_from_query,
+      difficulty: row.diff_label_from_query ?? row.difficulty,
+      original_level: row.level_from_query ?? row.level,
       easy_pred_skill: row.EASY_Pred,
       calibrated_pred_skill: row.CLEAR_Pred,
       hard_pred_skill: row.HARD_Pred,
@@ -60,8 +61,8 @@ function normalizeRows(source, existingPlatforms = new Map()) {
       bpm_min: match?.[1] ?? "",
       bpm_max: match ? match[2] ?? match[1] : "",
       official_title: normalizeSourceTitle(row.official_title, row.chart_id),
-      official_version: row.official_version,
-      url: row.url,
+      official_version: row.official_version ?? row.version,
+      url: row.url ?? row.textage_url,
       platforms: readChartPlatforms(
         row.platform ?? row.platforms ?? existingPlatforms.get(String(row.chart_id).trim()),
         row.chart_id,
@@ -100,6 +101,22 @@ function buildStageRows(courses, charts, existing) {
   return [...existing.filter(row => !versions.has(row.version)), ...stages];
 }
 
+function groupStageRows(rows) {
+  const courses = new Map();
+  for (const row of rows) {
+    const { version, course, stage, chart_id, skill } = row;
+    if (!version || !course || !/^[1-4]$/.test(stage)) throw new Error("Invalid long-format stage: " + chart_id);
+    const key = JSON.stringify([version, course]);
+    if (!courses.has(key)) courses.set(key, { version, course });
+    const entry = courses.get(key);
+    const idField = "stage_" + stage + "_chart_id";
+    if (Object.hasOwn(entry, idField)) throw new Error("Duplicate stage: " + version + " " + course + " " + stage);
+    entry[idField] = chart_id;
+    entry["skill_after_" + stage] = skill;
+  }
+  return [...courses.values()];
+}
+
 function serializeCsv(rows) {
   const headers = Object.keys(rows[0]);
   const escape = value => /[",\r\n]/.test(value) ? '"' + value.replaceAll('"', '""') + '"' : value;
@@ -107,7 +124,11 @@ function serializeCsv(rows) {
 }
 
 function importDataset(directory, root = __dirname, elementsPath) {
-  const source = readCsv(fs.readFileSync(path.join(directory, "data.csv"), "utf8"));
+  const inputFile = (legacy, current) => {
+    const currentPath = path.join(directory, current);
+    return fs.existsSync(currentPath) ? currentPath : path.join(directory, legacy);
+  };
+  const source = readCsv(fs.readFileSync(inputFile("data.csv", "data_new.csv"), "utf8"));
   const dataPath = path.join(root, "data.js");
   const existingPlatforms = new Map();
   if (source.length && !Object.hasOwn(source[0], "platform") && !Object.hasOwn(source[0], "platforms") && fs.existsSync(dataPath)) {
@@ -119,7 +140,8 @@ function importDataset(directory, root = __dirname, elementsPath) {
     }
   }
   let charts = normalizeRows(source, existingPlatforms);
-  const courses = readCsv(fs.readFileSync(path.join(directory, "stage_skills.csv"), "utf8"));
+  const stageSource = readCsv(fs.readFileSync(inputFile("stage_skills.csv", "stage_skills_long.csv"), "utf8"));
+  const courses = stageSource.length && Object.hasOwn(stageSource[0], "stage") ? groupStageRows(stageSource) : stageSource;
   const context = { window: {} };
   vm.runInNewContext(fs.readFileSync(path.join(root, "danilabo-data.js"), "utf8"), context, { timeout: 5000 });
   const stages = buildStageRows(courses, charts, context.window.__DANILABO_ROWS__);

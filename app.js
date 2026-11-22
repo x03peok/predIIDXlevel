@@ -949,7 +949,8 @@ function escapeHtml(value) {
 }
 
 function getChartPageHref(chartId) {
-  return "chart-pages/" + encodeURIComponent(String(chartId ?? "").trim()) + ".html";
+  const path = "chart-pages/" + encodeURIComponent(String(chartId ?? "").trim()) + ".html";
+  return window.cpiPersonalPlatform?.chartHref(path) ?? path;
 }
 
 function renderTable(rows) {
@@ -1023,7 +1024,8 @@ function updateRowCount(visibleCount, totalCount) {
 
 function loadCsvText(text) {
   try {
-    state.rows = normalizeRows(text);
+    const rows = normalizeRows(text);
+    state.rows = window.cpiPersonalPlatform?.filterCharts(rows) ?? rows;
     const predRange = getNumericExtremes(state.rows, "calibrated_pred_skill", 0, 999);
     state.query = "";
     state.sortKey = "calibrated_pred_skill";

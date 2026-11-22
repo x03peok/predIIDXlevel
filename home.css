@@ -33,6 +33,10 @@
   line-height: 1.5;
 }
 
+.home-intro__description + .home-intro__description {
+  margin-top: 5px;
+}
+
 .home-intro__availability {
   display: flex;
   align-items: center;

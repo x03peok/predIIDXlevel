@@ -134,7 +134,7 @@ function replaceOnce(source, search, replacement, label) {
 
 function readChartPlatforms(value, chartId) {
   const platforms = String(value ?? "").trim().toLowerCase();
-  if (!platforms || platforms === "ac|inf" || platforms === "inf|ac") return ["ac", "inf"];
+  if (!platforms || /^(?:ac\s*[|,]\s*inf|inf\s*[|,]\s*ac)$/.test(platforms)) return ["ac", "inf"];
   if (platforms === "ac" || platforms === "inf") return [platforms];
   throw new Error("Invalid platforms for chart " + chartId + ": " + platforms);
 }
@@ -237,7 +237,7 @@ function createPage(template, row) {
   page = page.replace('data-href="diagnosis.html"', 'data-href="../diagnosis.html"');
   page = page.replace('href="pred.html"', 'href="../pred.html"');
   page = page.replaceAll('href="site-icon.jpg"', 'href="../site-icon.jpg"');
-  return page;
+  return page.trimEnd() + "\n";
 }
 
 function updateChartSitemap(rows) {

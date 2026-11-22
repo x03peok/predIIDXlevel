@@ -117,9 +117,7 @@
     return {
       ...row,
       chart_id: chartId,
-      title: row.version === "ZINRAI" ? row.title : (siteRow?.title || row.title),
       difficulty: siteRow?.difficulty || row.difficulty,
-      pred: row.version === "ZINRAI" ? row.pred : (siteRow?.calibrated_pred_skill || ""),
       bpm_min: siteRow?.bpm_min || "",
       bpm_max: siteRow?.bpm_max || "",
       features: siteRow?.features || "",
@@ -263,9 +261,7 @@
       const formattedPredText = rawPredText ? formatPred(row.pred) : "";
       const predText = formattedPredText || "－";
       const predStyle = formattedPredText ? numericStyle(row.pred) : "";
-      const predLabel = row.version === "ZINRAI"
-        ? "<span class=\"danilabo-stage-card__pred chart-detail__label-group\" data-tooltip=\"このStageを突破する推定難易度です。\" tabindex=\"0\" role=\"button\" aria-label=\"Stage適正Predの説明\">Stage適正Pred"
-        : "<span class=\"danilabo-stage-card__pred\">ノマゲPred";
+      const predLabel = "<span class=\"danilabo-stage-card__pred chart-detail__label-group\" data-tooltip=\"このStageを突破する推定難易度です。\" tabindex=\"0\" role=\"button\" aria-label=\"Stage適正Predの説明\">Stage適正Pred";
       const predHtml = predLabel + " <span class=\"mono numeric-value numeric-value--pred\""
         + predStyle + ">" + escapeHtml(predText) + "</span></span>";
 
@@ -286,28 +282,15 @@
     }).join("")
       : "<div class=\"danilabo-coming-soon\">Coming Soon</div>";
 
-    const predValues = rankRows
-      .map((row) => String(row.pred ?? "").trim())
-      .filter(Boolean)
-      .map(Number)
-      .filter((value) => Number.isFinite(value));
-    const isZinrai = rankRows[0]?.version === "ZINRAI";
-    const finalPredText = String(rankRows.find((row) => String(row.stage ?? "").trim().toUpperCase() === "FINAL")?.pred ?? "").trim();
-    const finalPred = finalPredText ? Number(finalPredText) : null;
-    const averagePred = isZinrai
-      ? (Number.isFinite(finalPred) ? finalPred : null)
-      : (predValues.length > 0
-        ? predValues.reduce((sum, value) => sum + value, 0) / predValues.length
-        : null);
-    const averageLabel = isZinrai
-      ? "<span class=\"danilabo-rank__average-label chart-detail__label-group\" data-tooltip=\"段位ゲージでシミュレートした推定完走難易度です。\" tabindex=\"0\" role=\"button\" aria-label=\"合格適正Predの説明\">合格適正Pred<span class=\"chart-detail__info-mark\" aria-hidden=\"true\">ⓘ</span></span>"
-      : "<span class=\"danilabo-rank__average-label\">課題曲平均ノマゲPred</span>";
-    const averagePredHtml = averagePred === null
-      ? ""
-      : " <span class=\"danilabo-rank__average\">" + averageLabel + " <span class=\"numeric-value numeric-value--pred\"" + numericStyle(averagePred) + ">" + (isZinrai ? formatPred(averagePred) : averagePred.toFixed(2)) + "</span></span>";
+    const finalPred = rankRows.find((row) => String(row.stage ?? "").trim().toUpperCase() === "FINAL")?.pred;
+    const formattedFinalPred = formatPred(finalPred);
+    const passingLabel = "<span class=\"danilabo-rank__average-label chart-detail__label-group\" data-tooltip=\"段位ゲージでシミュレートした推定完走難易度です。\" tabindex=\"0\" role=\"button\" aria-label=\"合格適正Predの説明\">合格適正Pred<span class=\"chart-detail__info-mark\" aria-hidden=\"true\">ⓘ</span></span>";
+    const passingPredHtml = formattedFinalPred
+      ? " <span class=\"danilabo-rank__average\">" + passingLabel + " <span class=\"numeric-value numeric-value--pred\"" + numericStyle(finalPred) + ">" + escapeHtml(formattedFinalPred) + "</span></span>"
+      : "";
     return [
       "<section class=\"danilabo-rank\" aria-labelledby=\"danilabo-rank-" + rankIndex + "\">",
-      "<h2 id=\"danilabo-rank-" + rankIndex + "\" class=\"danilabo-rank__title\" data-rank=\"" + escapeHtml(rank) + "\"><span class=\"danilabo-rank__name\">" + escapeHtml(rank) + "</span>" + averagePredHtml + "</h2>",
+      "<h2 id=\"danilabo-rank-" + rankIndex + "\" class=\"danilabo-rank__title\" data-rank=\"" + escapeHtml(rank) + "\"><span class=\"danilabo-rank__name\">" + escapeHtml(rank) + "</span>" + passingPredHtml + "</h2>",
       "<div class=\"danilabo-stage-list\">" + cardsHtml + "</div>",
       "</section>",
     ].join("");

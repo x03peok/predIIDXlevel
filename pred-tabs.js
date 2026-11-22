@@ -536,7 +536,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   predSummaryRender();
   const tabs = [...document.querySelectorAll(".pred-tab[role='tab']")];
-  const activate = (selected) => {
+  const activate = (selected, { updateUrl = true } = {}) => {
     for (const tab of tabs) {
       const active = tab === selected;
       tab.setAttribute("aria-selected", String(active));
@@ -545,12 +545,25 @@ document.addEventListener("DOMContentLoaded", () => {
       const panel = document.getElementById(tab.getAttribute("aria-controls"));
       if (panel) panel.hidden = !active;
     }
-    if (selected.id === "predDetailTab") {
+    const detailSelected = selected.id === "predDetailTab";
+    if (updateUrl) {
+      const url = new URL(window.location.href);
+      if (detailSelected) url.searchParams.set("tab", "detail");
+      else url.searchParams.delete("tab");
+      if (url.href !== window.location.href) {
+        try { window.history.replaceState(window.history.state, "", url.href); } catch { /* The tab still works without URL updates. */ }
+      }
+    }
+    if (detailSelected) {
       requestAnimationFrame(() => {
         if (typeof updateTableOverflowState === "function") updateTableOverflowState();
       });
     }
   };
+  if (new URLSearchParams(window.location.search).get("tab") === "detail") {
+    const detailTab = tabs.find(tab => tab.id === "predDetailTab");
+    if (detailTab) activate(detailTab, { updateUrl: false });
+  }
   tabs.forEach((tab, index) => {
     tab.addEventListener("click", () => activate(tab));
     tab.addEventListener("keydown", (event) => {

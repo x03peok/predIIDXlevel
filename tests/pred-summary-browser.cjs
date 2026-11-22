@@ -144,15 +144,19 @@ const root = path.resolve(__dirname, "..");
     await page.locator("#predSummarySettingsButton").click();
     assert.equal(await page.locator("#predSummarySettings").isVisible(), true);
     assert.equal(await page.locator("#predSummarySettings input[data-pred-difficulty]").count(), 4);
-    assert.equal(await page.locator("#predSummarySettings input[data-pred-feature]").count(), 20);
+    const selectedFeatureDots = page.locator('#predSummarySettings .pred-summary-settings__feature-dot[aria-pressed="true"]');
+    const allFeatureDots = await page.locator("#predSummarySettings .pred-summary-settings__feature-dot").count();
+    assert.ok(allFeatureDots > 0);
     const featureAll = page.locator('input[data-pred-feature-all]');
     assert.equal(await featureAll.isChecked(), true);
     await featureAll.uncheck();
-    assert.equal(await page.locator('input[data-pred-feature]:checked').count(), 0);
+    assert.equal(await selectedFeatureDots.count(), 0);
     await featureAll.check();
-    assert.equal(await page.locator('input[data-pred-feature]:checked').count(), 20);
+    assert.equal(await selectedFeatureDots.count(), allFeatureDots);
     for (const code of ["N", "H", "L"]) await page.locator('input[data-pred-difficulty="' + code + '"]').uncheck();
-    await page.locator('input[data-pred-feature="BPM\u5909\u5316"][data-feature-mode="include"]').uncheck();
+    const bpmRange = page.locator('[data-pred-feature-range-group][data-feature-name="BPM\u5909\u5316"]');
+    for (const value of [3, 2, 1]) await bpmRange.locator('[data-range-value="' + value + '"]').click();
+    assert.equal(await bpmRange.getAttribute("data-max"), "0");
     assert.equal(await featureAll.evaluate(input => input.indeterminate), true);
     await page.locator("#predSummarySettings [data-settings-save]").click();
     const verifySettings = async () => {
@@ -200,6 +204,33 @@ const root = path.resolve(__dirname, "..");
     await page.locator("#predSummarySettings [data-settings-reset]").click();
     await page.locator("#predSummarySettings [data-settings-save]").click();
     await verifyGroups([8], "normal");
+    const checkPlatform = async (platform) => {
+      await page.waitForSelector("#tableBody tr", { state: "attached" });
+      assert.deepEqual(await page.evaluate(platform => {
+        const allRows = normalizeRows(getBundledCsvText());
+        const expected = allRows.filter(row => !row.platforms || row.platforms.split("|").includes(platform));
+        const ids = new Set(state.rows.map(row => String(row.chart_id)));
+        const linkMatches = link => {
+          const url = new URL(link.href);
+          const id = decodeURIComponent(url.pathname.split("/").pop().replace(/\.html$/, ""));
+          return ids.has(id) && (url.searchParams.get("platform") ?? "ac") === platform;
+        };
+        const links = [...document.querySelectorAll("#predSummaryGroups a, #tableBody a.chart-link")];
+        return {
+          platform: document.body.dataset.platform,
+          exactRows: state.rows.map(row => row.chart_id).join(",") === expected.map(row => row.chart_id).join(","),
+          linksMatch: links.length > 0 && links.every(linkMatches),
+        };
+      }, platform), { platform, exactRows: true, linksMatch: true });
+    };
+    await checkPlatform("ac");
+    await page.locator("#predDetailTab").click();
+    await page.locator("#personalPlatformBadge").click();
+    await page.waitForURL(url => url.searchParams.get("platform") === "inf");
+    await checkPlatform("inf");
+    assert.equal(await page.locator("#predDetailTab").getAttribute("aria-selected"), "true");
+    await page.goto(base + "/" + (process.env.PRED_TEST_PAGE || "pred.html"));
+    await checkPlatform("inf");
     assert.deepEqual(errors, []);
     console.log("PASS: default level/lamp, multi-level selection, single lamp, truncation boundaries, title ordering, missing Pred, responsive layout and independent detail filters.");
   } finally {

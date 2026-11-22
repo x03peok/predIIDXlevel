@@ -110,7 +110,7 @@
           ? await navigator.locks.request(decisionKey, apply)
           : await apply();
         dialog.close();
-        if (["record", "mypage", "target", "settings", "chart"].includes(document.body.dataset.page)) {
+        if (window.cpiPersonalPlatform || ["record", "mypage", "target", "settings", "chart"].includes(document.body.dataset.page)) {
           if (selected === "ac" || selected === "inf") url.searchParams.set("platform", selected);
           window.location.replace(url.href);
         }

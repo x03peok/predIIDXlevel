@@ -91,6 +91,21 @@ body::before {
   white-space: nowrap;
 }
 
+/* Wrap the badge as a unit, using the same width in both modes. */
+:is(h1, h2):has(> :is(.personal-platform-badge, .record-platform-badge, .chart-platform-badge)) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.55rem;
+  white-space: nowrap;
+  text-wrap: nowrap;
+}
+
+:is(h1, h2) > :is(.personal-platform-badge, .record-platform-badge, .chart-platform-badge) {
+  flex: 0 0 5.5rem;
+  margin-inline-start: 0;
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);

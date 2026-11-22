@@ -426,7 +426,8 @@ function renderChartPredHistogramsForCurrentWidth() {
   if (!predRow || !predRows || !predNumericScales) {
     return null;
   }
-  const predPositions = getChartPredPositionsForCurrentWidth(predRow, predRows);
+  const platformRows = predRows.filter(row => chartSupportsPlatform(chartState.statusPlatform, row));
+  const predPositions = getChartPredPositionsForCurrentWidth(predRow, platformRows);
   renderChartPredPosition(predPositions, predRow, predNumericScales);
   return predPositions;
 }
@@ -784,6 +785,7 @@ function chartInitializePlatform() {
     chartState.statusPlatform = next;
     chartState.statusReady = false;
     chartRenderDifficultyChip();
+    chartUpdateShareLink(chartState.predRow, renderChartPredHistogramsForCurrentWidth());
     chartSetStatusMessage("");
     chartUpdateStatusSelect();
     void chartLoadStatusState();
@@ -1004,6 +1006,42 @@ function showChartError(message) {
   error.hidden = false;
 }
 
+function chartUpdateShareLink(row, predPositions) {
+  const chartId = row.chart_id;
+  const difficulty = row.difficulty.trim().toUpperCase();
+  const shareButton = document.getElementById("chartShareButton");
+  if (shareButton) {
+    const shareDifficultyLabel = chartDifficultyLabels[difficulty] ?? difficulty;
+    const sharePredLines = Object.entries(chartPredModes).map(([mode, definition]) => {
+      const pred = formatChartPred(getChartPredValue(row, mode));
+      const percentile = formatChartPredPercentile(predPositions?.[mode], row)
+        .replace("（", "(").replace("）", ")");
+      return definition.label + ": " + pred + (percentile ? " " + percentile : "");
+    });
+    const shareFeatureValues = String(row.features ?? "")
+      .split("、")
+      .map((feature) => feature.trim())
+      .filter(Boolean)
+      .join("、");
+    const shareFeatures = !shareFeatureValues || shareFeatureValues === "特徴なし" ? "―" : shareFeatureValues;
+    const shareUrl = new URL(getPublicChartUrl(chartId), window.location.href);
+    shareUrl.search = "";
+    shareUrl.hash = "";
+    const shareText = [
+      "☆" + (row.original_level ?? "") + " " + window.cpiShareText.formatTitle(row.title) + (shareDifficultyLabel ? " [" + shareDifficultyLabel + "]" : ""),
+      "",
+      ...sharePredLines,
+      "",
+      "Feature: " + shareFeatures,
+      "",
+      shareUrl,
+    ].join("\n");
+    const shareParams = new URLSearchParams({ text: shareText });
+    shareButton.href = "https://x.com/intent/tweet?" + shareParams.toString();
+    shareButton.hidden = false;
+  }
+}
+
 function renderChart() {
   const csvText = window.__CSV_BUNDLE__;
   const chartId = new URLSearchParams(window.location.search).get("id") || document.body?.dataset.chartId || "";
@@ -1068,37 +1106,7 @@ function renderChart() {
     const textageOnePlayerUrl = row.url || window.__TEXTAGE_URLS__?.[normalizeChartId(row.chart_id)] || "";
     setTextageLink(document.getElementById("textage1pLink"), textageOnePlayerUrl);
     setTextageLink(document.getElementById("textage2pLink"), getTextageTwoPlayerUrl(textageOnePlayerUrl));
-    const shareButton = document.getElementById("chartShareButton");
-    if (shareButton) {
-      const shareDifficultyLabel = chartDifficultyLabels[difficulty] ?? difficulty;
-      const sharePredLines = Object.entries(chartPredModes).map(([mode, definition]) => {
-        const pred = formatChartPred(getChartPredValue(row, mode));
-        const percentile = formatChartPredPercentile(predPositions?.[mode], row)
-          .replace("（", "(").replace("）", ")");
-        return definition.label + ": " + pred + (percentile ? " " + percentile : "");
-      });
-      const shareFeatureValues = String(row.features ?? "")
-        .split("、")
-        .map((feature) => feature.trim())
-        .filter(Boolean)
-        .join("、");
-      const shareFeatures = !shareFeatureValues || shareFeatureValues === "特徴なし" ? "―" : shareFeatureValues;
-      const shareUrl = new URL(getPublicChartUrl(chartId), window.location.href);
-      shareUrl.search = "";
-      shareUrl.hash = "";
-      const shareText = [
-        "☆" + (row.original_level ?? "") + " " + window.cpiShareText.formatTitle(row.title) + (shareDifficultyLabel ? " [" + shareDifficultyLabel + "]" : ""),
-        "",
-        ...sharePredLines,
-        "",
-        "Feature: " + shareFeatures,
-        "",
-        shareUrl,
-      ].join("\n");
-      const shareParams = new URLSearchParams({ text: shareText });
-      shareButton.href = "https://x.com/intent/tweet?" + shareParams.toString();
-      shareButton.hidden = false;
-    }
+    chartUpdateShareLink(row, predPositions);
     document.getElementById("chartDetail").hidden = false;
     void chartLoadManualMemoState();
     renderSimilarChartRows(row, rowsById);

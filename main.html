@@ -27,15 +27,17 @@
   <meta name="twitter:description" content="beatmania IIDX SP☆8〜12の譜面難易度をPredで細かく推定。適正診断、マイターゲット、段位認定分析から次の選曲をサポートします。">
   <!-- Google Analytics -->
   <script defer src="analytics.js?v=20261013-1"></script>
-  <link rel="stylesheet" href="styles.css?v=20260916-3">
-  <link rel="stylesheet" href="home.css?v=20260904-18">
+  <link rel="stylesheet" href="styles.css?v=20261122-1">
+  <link rel="stylesheet" href="home.css?v=20261122-1">
   <link rel="stylesheet" href="menu.css?v=20260904-2">
-  <link rel="stylesheet" href="pred-tabs.css?v=20261018-10">
+  <link rel="stylesheet" href="pred-tabs.css?v=20261122-2">
+  <link rel="stylesheet" href="personal-platform.css?v=20261121-4">
   <script defer src="menu.js?v=20260925-1"></script>
-  <script defer src="data.js?v=20261121-1"></script>
-  <script defer src="app.js?v=20261025-1"></script>
-  <script defer src="pred-tabs.js?v=20261018-12"></script>
-  <script defer src="platform-migration.js?v=20261121-1"></script>
+  <script defer src="personal-platform.js?v=20261121-3"></script>
+  <script defer src="data.js?v=20261122-1"></script>
+  <script defer src="app.js?v=20261122-1"></script>
+  <script defer src="pred-tabs.js?v=20261122-1"></script>
+  <script defer src="platform-migration.js?v=20261122-1"></script>
 </head>
 <body data-page="home">
   <main class="app">
@@ -67,6 +69,8 @@
     <section class="home-intro" aria-label="CPI:Nextの案内">
       <div class="home-intro__lead">
         <p class="home-intro__description">IIDX SP☆8〜☆12の難易度を細かく推定し、「次の選曲」をサポートします。</p>
+        <p class="home-intro__description">手動入力・CSVインポートに対応。</p>
+        <p class="home-intro__description">ACとINFINITASで別々にクリアランプを管理できます。</p>
         <span class="home-intro__availability">ログイン不要で<a href="record.html" data-home-destination="record" data-home-link-type="record">クリアランプを登録</a>できます。</span>
       </div>
       <nav class="home-links" aria-label="主要リンク">
@@ -118,7 +122,7 @@
     </section>
     <section id="mainView" class="view view--main" aria-live="polite">
       <div class="panel">
-        <h2 class="home-table-title">Pred難易度表</h2>
+        <h2 class="home-table-title">Pred難易度表 <button id="personalPlatformBadge" class="personal-platform-badge" type="button" disabled>AC</button></h2>
         <div class="pred-tabs" role="tablist" aria-label="難易度表の表示切り替え">
           <button id="predSummaryTab" class="pred-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="predSummaryPanel">難易度表</button>
           <button id="predDetailTab" class="pred-tab" type="button" role="tab" aria-selected="false" aria-controls="predDetailPanel" tabindex="-1">詳細一覧</button>
