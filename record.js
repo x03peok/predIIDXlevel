@@ -67,7 +67,7 @@ const recordState = {
 const recordElements = {};
 let recordEntityDecoder;
 
-function recordParseCsv(text) {
+function recordParseCsv(text, { strict = false } = {}) {
   if (!text) {
     return [];
   }
@@ -79,6 +79,8 @@ function recordParseCsv(text) {
   let row = [];
   let cell = "";
   let inQuotes = false;
+  let quoteClosed = false;
+  const invalidFormat = message => new Error(message + " 公式CSVファイルを選び直してください。");
 
   for (let index = 0; index < text.length; index += 1) {
     const character = text[index];
@@ -88,17 +90,23 @@ function recordParseCsv(text) {
         index += 1;
       } else if (character === '"') {
         inQuotes = false;
+        quoteClosed = true;
       } else {
         cell += character;
       }
       continue;
     }
 
+    if (strict && quoteClosed && character !== "," && character !== "\r" && character !== "\n") {
+      throw invalidFormat("CSVの引用符の後に余分な文字があります。");
+    }
     if (character === '"') {
+      if (strict && cell !== "") throw invalidFormat("CSVの引用符の位置が不正です。");
       inQuotes = true;
     } else if (character === ",") {
       row.push(cell);
       cell = "";
+      quoteClosed = false;
     } else if (character === "\r" || character === "\n") {
       if (character === "\r" && text[index + 1] === "\n") {
         index += 1;
@@ -107,11 +115,13 @@ function recordParseCsv(text) {
       rows.push(row);
       row = [];
       cell = "";
+      quoteClosed = false;
     } else {
       cell += character;
     }
   }
 
+  if (strict && inQuotes) throw invalidFormat("CSVの引用符が閉じていません。");
   row.push(cell);
   rows.push(row);
   if (rows.length > 1 && rows.at(-1).length === 1 && rows.at(-1)[0] === "") {
@@ -342,9 +352,15 @@ function recordGetCsvPlatform(headers) {
 }
 
 function recordParseOfficialCsv(text, platform) {
-  const parsed = recordParseCsv(text);
+  const parsed = recordParseCsv(text, { strict: true });
   if (!parsed.length) throw new Error("CSVが空です。");
   const headers = parsed.shift().map((header) => header.trim());
+  for (const [index, row] of parsed.entries()) {
+    if (row.length === 1 && row[0].trim() === "") continue;
+    if (row.length !== headers.length) {
+      throw new Error("CSVのデータ" + (index + 1) + "行目の列数が見出しと一致しません。公式CSVファイルを選び直してください。");
+    }
+  }
   const headerIndex = new Map(headers.map((header, index) => [header, index]));
   if (!headerIndex.has("バージョン") || !headerIndex.has("タイトル")) throw new Error("公式CSVの列を確認できませんでした。");
   if (platform) {
@@ -396,6 +412,49 @@ function recordGetCsvMissingChartIds(rows, { presentIds, availableDifficulties }
   const difficulties = new Set(availableDifficulties);
   return rows.filter(row => difficulties.has(row.difficulty) && !presentIds.has(row.chartId))
     .map(row => row.chartId);
+}
+
+function recordGetMissingPreviousCsvRows(rows, previousIds, presentIds) {
+  return rows.filter(row => previousIds.has(row.chartId) && !presentIds.has(row.chartId))
+    .sort((left, right) => recordCompareTitles(left, right));
+}
+
+function recordReadCsvSnapshot(key) {
+  try {
+    const ids = JSON.parse(window.localStorage.getItem(key));
+    if (Array.isArray(ids)) return new Set(ids.filter(id => typeof id === "string" && /^\d+$/.test(id)));
+  } catch { /* The CSV can still be imported if storage is unavailable. */ }
+  return new Set();
+}
+
+function recordConfirmCsvImport(missingRows, unownedCount) {
+  const dialog = document.getElementById("recordCsvConfirm");
+  const title = dialog.querySelector("h2");
+  const list = dialog.querySelector("ul");
+  const note = dialog.querySelector("p");
+  const option = dialog.querySelector("label");
+  const checkbox = option.querySelector("input");
+  title.textContent = missingRows.length
+    ? "以下の" + missingRows.length.toLocaleString() + "譜面が見つかりません。取り込みを実行しますか？"
+    : "CSVテキストを取り込みますか？";
+  list.replaceChildren(...missingRows.map(row => {
+    const item = document.createElement("li");
+    const difficulty = recordDifficultyLabels[row.difficulty] ?? row.difficulty;
+    item.textContent = row.title + " [" + difficulty + "]";
+    return item;
+  }));
+  list.hidden = !missingRows.length;
+  note.textContent = missingRows.length
+    ? "前回のCSVにあった譜面です。公式での配信終了などでも表示されます。取り込む場合は、今回のCSVにあるランプだけを保存します。"
+    : "初期状態では、CSVにあるランプだけを保存します。";
+  option.hidden = !unownedCount;
+  checkbox.checked = false;
+  option.querySelector("span").textContent = "CSVにない未登録の" + unownedCount.toLocaleString() + "譜面を「未所持・未解禁」にする";
+  dialog.returnValue = "";
+  dialog.showModal();
+  return new Promise(resolve => dialog.addEventListener("close", () => {
+    resolve({ confirmed: dialog.returnValue === "import", markUnowned: !option.hidden && checkbox.checked });
+  }, { once: true }));
 }
 function recordSetCsvMessage(message, isError = false, isWarning = false) {
   if (!recordElements.csvMessage) return;
@@ -491,17 +550,41 @@ async function recordHandleCsvImport() {
   recordElements.csvImportButton.disabled = true;
   recordSetCsvMessage("CSVを読み込んでいます。");
   try {
-    const csvText = pastedText.trim() ? pastedText : await file.text();
+    const isPaste = Boolean(pastedText.trim());
+    const csvText = isPaste ? pastedText : await file.text();
     const result = recordParseOfficialCsv(csvText, platform);
     if (!result.updates.size) {
       const skipped = result.unmatched + result.ambiguous;
       throw new Error("登録できる譜面が見つかりませんでした。" + (skipped ? " 照合できない譜面: " + skipped.toLocaleString() + "件。" : ""));
     }
+    const snapshotKey = "cpi-next-record-csv-chart-ids-" + platform;
+    const previousCsvIds = recordReadCsvSnapshot(snapshotKey);
+    const missingRows = recordGetMissingPreviousCsvRows(recordState.rows, previousCsvIds, result.presentIds);
+    let csvMissingIds = missingRows.length ? [] : recordGetCsvMissingChartIds(recordState.rows, result);
+    const markUnownedByDefault = !isPaste && !missingRows.length;
+    if (!markUnownedByDefault) {
+      // Match the preview to the records currently saved, not a potentially stale tab.
+      if (csvMissingIds.length) {
+        const records = new Map((await recordReadAll()).map(record => [String(record.chartId), record.status]));
+        csvMissingIds = csvMissingIds.filter(id => (records.get(id) ?? "unregistered") === "unregistered");
+      }
+      if (missingRows.length || csvMissingIds.length) {
+        const decision = await recordConfirmCsvImport(missingRows, csvMissingIds.length);
+        if (!decision.confirmed) {
+          recordSetCsvMessage("CSVの取り込みをキャンセルしました。");
+          return;
+        }
+        if (!decision.markUnowned) csvMissingIds = [];
+      }
+    }
     const { changes, existingRecords, csvUnownedCount } = await recordWriteStatuses(result.updates, {
       recordHistory: !showImportCta,
       source: "csv-import",
-      csvMissingIds: recordGetCsvMissingChartIds(recordState.rows, result),
+      csvMissingIds,
     });
+    if (!missingRows.length) {
+      try { window.localStorage.setItem(snapshotKey, JSON.stringify([...result.presentIds])); } catch { /* Optional persistence. */ }
+    }
     const previousStatuses = new Map();
     const importedStatuses = new Map();
     recordApplyRecords([...existingRecords.values()]);

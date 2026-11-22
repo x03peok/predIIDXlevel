@@ -541,6 +541,48 @@ body[data-platform="inf"] .record-csv-download--ac {
   margin-top: 16px;
 }
 
+.record-csv-confirm {
+  width: min(30rem, calc(100% - 24px));
+  max-height: calc(100% - 24px);
+  padding: 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--panel-strong);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+
+.record-csv-confirm::backdrop {
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.record-csv-confirm h2 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.record-csv-confirm ul {
+  max-height: min(12rem, 34vh);
+  overflow: auto;
+  overflow-wrap: anywhere;
+  margin: 0;
+  padding: 8px 12px 8px 32px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.record-csv-confirm :is(p, label) {
+  font-size: 0.875rem;
+}
+
+.record-csv-confirm__actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
 
 @media (max-width: 720px) {
   .record-toolbar {

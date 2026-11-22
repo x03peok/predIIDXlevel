@@ -770,7 +770,12 @@ async function chartHandleStatusChange(event) {
 
 function chartInitializePlatform() {
   const badge = document.getElementById("chartPlatformBadge");
-  chartState.statusPlatform = new URLSearchParams(window.location.search).get("platform") === "inf" ? "inf" : "ac";
+  const params = new URLSearchParams(window.location.search);
+  if (params.has("platform")) {
+    chartState.statusPlatform = params.get("platform") === "inf" ? "inf" : "ac";
+  } else {
+    chartState.statusPlatform = !chartSupportsPlatform("ac") && chartSupportsPlatform("inf") ? "inf" : "ac";
+  }
   if (badge) badge.addEventListener("click", () => {
     if (chartState.statusBusy || chartState.manualMemoBusy) return;
     const next = chartState.statusPlatform === "inf" ? "ac" : "inf";

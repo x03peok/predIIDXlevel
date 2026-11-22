@@ -1,0 +1,40 @@
+name: Site checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Check catalog and run Node regressions
+        shell: bash
+        run: |
+          mapfile -t tests < <(find tests -maxdepth 1 -name '*-regression.cjs' ! -name 'share-analytics-regression.cjs' | sort)
+          node --test "${tests[@]}"
+      - name: Install browser test dependencies
+        run: |
+          npm install --prefix "$RUNNER_TEMP/cpi-playwright" --no-save --no-package-lock playwright@1.62.1
+          "$RUNNER_TEMP/cpi-playwright/node_modules/.bin/playwright" install --with-deps chromium
+          echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/cpi-playwright/node_modules/playwright" >> "$GITHUB_ENV"
+      - name: Check browser storage and platform filters
+        env:
+          TEST_BROWSER: chromium
+        run: |
+          node tests/platform-backup-browser.cjs
+          node tests/pred-summary-browser.cjs
+          PRED_TEST_PAGE=main.html node tests/pred-summary-browser.cjs

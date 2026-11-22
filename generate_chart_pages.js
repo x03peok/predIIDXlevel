@@ -248,7 +248,7 @@ function updateChartSitemap(rows) {
   fs.writeFileSync(sitemapPath, withoutCharts.replace("</urlset>", `${entries}\n</urlset>`), "utf8");
 }
 
-module.exports = { loadRows, normalizeTitle, readChartPlatforms };
+module.exports = { createPage, loadRows, normalizeTitle, readChartPlatforms };
 
 if (require.main === module) {
   require("./generate_public_data.js").generatePublicData(rootDir);
@@ -261,6 +261,14 @@ if (require.main === module) {
     const chartId = String(row.chart_id).trim();
     fs.writeFileSync(path.join(outputDir, `${chartId}.html`), createPage(template, row), "utf8");
   }
-  if (!selectedIds) updateChartSitemap(rows);
+  if (!selectedIds) {
+    const activeFiles = new Set(rows.map(row => String(row.chart_id).trim() + ".html"));
+    for (const filename of fs.readdirSync(outputDir)) {
+      if (/^\d+\.html$/.test(filename) && !activeFiles.has(filename)) {
+        fs.unlinkSync(path.join(outputDir, filename));
+      }
+    }
+    updateChartSitemap(rows);
+  }
   console.log(`Generated ${rows.length} chart pages in ${path.relative(rootDir, outputDir)}.`);
 }

@@ -94,12 +94,26 @@ test("AC and INFINITAS import NO PLAY and only infer absence for supported, unli
         'ZINRAI,Unknown Status,UNKNOWN,10',
         'unknown,Collision,CLEAR,10',
         ...(platform === 'ac' ? ['ZINRAI,No Lamp,---,10'] : []),
-      ].join('\\n');
+      ].map((line, index) => platform === 'inf' && index > 0 ? line + ',' : line).join('\\n');
       const result = recordParseOfficialCsv(csv, platform);
       assert.deepEqual([...result.updates], [['1', 'clear'], ['2', 'no-play']]);
       assert.deepEqual(recordGetCsvMissingChartIds(rows, result), platform === 'ac' ? ['3'] : ['3', '8']);
       assert.throws(() => recordParseOfficialCsv(csv, platform === 'ac' ? 'inf' : 'ac'));
     }
+  `, createContext(["record.js"]));
+});
+
+test("official CSV rejects broken records and accepts quoted fields and blank lines", () => {
+  vm.runInContext(`
+    const header = 'バージョン,タイトル,ANOTHER クリアタイプ,ANOTHER 難易度';
+    const row = 'ZINRAI,"Title, ""quoted""",CLEAR,10';
+    const parse = tail => recordParseOfficialCsv(header + '\\r\\n' + row + '\\r\\n' + tail, 'ac');
+    assert.doesNotThrow(() => parse('ZINRAI,"Title\\ncontinued",CLEAR,10\\r\\n\\r\\n'));
+    assert.throws(() => parse('ZINRAI,"Truncated'), /引用符が閉じていません/);
+    assert.throws(() => parse('ZINRAI,Truncated,CLEAR'), /列数が見出しと一致しません/);
+    assert.throws(() => parse('ZINRAI,Extra,CLEAR,10,11'), /列数が見出しと一致しません/);
+    assert.throws(() => parse('ZINRAI,"Quoted"suffix,CLEAR,10'), /引用符の後に余分な文字/);
+    assert.throws(() => parse('ZINRAI,Invalid"quote",CLEAR,10'), /引用符の位置が不正/);
   `, createContext(["record.js"]));
 });
 
@@ -121,4 +135,28 @@ test("diagnosis treats missing and invalid Pred as null, never zero", () => {
     }
     assert(diagnosisGetLevelBounds().min > 0);
   `, createContext(["data.js", "diagnosis.js"]));
+});
+
+test("identical official titles resolve to the chart ID for the CSV edition only", () => {
+  vm.runInContext(`
+    recordEntityDecoder = document.createElement('textarea');
+    window.__CSV_BUNDLE__ = [
+      'chart_id,title,official_title,official_version,difficulty,original_level,platforms',
+      '101,Display AC,Same Official,ZINRAI,ANOTHER,10,ac',
+      '102,Display INF,Same Official,ZINRAI,ANOTHER,10,inf',
+      '103,Display Shared,Shared,ZINRAI,ANOTHER,10,ac|inf',
+    ].join('\\n');
+    for (const [platform, expected] of [['ac','101'], ['inf','102']]) {
+      const headers = platform === 'ac'
+        ? 'ANOTHER 難易度' : 'ANOTHER 最終スコア更新時刻,ANOTHER 最終プレー日時';
+      const extra = platform === 'ac' ? '' : ',';
+      recordImportIndex = recordBuildImportIndex(recordLoadRows(platform));
+      const result = recordParseOfficialCsv([
+        'バージョン,タイトル,ANOTHER クリアタイプ,' + headers,
+        'ZINRAI,Same Official,HARD CLEAR,10' + extra,
+        'ZINRAI,Shared,CLEAR,10' + extra,
+      ].join('\\n'), platform);
+      assert.deepEqual([...result.updates], [[expected, 'hard'], ['103', 'clear']]);
+    }
+  `, createContext(["record.js"]));
 });

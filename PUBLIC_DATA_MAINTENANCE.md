@@ -8,6 +8,16 @@ open-data license to the generated data.
 
 ## Generation
 
+A full run of `node generate_chart_pages.js` removes obsolete numeric detail
+pages and refreshes the sitemap. An `--ids` run only updates the selected pages.
+After regenerating, check the complete output with
+`node --test tests/catalog-integrity-regression.cjs`.
+
+The `Site checks` GitHub Actions workflow runs on pull requests, pushes to
+`main`, and manual dispatch. It checks the published catalog, CSV matching,
+edition-specific browser storage, and legacy backup restoration. It does not
+publish or modify repository files.
+
 ### Feature data (continuous SD model)
 
 Keep `chart_elements_*.csv` private and out of the publication checkout. These

@@ -72,7 +72,7 @@ function environment() {
     CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options?.detail; } },
     window: { addEventListener() {}, dispatchEvent: event => events.push(event),
       localStorage: { getItem: () => null }, cpiStatusToast: { show: info => { context.undo = info.onUndo; } } },
-    document: { getElementById: id => nodes.get(id), createElement: () => ({}), addEventListener() {}, querySelectorAll: () => [] },
+    document: { body: { dataset: {} }, getElementById: id => nodes.get(id), createElement: () => ({}), addEventListener() {}, querySelectorAll: () => [] },
   });
   for (const name of ["update-history.js", "chart-options.js", "chart.js", "target-analysis.js", "target.js"]) {
     vm.runInContext(fs.readFileSync(path.join(root, name), "utf8"), context, { filename: name });
