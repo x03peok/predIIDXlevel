@@ -71,6 +71,38 @@ test("every current official title resolves to its chart, including the 75 new c
   `, createContext(["data.js", "record-import-index.js", "record.js"]));
 });
 
+test("AC and INFINITAS import NO PLAY and only infer absence for supported, unlisted charts", () => {
+  vm.runInContext(`
+    recordEntityDecoder = document.createElement('textarea');
+    const rows = [
+      ['1', 'Played', 'ZINRAI', 'ANOTHER'],
+      ['2', 'Not Played', 'ZINRAI', 'ANOTHER'],
+      ['3', 'Missing', 'ZINRAI', 'ANOTHER'],
+      ['4', 'Unknown Status', 'ZINRAI', 'ANOTHER'],
+      ['5', 'Collision', '10th style', 'ANOTHER'],
+      ['6', 'Collision', 'ZINRAI', 'ANOTHER'],
+      ['7', 'Played', 'ZINRAI', 'HYPER'],
+      ['8', 'No Lamp', 'ZINRAI', 'ANOTHER'],
+    ].map(([chartId, title, officialVersion, difficulty]) => ({ chartId, title, officialVersion, difficulty }));
+    recordImportIndex = recordBuildImportIndex(rows);
+    for (const platform of ['ac', 'inf']) {
+      const lastColumns = platform === 'ac' ? 'ANOTHER 難易度' : 'ANOTHER 最終スコア更新時刻,ANOTHER 最終プレー日時';
+      const csv = [
+        'バージョン,タイトル,ANOTHER クリアタイプ,' + lastColumns,
+        'ZINRAI,Played,CLEAR,10',
+        'ZINRAI,Not Played,NO PLAY,10',
+        'ZINRAI,Unknown Status,UNKNOWN,10',
+        'unknown,Collision,CLEAR,10',
+        ...(platform === 'ac' ? ['ZINRAI,No Lamp,---,10'] : []),
+      ].join('\\n');
+      const result = recordParseOfficialCsv(csv, platform);
+      assert.deepEqual([...result.updates], [['1', 'clear'], ['2', 'no-play']]);
+      assert.deepEqual(recordGetCsvMissingChartIds(rows, result), platform === 'ac' ? ['3'] : ['3', '8']);
+      assert.throws(() => recordParseOfficialCsv(csv, platform === 'ac' ? 'inf' : 'ac'));
+    }
+  `, createContext(["record.js"]));
+});
+
 test("diagnosis treats missing and invalid Pred as null, never zero", () => {
   vm.runInContext(`
     for (const value of ['', '  ', null, undefined, NaN, Infinity, 'invalid', 'null']) {

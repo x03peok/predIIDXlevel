@@ -173,7 +173,7 @@ function recordBuildImportIndex(rows, aliases = window.__RECORD_IMPORT_INDEX__) 
   return { collisionTitles, plain, versioned };
 }
 
-function recordGetImportChartIds(title, version, difficulty) {
+function recordGetImportChartIds(title, version, difficulty, { includeAmbiguous = false } = {}) {
   if (!recordImportIndex) return [];
   const titleKey = recordNormalizeImportText(title);
   const difficultyKey = String(difficulty ?? "").trim().toUpperCase();
@@ -200,7 +200,7 @@ function recordGetImportChartIds(title, version, difficulty) {
       fallbackIds.add(chartId);
     }
   }
-  return fallbackIds.size === 1 ? [...fallbackIds] : [];
+  return includeAmbiguous || fallbackIds.size === 1 ? [...fallbackIds] : [];
 }
 function recordMapImportClearType(clearType) {
   const value = String(clearType ?? "").trim().toUpperCase();
@@ -228,7 +228,7 @@ function recordWriteStatuses(statuses, options = {}) {
       reject(new Error("ローカル保存を開けませんでした."));
       return;
     }
-    const entries = statuses instanceof Map ? [...statuses] : [];
+    const csvMissingIds = options.csvMissingIds;
     const beforeStatuses = options.beforeStatuses instanceof Map ? options.beforeStatuses : null;
     const recordHistory = options.recordHistory !== false;
     const source = String(options.source ?? "record");
@@ -243,24 +243,34 @@ function recordWriteStatuses(statuses, options = {}) {
     const transaction = recordState.db.transaction(stores, "readwrite");
     const store = transaction.objectStore(recordStoreName);
     const updatedAt = new Date().toISOString();
-    const changes = entries.map(([chartId, status]) => {
-      const normalizedChartId = String(chartId);
-      const existingRecord = recordState.records.get(normalizedChartId);
-      const beforeStatus = beforeStatuses?.get(normalizedChartId)
-        ?? existingRecord?.status
-        ?? "unregistered";
-      const afterStatus = String(status ?? "").trim().toLowerCase();
-      return {
-        chartId: normalizedChartId,
-        beforeStatus,
-        afterStatus,
-        changed: beforeStatus !== afterStatus,
-        existingRecord,
-        snapshot: recordGetHistorySnapshot(normalizedChartId),
-      };
-    });
-    const changedEntries = changes.filter((change) => change.changed);
-    try {
+    let changes = [];
+    let existingRecords;
+    let csvUnownedCount = 0;
+    const apply = (records) => {
+      existingRecords = records;
+      const updates = new Map(statuses);
+      for (const chartId of csvMissingIds ?? []) {
+        if (!updates.has(chartId) && (records.get(chartId)?.status ?? "unregistered") === "unregistered") {
+          updates.set(chartId, "unowned");
+          csvUnownedCount += 1;
+        }
+      }
+      changes = [...updates].map(([chartId, status]) => {
+        const normalizedChartId = String(chartId);
+        const existingRecord = records.get(normalizedChartId);
+        const beforeStatus = beforeStatuses?.get(normalizedChartId)
+          ?? existingRecord?.status
+          ?? "unregistered";
+        const afterStatus = String(status ?? "").trim().toLowerCase();
+        return {
+          chartId: normalizedChartId,
+          beforeStatus,
+          afterStatus,
+          changed: beforeStatus !== afterStatus,
+          existingRecord,
+          snapshot: recordGetHistorySnapshot(normalizedChartId),
+        };
+      });
       for (const change of changes) {
         if (!change.changed && change.existingRecord) {
           if (
@@ -291,17 +301,15 @@ function recordWriteStatuses(statuses, options = {}) {
       if (hasHistory) {
         window.cpiUpdateHistory.appendToTransaction(
           transaction,
-          changedEntries,
+          changes.filter(change => change.changed),
           { source, changedAt: updatedAt, reconcileReverts: options.reconcileReverts === true },
         );
       }
-    } catch (error) {
-      reject(error);
-      return;
-    }
+    };
     transaction.oncomplete = () => {
-      resolve();
-      for (const change of changedEntries) {
+      resolve({ changes, existingRecords, csvUnownedCount });
+      for (const change of changes) {
+        if (!change.changed) continue;
         window.dispatchEvent(new CustomEvent("cpi:status-changed", {
           detail: { source: "record", chartId: change.chartId, status: change.afterStatus },
         }));
@@ -309,6 +317,21 @@ function recordWriteStatuses(statuses, options = {}) {
     };
     transaction.onerror = () => reject(transaction.error ?? new Error("記録を保存できませんでした。"));
     transaction.onabort = () => reject(transaction.error ?? new Error("記録を保存できませんでした。"));
+    const write = (records) => {
+      try {
+        apply(records);
+      } catch (error) {
+        reject(error);
+        transaction.abort();
+      }
+    };
+    if (csvMissingIds) {
+      // Check for records added in other tabs in the same transaction as the CSV write.
+      const request = store.getAll();
+      request.onsuccess = () => write(new Map(request.result.map(record => [String(record.chartId), record])));
+    } else {
+      write(recordState.records);
+    }
   });
 }
 function recordGetCsvPlatform(headers) {
@@ -335,6 +358,7 @@ function recordParseOfficialCsv(text, platform) {
   if (!availableDifficulties.length) throw new Error("対応するクリアタイプ列がありません。");
   const get = (cells, key) => (cells[headerIndex.get(key)] ?? "").trim();
   const updates = new Map();
+  const presentIds = new Set();
   let matched = 0;
   let unmatched = 0;
   let ambiguous = 0;
@@ -346,12 +370,15 @@ function recordParseOfficialCsv(text, platform) {
     const version = get(cells, "バージョン");
     for (const difficulty of availableDifficulties) {
       const status = recordMapImportClearType(get(cells, difficulty + " クリアタイプ"));
-      if (status === null) continue;
-      if (status === undefined) { unsupported += 1; continue; }
-      if (platform === "inf" && status === "no-play") continue;
       const csvLevel = Number(get(cells, difficulty + " 難易度"));
+      if (status === null && !(csvLevel > 0)) continue;
       const countAsUnmatched = platform === "inf" || (Number.isFinite(csvLevel) && csvLevel >= recordImportMinimumLevel);
       const chartIds = recordGetImportChartIds(title, version, difficulty);
+      for (const id of chartIds.length ? chartIds : recordGetImportChartIds(title, version, difficulty, { includeAmbiguous: true })) {
+        presentIds.add(id);
+      }
+      if (status === null) continue;
+      if (status === undefined) { unsupported += 1; continue; }
       if (chartIds.length === 0) {
         if (countAsUnmatched) unmatched += 1;
         continue;
@@ -362,7 +389,13 @@ function recordParseOfficialCsv(text, platform) {
       matched += 1;
     }
   }
-  return { updates, matched, unmatched, ambiguous, unsupported, duplicate };
+  return { updates, presentIds, availableDifficulties, matched, unmatched, ambiguous, unsupported, duplicate };
+}
+
+function recordGetCsvMissingChartIds(rows, { presentIds, availableDifficulties }) {
+  const difficulties = new Set(availableDifficulties);
+  return rows.filter(row => difficulties.has(row.difficulty) && !presentIds.has(row.chartId))
+    .map(row => row.chartId);
 }
 function recordSetCsvMessage(message, isError = false, isWarning = false) {
   if (!recordElements.csvMessage) return;
@@ -464,19 +497,19 @@ async function recordHandleCsvImport() {
       const skipped = result.unmatched + result.ambiguous;
       throw new Error("登録できる譜面が見つかりませんでした。" + (skipped ? " 照合できない譜面: " + skipped.toLocaleString() + "件。" : ""));
     }
-    const previousStatuses = new Map(
-      [...result.updates.keys()].map((chartId) => [
-        chartId,
-        recordState.records.get(chartId)?.status ?? "unregistered",
-      ]),
-    );
-    await recordWriteStatuses(result.updates, {
+    const { changes, existingRecords, csvUnownedCount } = await recordWriteStatuses(result.updates, {
       recordHistory: !showImportCta,
       source: "csv-import",
-      beforeStatuses: previousStatuses,
+      csvMissingIds: recordGetCsvMissingChartIds(recordState.rows, result),
     });
+    const previousStatuses = new Map();
+    const importedStatuses = new Map();
+    recordApplyRecords([...existingRecords.values()]);
     window.cpiRecommendationCache?.invalidate(platform);
-    for (const [chartId, status] of result.updates) {
+    for (const { chartId, beforeStatus, afterStatus: status, changed } of changes) {
+      if (!changed) continue;
+      previousStatuses.set(chartId, beforeStatus);
+      importedStatuses.set(chartId, status);
       const previousRecord = recordState.records.get(chartId);
       if (previousRecord?.status === status) {
         continue;
@@ -494,6 +527,7 @@ async function recordHandleCsvImport() {
     }
     recordRender();
     let message = recordPlatformLabels[platform] + "に" + result.updates.size.toLocaleString() + "譜面を登録しました。";
+    if (csvUnownedCount) message += " CSVにない未登録譜面 " + csvUnownedCount.toLocaleString() + "件を未所持・未解禁にしました。";
     if (result.unmatched) message += " 対応しない譜面 " + result.unmatched.toLocaleString() + "件は変更していません。";
     if (result.ambiguous) message += " 判別できない譜面 " + result.ambiguous.toLocaleString() + "件は変更していません。";
     if (fileWarning) message += " " + fileWarning;
@@ -502,7 +536,7 @@ async function recordHandleCsvImport() {
       onUndo: recordWrapUndo(async () => {
         await recordWriteStatuses(previousStatuses, {
           source: "csv-undo",
-          beforeStatuses: result.updates,
+          beforeStatuses: importedStatuses,
         });
         for (const [chartId, status] of previousStatuses) {
           const currentRecord = recordState.records.get(chartId);

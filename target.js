@@ -74,8 +74,7 @@ const targetDefaultStatusFilter = targetStatuses
   .filter(({ value }) => !["unowned", "clear", "hard"].includes(value))
   .map(({ value }) => value);
 const targetDefaultRecommendationStatusFilter = targetStatuses
-  .filter(({ value }) => !["unowned", "hard"].includes(value)
-    && (targetPlatform?.platform !== "inf" || value !== "unregistered"))
+  .filter(({ value }) => !["unowned", "hard"].includes(value))
   .map(({ value }) => value);
 const targetRecommendationSettingsKey = targetPlatformKey("cpi-next-target-recommendation-statuses");
 const targetRecommendationPredDifferencesVisibleKey = targetPlatformKey("cpi-next-target-recommendation-pred-differences-visible");
