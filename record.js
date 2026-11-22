@@ -144,6 +144,7 @@ function recordBuildImportIndex(rows, aliases = window.__RECORD_IMPORT_INDEX__) 
   const byId = new Map(rows.map(row => [String(row.chartId), row]));
   const entries = new Map();
   const titleDifficulties = new Map();
+  const quotedTitleFallback = new Map();
   function add(title, version, difficulty, chartId) {
     const row = byId.get(String(chartId));
     if (!row || row.difficulty !== difficulty || !title) return;
@@ -157,7 +158,13 @@ function recordBuildImportIndex(rows, aliases = window.__RECORD_IMPORT_INDEX__) 
   for (const row of rows) {
     const version = recordNormalizeImportText(row.officialVersion);
     for (const title of new Set([row.officialTitle, row.title])) {
-      add(recordNormalizeImportText(title), version, row.difficulty, row.chartId);
+      const titleKey = recordNormalizeImportText(title);
+      add(titleKey, version, row.difficulty, row.chartId);
+      const unquotedTitleKey = titleKey.replaceAll('"', "");
+      if (!unquotedTitleKey || !version) continue;
+      const key = [unquotedTitleKey, version, row.difficulty].join(separator);
+      if (!quotedTitleFallback.has(key)) quotedTitleFallback.set(key, new Map());
+      quotedTitleFallback.get(key).set(String(row.chartId), Number(row.level));
     }
   }
   // Keep legacy aliases, but never let them register charts removed from the dataset.
@@ -180,10 +187,10 @@ function recordBuildImportIndex(rows, aliases = window.__RECORD_IMPORT_INDEX__) 
     if (collisionTitles.has(title)) versioned[key] = [...ids];
     else plain[[title, difficulty].join(separator)] = [...ids];
   }
-  return { collisionTitles, plain, versioned };
+  return { collisionTitles, plain, versioned, quotedTitleFallback };
 }
 
-function recordGetImportChartIds(title, version, difficulty, { includeAmbiguous = false } = {}) {
+function recordGetImportChartIds(title, version, difficulty, { includeAmbiguous = false, csvLevel } = {}) {
   if (!recordImportIndex) return [];
   const titleKey = recordNormalizeImportText(title);
   const difficultyKey = String(difficulty ?? "").trim().toUpperCase();
@@ -195,7 +202,15 @@ function recordGetImportChartIds(title, version, difficulty, { includeAmbiguous 
   const values = source?.[key];
   if (Array.isArray(values)) return values;
   if (values) return [values];
-  if (!isCollision) return [];
+  if (!isCollision) {
+    // Try the quote-only variant after the regular lookup, with the CSV version required.
+    const fallbackKey = [titleKey.replaceAll('"', ""), versionKey, difficultyKey].join(separator);
+    const candidates = recordImportIndex.quotedTitleFallback?.get(fallbackKey);
+    if (!candidates) return [];
+    if (candidates.size > 1) return [...candidates.keys()];
+    const [[id, level]] = candidates;
+    return csvLevel > 0 && csvLevel !== level ? [] : [id];
+  }
 
   // A title can be marked as colliding only because another difficulty uses it.
   // Fall back to the unique title+difficulty match, but keep same-difficulty
@@ -384,8 +399,8 @@ function recordParseOfficialCsv(text, platform) {
       const csvLevel = Number(get(cells, difficulty + " 難易度"));
       if (status === null && !(csvLevel > 0)) continue;
       const countAsUnmatched = platform === "inf" || (Number.isFinite(csvLevel) && csvLevel >= recordImportMinimumLevel);
-      const chartIds = recordGetImportChartIds(title, version, difficulty);
-      for (const id of chartIds.length ? chartIds : recordGetImportChartIds(title, version, difficulty, { includeAmbiguous: true })) {
+      const chartIds = recordGetImportChartIds(title, version, difficulty, { csvLevel });
+      for (const id of chartIds.length ? chartIds : recordGetImportChartIds(title, version, difficulty, { includeAmbiguous: true, csvLevel })) {
         presentIds.add(id);
       }
       if (status === null) continue;

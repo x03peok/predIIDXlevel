@@ -124,6 +124,29 @@ test("official CSV rejects broken records and accepts quoted fields and blank li
   `, createContext(["record.js"]));
 });
 
+test("quoted CSV titles match only a unique chart of the same version, difficulty and level", () => {
+  vm.runInContext(`
+    recordEntityDecoder = document.createElement('textarea');
+    const chart = (chartId, title, officialVersion = 'ZINRAI', difficulty = 'ANOTHER') =>
+      ({ chartId, title, officialTitle: title, officialVersion, difficulty, level: 10 });
+    recordImportIndex = recordBuildImportIndex([
+      chart('1', 'Title Forza'), chart('2', 'Title Forza', 'OTHER', 'HYPER'),
+      chart('3', 'Ambiguous Song'), chart('4', 'Ambiguous "Song"'),
+    ], null);
+    const header = 'バージョン,タイトル,ANOTHER クリアタイプ,ANOTHER 難易度';
+    const result = recordParseOfficialCsv([
+      header, 'ZINRAI,Title "Forza",CLEAR,10',
+      'UNKNOWN,Title "Forza",CLEAR,10', 'ZINRAI,Title "Forza",CLEAR,11',
+      'ZINRAI,Ambiguous S"ong",CLEAR,10',
+    ].join('\\n'), 'ac');
+    assert.deepEqual([...result.updates], [['1', 'clear']]);
+    assert.equal(result.unmatched, 2);
+    assert.equal(result.ambiguous, 1);
+    assert.deepEqual(recordGetImportChartIds('Ambiguous "Song"', 'ZINRAI', 'ANOTHER'), ['4']);
+    assert.deepEqual(recordGetImportChartIds('Title "Forza"', 'ZINRAI', 'HYPER'), []);
+  `, createContext(["record.js"]));
+});
+
 test("diagnosis treats missing and invalid Pred as null, never zero", () => {
   vm.runInContext(`
     for (const value of ['', '  ', null, undefined, NaN, Infinity, 'invalid', 'null']) {
