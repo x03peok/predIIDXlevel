@@ -175,6 +175,7 @@ function loadRows(sourcePath = dataPath, sourceText = fs.readFileSync(sourcePath
     ]));
     // Missing or blank platform metadata keeps legacy charts available in both catalogs.
     row.platforms = readChartPlatforms(cells[headerIndex.get("platforms")], row.chart_id);
+    row.official_title_inf = (cells[headerIndex.get("official_title_inf")] ?? "").trim();
     return row;
   });
 }

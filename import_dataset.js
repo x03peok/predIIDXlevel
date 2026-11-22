@@ -43,7 +43,7 @@ function normalizeSourceTitle(title, chartId) {
   return ["6042", "6043"].includes(String(chartId)) && title === "9月1日" ? "9-1" : title;
 }
 
-function normalizeRows(source, existingPlatforms = new Map()) {
+function normalizeRows(source, existingPlatforms = new Map(), existingInfTitles = new Map()) {
   const rows = source.map(row => {
     const bpm = row.bpm ?? row.textage_bpm ?? "";
     const match = bpm.trim().match(/^(\d+(?:\.\d+)?)(?:[~\uFF5E\u301C-](\d+(?:\.\d+)?))?$/);
@@ -67,6 +67,10 @@ function normalizeRows(source, existingPlatforms = new Map()) {
         row.platform ?? row.platforms ?? existingPlatforms.get(String(row.chart_id).trim()),
         row.chart_id,
       ).join("|"),
+      official_title_inf: normalizeSourceTitle(
+        row.official_title_inf ?? existingInfTitles.get(String(row.chart_id).trim()) ?? "",
+        row.chart_id,
+      ),
     };
   });
   if (!rows.length || rows.some(row => Object.values(row).some(value => value === undefined))) {
@@ -131,15 +135,19 @@ function importDataset(directory, root = __dirname, elementsPath) {
   const source = readCsv(fs.readFileSync(inputFile("data.csv", "data_new.csv"), "utf8"));
   const dataPath = path.join(root, "data.js");
   const existingPlatforms = new Map();
-  if (source.length && !Object.hasOwn(source[0], "platform") && !Object.hasOwn(source[0], "platforms") && fs.existsSync(dataPath)) {
+  const existingInfTitles = new Map();
+  const needsPlatforms = source.length && !Object.hasOwn(source[0], "platform") && !Object.hasOwn(source[0], "platforms");
+  const needsInfTitles = source.length && !Object.hasOwn(source[0], "official_title_inf");
+  if ((needsPlatforms || needsInfTitles) && fs.existsSync(dataPath)) {
     const existingData = fs.readFileSync(dataPath, "utf8");
     if (existingData.includes("__CSV_BUNDLE__")) {
       for (const row of loadRows(dataPath, existingData)) {
-        existingPlatforms.set(row.chart_id, row.platforms.join("|"));
+        if (needsPlatforms) existingPlatforms.set(row.chart_id, row.platforms.join("|"));
+        if (needsInfTitles) existingInfTitles.set(row.chart_id, row.official_title_inf);
       }
     }
   }
-  let charts = normalizeRows(source, existingPlatforms);
+  let charts = normalizeRows(source, existingPlatforms, existingInfTitles);
   const stageSource = readCsv(fs.readFileSync(inputFile("stage_skills.csv", "stage_skills_long.csv"), "utf8"));
   const courses = stageSource.length && Object.hasOwn(stageSource[0], "stage") ? groupStageRows(stageSource) : stageSource;
   const context = { window: {} };

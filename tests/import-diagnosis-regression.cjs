@@ -190,3 +190,23 @@ test("identical official titles resolve to the chart ID for the CSV edition only
     }
   `, createContext(["record.js"]));
 });
+
+test("INFINITAS accepts both official titles and silently skips absent charts", () => {
+  vm.runInContext(`
+    recordEntityDecoder = document.createElement('textarea');
+    recordImportIndex = recordBuildImportIndex([
+      { chartId: '1', title: 'LOVE SHINE', officialTitle: 'LOVE SHINE',
+        officialTitleInf: 'LOVE♡SHINE', officialVersion: '9th style', difficulty: 'ANOTHER', level: 10 },
+    ], null);
+    const headers = 'バージョン,タイトル,ANOTHER クリアタイプ,ANOTHER 最終スコア更新時刻,ANOTHER 最終プレー日時';
+    for (const title of ['LOVE SHINE', 'LOVE♡SHINE']) {
+      const result = recordParseOfficialCsv([
+        headers, '9th style,' + title + ',CLEAR,,', '9th style,Absent Chart,HARD CLEAR,,',
+      ].join('\\n'), 'inf');
+      assert.deepEqual([...result.updates], [['1', 'clear']]);
+      assert.equal(result.unmatched, 0);
+    }
+    const ac = recordParseOfficialCsv('バージョン,タイトル,ANOTHER クリアタイプ,ANOTHER 難易度\\n9th style,Absent Chart,CLEAR,10', 'ac');
+    assert.equal(ac.unmatched, 1);
+  `, createContext(["record.js"]));
+});

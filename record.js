@@ -157,7 +157,7 @@ function recordBuildImportIndex(rows, aliases = window.__RECORD_IMPORT_INDEX__) 
   }
   for (const row of rows) {
     const version = recordNormalizeImportText(row.officialVersion);
-    for (const title of new Set([row.officialTitle, row.title])) {
+    for (const title of new Set([row.officialTitle, row.officialTitleInf, row.title])) {
       const titleKey = recordNormalizeImportText(title);
       add(titleKey, version, row.difficulty, row.chartId);
       const unquotedTitleKey = titleKey.replaceAll('"', "");
@@ -398,7 +398,7 @@ function recordParseOfficialCsv(text, platform) {
       const status = recordMapImportClearType(get(cells, difficulty + " クリアタイプ"));
       const csvLevel = Number(get(cells, difficulty + " 難易度"));
       if (status === null && !(csvLevel > 0)) continue;
-      const countAsUnmatched = platform === "inf" || (Number.isFinite(csvLevel) && csvLevel >= recordImportMinimumLevel);
+      const countAsUnmatched = platform !== "inf" && Number.isFinite(csvLevel) && csvLevel >= recordImportMinimumLevel;
       const chartIds = recordGetImportChartIds(title, version, difficulty, { csvLevel });
       for (const id of chartIds.length ? chartIds : recordGetImportChartIds(title, version, difficulty, { includeAmbiguous: true, csvLevel })) {
         presentIds.add(id);
@@ -685,6 +685,7 @@ function recordLoadRows(platform = "ac") {
       chartId: get("chart_id"),
       title: recordNormalizeTitle(get("title")),
       officialTitle: recordNormalizeTitle(get("official_title") || get("title")),
+      officialTitleInf: recordNormalizeTitle(get("official_title_inf")),
       officialVersion: get("official_version"),
       difficulty: get("difficulty").toUpperCase(),
       level: get("original_level"),

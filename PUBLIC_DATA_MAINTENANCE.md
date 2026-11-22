@@ -64,8 +64,11 @@ Then bump the data bundle cache keys in the HTML templates and run the chart
 page generator below. A full generation also updates the chart sitemap entries.
 
 The official CSV import index is built on every record-page initialization from
-the current bundle's `official_title`, `official_version`, and difficulty. Keep
-these fields populated during updates. `record-import-index.js` supplements only
+the current bundle's `official_title`, optional `official_title_inf`,
+`official_version`, and difficulty. Either title can match within the selected
+platform's catalog. An import source without `official_title_inf` retains the
+existing alternate title by chart ID; include the column to update or clear it.
+`record-import-index.js` supplements only
 legacy aliases; new charts do not require a separate manual index update. Aliases
 for IDs absent from the current dataset are ignored, and same-name charts remain
 version-specific when the title and difficulty are ambiguous.

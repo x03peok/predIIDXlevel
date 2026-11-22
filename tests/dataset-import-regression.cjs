@@ -17,6 +17,14 @@ test("imports BPM ranges and fixed BPM without including unrelated source number
   assert.throws(() => normalizeRows([source({ bpm: "unknown" })]));
 });
 
+test("retains a separate INFINITAS title when the source omits its column", () => {
+  const saved = new Map([["2", "INFINITAS title"]]);
+  const getInfTitle = overrides => normalizeRows([source(overrides)], new Map(), saved)[0].official_title_inf;
+  assert.equal(getInfTitle({}), "INFINITAS title");
+  assert.equal(getInfTitle({ official_title_inf: "New title" }), "New title");
+  assert.equal(getInfTitle({ official_title_inf: "" }), "");
+});
+
 test("preserves missing predictions, exact chart IDs and supplied titles", () => {
   const [chart] = normalizeRows([source({ chart_id: "12345", title: 'A, "B"', bpm: "", EASY_Pred: "", CLEAR_Pred: "", HARD_Pred: "" })]);
   assert.equal(chart.chart_id, "12345");
