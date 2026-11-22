@@ -100,8 +100,8 @@ function recordParseCsv(text, { strict = false } = {}) {
     if (strict && quoteClosed && character !== "," && character !== "\r" && character !== "\n") {
       throw invalidFormat("CSVの引用符の後に余分な文字があります。");
     }
-    if (character === '"') {
-      if (strict && cell !== "") throw invalidFormat("CSVの引用符の位置が不正です。");
+    // Official exports can include literal quotes inside unquoted fields.
+    if (character === '"' && (!strict || cell === "")) {
       inQuotes = true;
     } else if (character === ",") {
       row.push(cell);
@@ -355,16 +355,20 @@ function recordParseOfficialCsv(text, platform) {
   const parsed = recordParseCsv(text, { strict: true });
   if (!parsed.length) throw new Error("CSVが空です。");
   const headers = parsed.shift().map((header) => header.trim());
+  const headerIndex = new Map(headers.map((header, index) => [header, index]));
+  const csvPlatform = recordGetCsvPlatform(headerIndex);
+  // INFINITAS can have a trailing comma on the header but not on the data rows.
+  const optionalTrailingColumn = csvPlatform === "inf" && headers.at(-1) === "";
   for (const [index, row] of parsed.entries()) {
     if (row.length === 1 && row[0].trim() === "") continue;
-    if (row.length !== headers.length) {
+    const expectedWidth = optionalTrailingColumn ? headers.length - 1 : headers.length;
+    const hasOptionalBlank = optionalTrailingColumn && row.length === headers.length && row.at(-1).trim() === "";
+    if (row.length !== expectedWidth && !hasOptionalBlank) {
       throw new Error("CSVのデータ" + (index + 1) + "行目の列数が見出しと一致しません。公式CSVファイルを選び直してください。");
     }
   }
-  const headerIndex = new Map(headers.map((header, index) => [header, index]));
   if (!headerIndex.has("バージョン") || !headerIndex.has("タイトル")) throw new Error("公式CSVの列を確認できませんでした。");
   if (platform) {
-    const csvPlatform = recordGetCsvPlatform(headerIndex);
     if (!csvPlatform) throw new Error("CSVがAC版かINFINITAS版か判別できません。公式のSP CSVを選択してください。");
     if (csvPlatform !== platform) {
       throw new Error("このCSVは" + recordPlatformLabels[csvPlatform] + "版です。登録先を" + recordPlatformLabels[csvPlatform] + "に切り替えてから、再度インポートしてください。");

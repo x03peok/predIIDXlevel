@@ -86,7 +86,7 @@ test("AC and INFINITAS import NO PLAY and only infer absence for supported, unli
     ].map(([chartId, title, officialVersion, difficulty]) => ({ chartId, title, officialVersion, difficulty }));
     recordImportIndex = recordBuildImportIndex(rows);
     for (const platform of ['ac', 'inf']) {
-      const lastColumns = platform === 'ac' ? 'ANOTHER 難易度' : 'ANOTHER 最終スコア更新時刻,ANOTHER 最終プレー日時';
+      const lastColumns = platform === 'ac' ? 'ANOTHER 難易度' : 'ANOTHER 最終スコア更新時刻,ANOTHER 最終プレー日時,';
       const csv = [
         'バージョン,タイトル,ANOTHER クリアタイプ,' + lastColumns,
         'ZINRAI,Played,CLEAR,10',
@@ -99,6 +99,10 @@ test("AC and INFINITAS import NO PLAY and only infer absence for supported, unli
       assert.deepEqual([...result.updates], [['1', 'clear'], ['2', 'no-play']]);
       assert.deepEqual(recordGetCsvMissingChartIds(rows, result), platform === 'ac' ? ['3'] : ['3', '8']);
       assert.throws(() => recordParseOfficialCsv(csv, platform === 'ac' ? 'inf' : 'ac'));
+      if (platform === 'inf') {
+        assert.doesNotThrow(() => recordParseOfficialCsv(csv + ',', platform));
+        assert.throws(() => recordParseOfficialCsv(csv.slice(0, -1), platform), /列数が見出しと一致しません/);
+      }
     }
   `, createContext(["record.js"]));
 });
@@ -113,7 +117,8 @@ test("official CSV rejects broken records and accepts quoted fields and blank li
     assert.throws(() => parse('ZINRAI,Truncated,CLEAR'), /列数が見出しと一致しません/);
     assert.throws(() => parse('ZINRAI,Extra,CLEAR,10,11'), /列数が見出しと一致しません/);
     assert.throws(() => parse('ZINRAI,"Quoted"suffix,CLEAR,10'), /引用符の後に余分な文字/);
-    assert.throws(() => parse('ZINRAI,Invalid"quote",CLEAR,10'), /引用符の位置が不正/);
+    assert.doesNotThrow(() => parse('ZINRAI,Title "Forza",CLEAR,10'));
+    assert.equal(recordParseCsv('BEMANI Sound Team "Artist",CLEAR', { strict: true })[0][0], 'BEMANI Sound Team "Artist"');
   `, createContext(["record.js"]));
 });
 
