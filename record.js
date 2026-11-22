@@ -238,7 +238,6 @@ function recordWriteStatuses(statuses, options = {}) {
       reject(new Error("ローカル保存を開けませんでした."));
       return;
     }
-    const csvMissingIds = options.csvMissingIds;
     const beforeStatuses = options.beforeStatuses instanceof Map ? options.beforeStatuses : null;
     const recordHistory = options.recordHistory !== false;
     const source = String(options.source ?? "record");
@@ -255,17 +254,9 @@ function recordWriteStatuses(statuses, options = {}) {
     const updatedAt = new Date().toISOString();
     let changes = [];
     let existingRecords;
-    let csvUnownedCount = 0;
     const apply = (records) => {
       existingRecords = records;
-      const updates = new Map(statuses);
-      for (const chartId of csvMissingIds ?? []) {
-        if (!updates.has(chartId) && (records.get(chartId)?.status ?? "unregistered") === "unregistered") {
-          updates.set(chartId, "unowned");
-          csvUnownedCount += 1;
-        }
-      }
-      changes = [...updates].map(([chartId, status]) => {
+      changes = [...statuses].map(([chartId, status]) => {
         const normalizedChartId = String(chartId);
         const existingRecord = records.get(normalizedChartId);
         const beforeStatus = beforeStatuses?.get(normalizedChartId)
@@ -317,7 +308,7 @@ function recordWriteStatuses(statuses, options = {}) {
       }
     };
     transaction.oncomplete = () => {
-      resolve({ changes, existingRecords, csvUnownedCount });
+      resolve({ changes, existingRecords });
       for (const change of changes) {
         if (!change.changed) continue;
         window.dispatchEvent(new CustomEvent("cpi:status-changed", {
@@ -335,8 +326,8 @@ function recordWriteStatuses(statuses, options = {}) {
         transaction.abort();
       }
     };
-    if (csvMissingIds) {
-      // Check for records added in other tabs in the same transaction as the CSV write.
+    if (options.readCurrentRecords) {
+      // Use the current database values as the before-state for history and Undo.
       const request = store.getAll();
       request.onsuccess = () => write(new Map(request.result.map(record => [String(record.chartId), record])));
     } else {
@@ -409,13 +400,7 @@ function recordParseOfficialCsv(text, platform) {
       matched += 1;
     }
   }
-  return { updates, presentIds, availableDifficulties, matched, unmatched, ambiguous, unsupported, duplicate };
-}
-
-function recordGetCsvMissingChartIds(rows, { presentIds, availableDifficulties }) {
-  const difficulties = new Set(availableDifficulties);
-  return rows.filter(row => difficulties.has(row.difficulty) && !presentIds.has(row.chartId))
-    .map(row => row.chartId);
+  return { updates, presentIds, matched, unmatched, ambiguous, unsupported, duplicate };
 }
 
 function recordGetMissingPreviousCsvRows(rows, previousIds, presentIds) {
@@ -431,33 +416,21 @@ function recordReadCsvSnapshot(key) {
   return new Set();
 }
 
-function recordConfirmCsvImport(missingRows, unownedCount) {
+function recordConfirmCsvImport(missingRows) {
   const dialog = document.getElementById("recordCsvConfirm");
   const title = dialog.querySelector("h2");
   const list = dialog.querySelector("ul");
-  const note = dialog.querySelector("p");
-  const option = dialog.querySelector("label");
-  const checkbox = option.querySelector("input");
-  title.textContent = missingRows.length
-    ? "以下の" + missingRows.length.toLocaleString() + "譜面が見つかりません。取り込みを実行しますか？"
-    : "CSVテキストを取り込みますか？";
+  title.textContent = "以下の" + missingRows.length.toLocaleString() + "譜面が見つかりません。取り込みを実行しますか？";
   list.replaceChildren(...missingRows.map(row => {
     const item = document.createElement("li");
     const difficulty = recordDifficultyLabels[row.difficulty] ?? row.difficulty;
     item.textContent = row.title + " [" + difficulty + "]";
     return item;
   }));
-  list.hidden = !missingRows.length;
-  note.textContent = missingRows.length
-    ? "前回のCSVにあった譜面です。公式での配信終了などでも表示されます。取り込む場合は、今回のCSVにあるランプだけを保存します。"
-    : "初期状態では、CSVにあるランプだけを保存します。";
-  option.hidden = !unownedCount;
-  checkbox.checked = false;
-  option.querySelector("span").textContent = "CSVにない未登録の" + unownedCount.toLocaleString() + "譜面を「未所持・未解禁」にする";
   dialog.returnValue = "";
   dialog.showModal();
   return new Promise(resolve => dialog.addEventListener("close", () => {
-    resolve({ confirmed: dialog.returnValue === "import", markUnowned: !option.hidden && checkbox.checked });
+    resolve(dialog.returnValue === "import");
   }, { once: true }));
 }
 function recordSetCsvMessage(message, isError = false, isWarning = false) {
@@ -564,27 +537,14 @@ async function recordHandleCsvImport() {
     const snapshotKey = "cpi-next-record-csv-chart-ids-" + platform;
     const previousCsvIds = recordReadCsvSnapshot(snapshotKey);
     const missingRows = recordGetMissingPreviousCsvRows(recordState.rows, previousCsvIds, result.presentIds);
-    let csvMissingIds = missingRows.length ? [] : recordGetCsvMissingChartIds(recordState.rows, result);
-    const markUnownedByDefault = !isPaste && !missingRows.length;
-    if (!markUnownedByDefault) {
-      // Match the preview to the records currently saved, not a potentially stale tab.
-      if (csvMissingIds.length) {
-        const records = new Map((await recordReadAll()).map(record => [String(record.chartId), record.status]));
-        csvMissingIds = csvMissingIds.filter(id => (records.get(id) ?? "unregistered") === "unregistered");
-      }
-      if (missingRows.length || csvMissingIds.length) {
-        const decision = await recordConfirmCsvImport(missingRows, csvMissingIds.length);
-        if (!decision.confirmed) {
-          recordSetCsvMessage("CSVの取り込みをキャンセルしました。");
-          return;
-        }
-        if (!decision.markUnowned) csvMissingIds = [];
-      }
+    if (missingRows.length && !(await recordConfirmCsvImport(missingRows))) {
+      recordSetCsvMessage("CSVの取り込みをキャンセルしました。");
+      return;
     }
-    const { changes, existingRecords, csvUnownedCount } = await recordWriteStatuses(result.updates, {
+    const { changes, existingRecords } = await recordWriteStatuses(result.updates, {
       recordHistory: !showImportCta,
       source: "csv-import",
-      csvMissingIds,
+      readCurrentRecords: true,
     });
     if (!missingRows.length) {
       try { window.localStorage.setItem(snapshotKey, JSON.stringify([...result.presentIds])); } catch { /* Optional persistence. */ }
@@ -614,7 +574,6 @@ async function recordHandleCsvImport() {
     }
     recordRender();
     let message = recordPlatformLabels[platform] + "に" + result.updates.size.toLocaleString() + "譜面を登録しました。";
-    if (csvUnownedCount) message += " CSVにない未登録譜面 " + csvUnownedCount.toLocaleString() + "件を未所持・未解禁にしました。";
     if (result.unmatched) message += " 対応しない譜面 " + result.unmatched.toLocaleString() + "件は変更していません。";
     if (result.ambiguous) message += " 判別できない譜面 " + result.ambiguous.toLocaleString() + "件は変更していません。";
     if (fileWarning) message += " " + fileWarning;

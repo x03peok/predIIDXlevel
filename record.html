@@ -37,7 +37,7 @@
   <script defer src="storage.js?v=20261121-1"></script>
   <script defer src="update-history.js?v=20261002-1"></script>
   <script defer src="recommendation-cache.js?v=20261121-1"></script>
-  <script defer src="record.js?v=20261122-4"></script>
+  <script defer src="record.js?v=20261122-5"></script>
   <script defer src="platform-migration.js?v=20261121-1"></script>
 </head>
 <body data-page="record">
@@ -159,7 +159,7 @@
               <li class="record-csv-download--inf"><a href="https://p.eagate.573.jp/game/infinitas/2/djdata/score_download.html&amp;play_style=0" target="_blank" rel="noopener noreferrer">INFINITAS版の公式CSVダウンロード</a></li>
               <li>CSVの内容はこのブラウザ内で処理され、サーバーには送信されません。</li>
               <li>SPのプレーデータのみ対応しています。</li>
-              <li>CSVにない未登録譜面は「未所持・未解禁」として保存できます。テキスト貼り付け時は確認画面で選択できます。</li>
+              <li>CSVにない譜面の登録状況は変更しません。</li>
               <li>未対応譜面のクリアランプは変更しません。</li>
               <li>誤動作の原因となるため、編集・改変したCSVは登録しないでください。</li>
             </ul>
@@ -197,9 +197,8 @@
   <dialog id="recordCsvConfirm" class="record-csv-confirm" aria-labelledby="recordCsvConfirmTitle">
     <form method="dialog">
       <h2 id="recordCsvConfirmTitle"></h2>
-      <ul hidden></ul>
-      <p></p>
-      <label hidden><input type="checkbox"> <span></span></label>
+      <ul></ul>
+      <p>前回のCSVにあった譜面です。公式での配信終了などでも表示されます。取り込む場合は、今回のCSVにあるランプだけを保存します。</p>
       <div class="record-csv-confirm__actions">
         <button class="record-button record-button--secondary" value="cancel" autofocus>キャンセル</button>
         <button class="record-button" value="import">取り込む</button>

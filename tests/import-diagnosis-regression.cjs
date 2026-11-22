@@ -71,7 +71,7 @@ test("every current official title resolves to its chart, including the 75 new c
   `, createContext(["data.js", "record-import-index.js", "record.js"]));
 });
 
-test("AC and INFINITAS import NO PLAY and only infer absence for supported, unlisted charts", () => {
+test("AC and INFINITAS import NO PLAY without changing absent charts", () => {
   vm.runInContext(`
     recordEntityDecoder = document.createElement('textarea');
     const rows = [
@@ -97,7 +97,9 @@ test("AC and INFINITAS import NO PLAY and only infer absence for supported, unli
       ].map((line, index) => platform === 'inf' && index > 0 ? line + ',' : line).join('\\n');
       const result = recordParseOfficialCsv(csv, platform);
       assert.deepEqual([...result.updates], [['1', 'clear'], ['2', 'no-play']]);
-      assert.deepEqual(recordGetCsvMissingChartIds(rows, result), platform === 'ac' ? ['3'] : ['3', '8']);
+      assert.deepEqual([...result.presentIds].sort(), platform === 'ac' ? ['1','2','4','5','6','8'] : ['1','2','4','5','6']);
+      const oldIds = new Set(['1', '3', '999']);
+      assert.deepEqual(recordGetMissingPreviousCsvRows(rows, oldIds, result.presentIds).map(row => row.chartId), ['3']);
       assert.throws(() => recordParseOfficialCsv(csv, platform === 'ac' ? 'inf' : 'ac'));
       if (platform === 'inf') {
         assert.doesNotThrow(() => recordParseOfficialCsv(csv + ',', platform));
