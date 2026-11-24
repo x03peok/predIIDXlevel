@@ -40,7 +40,7 @@ test("versions are idempotent, immutable, verified and reused when reverting", (
     const first = generatePublicData(directory, { rows: [row()], now: new Date("2026-10-15T16:00:00Z") });
     assert.match(first.dataVersion, /^20261016-/);
     const original = fs.readFileSync(path.join(root, first.url), "utf8");
-    const repeat = generatePublicData(directory, { rows: [row({ features: "チャージノート++、皿複合+" })], now: new Date("2026-10-20T00:00:00Z") });
+    const repeat = generatePublicData(directory, { rows: [row()], now: new Date("2026-10-20T00:00:00Z") });
     assert.deepEqual(repeat, first);
     assert.equal(read(path.join(root, "manifest.json")).versions.length, 1);
     generatePublicData(directory, { rows: [row()], check: true });

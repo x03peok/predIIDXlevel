@@ -53,6 +53,21 @@ test("method A averages raw SD first; vectors use gauge-specific clipped impact 
   assert(published.features.every(feature => Number.isInteger(feature.strength) && feature.strength >= 1 && feature.strength <= 3));
 });
 
+test("Feature tags and public JSON preserve descending three-gauge internal strength order", () => {
+  const { chart, element } = fixture();
+  const strengths = { "同時押し": 2.5, "単鍵ラッシュ": 2.5, "物量": 3.5 };
+  for (const mode of modes) {
+    for (const [feature, value] of Object.entries(strengths)) {
+      element[`${mode}_${feature}_amount_sd`] = String(value);
+      if (!Object.hasOwn(element, `${mode}_${feature}_impact_sd`)) continue;
+      element[`${mode}_${feature}_impact_sd`] = String(value);
+    }
+  }
+  const result = buildFeatureDataset([chart], [element]);
+  assert.equal(result.charts[0].features, "物量++、同時押し+、単鍵ラッシュ+");
+  assert.deepEqual(buildCharts(result.charts)[0].features.map(feature => feature.id), ["density", "chord", "single_note_rush"]);
+});
+
 test("missing metrics remain null; invalid, partial, mismatched and duplicate inputs fail closed", () => {
   const { chart, element } = fixture();
   const empty = Object.fromEntries(Object.entries(element).map(([key, value]) => [key, key.endsWith("_sd") ? "" : value]));

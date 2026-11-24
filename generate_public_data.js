@@ -53,8 +53,7 @@ function buildCharts(rows) {
       if (!featureId || strengths.has(featureId)) throw new Error(`Invalid feature for chart ${id}: ${token}`);
       strengths.set(featureId, match[2].length + 1);
     }
-    const features = featureDefinitions.filter(item => strengths.has(item.id))
-      .map(item => ({ id: item.id, strength: strengths.get(item.id) }));
+    const features = [...strengths].map(([id, strength]) => ({ id, strength }));
     return { id, title, difficulty, level, pred, features };
   });
   if (!charts.length) throw new Error("Refusing to publish an empty dataset.");

@@ -16,6 +16,27 @@ function number(value, label) {
   return parsed;
 }
 
+function sortFeatureTags(features, vectors) {
+  const order = new Map(featureNames.map((name, index) => [name, index]));
+  const strengths = featureNames.map((_, index) => {
+    const values = Array.isArray(vectors)
+      ? vectors.map(vector => vector?.[index]).filter(Number.isFinite)
+      : [];
+    return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : Number.NEGATIVE_INFINITY;
+  });
+  return [...features].sort((left, right) => {
+    const leftName = String(left).replace(/\+{1,2}$/, "");
+    const rightName = String(right).replace(/\+{1,2}$/, "");
+    const leftIndex = order.get(leftName);
+    const rightIndex = order.get(rightName);
+    const leftStrength = leftIndex === undefined ? Number.NEGATIVE_INFINITY : strengths[leftIndex];
+    const rightStrength = rightIndex === undefined ? Number.NEGATIVE_INFINITY : strengths[rightIndex];
+    return rightStrength - leftStrength
+      || (leftIndex ?? Number.MAX_SAFE_INTEGER) - (rightIndex ?? Number.MAX_SAFE_INTEGER)
+      || String(left).localeCompare(String(right), "ja");
+  });
+}
+
 function buildFeatureDataset(charts, elements) {
   const byId = new Map();
   for (const element of elements) {
@@ -52,12 +73,12 @@ function buildFeatureDataset(charts, elements) {
       const { amount, impact } = values[modeIndex];
       return clip(impact ?? amount);
     }));
-    const tags = empty ? [] : inputs.flatMap((values, index) => {
+    const tags = empty ? [] : sortFeatureTags(inputs.flatMap((values, index) => {
       // Average unmodified SD values first; clipping each input would be method B.
       const numbers = values.flatMap(({ amount, impact }) => impact === null ? [amount] : [amount, impact]);
       const score = clip(numbers.reduce((sum, value) => sum + value, 0) / numbers.length);
       return score < 1 ? [] : [featureNames[index] + "+".repeat(score >= 3 ? 2 : score >= 2 ? 1 : 0)];
-    });
+    }), corrections[id]);
     return { ...chart, features: tags.join("、") };
   });
   const id = crypto.createHash("sha256").update(JSON.stringify({ charts: updatedCharts, corrections })).digest("hex").slice(0, 16);
@@ -84,7 +105,7 @@ function generateFeatureData(source, root = __dirname) {
   return result;
 }
 
-module.exports = { featureNames, modes, clip, buildFeatureDataset, serializeFeatureBundles, generateFeatureData };
+module.exports = { featureNames, modes, clip, sortFeatureTags, buildFeatureDataset, serializeFeatureBundles, generateFeatureData };
 if (require.main === module) {
   if (!process.argv[2]) throw new Error("Usage: node generate_feature_data.js <private-chart-elements-csv>");
   generateFeatureData(path.resolve(process.argv[2]));
