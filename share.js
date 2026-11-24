@@ -130,9 +130,9 @@ function shareSafeText(value, maximum = 100) {
   return text.length <= maximum ? text : text.slice(0, maximum);
 }
 
-function shareFormatPred(value) {
+function shareFormatPred(value, fractionDigits = 2) {
   const number = shareSafeNumber(value, -100, 100);
-  return number === null ? "ー" : number.toFixed(2);
+  return number === null ? "ー" : number.toFixed(fractionDigits);
 }
 
 function sharePredClass(value) {
@@ -568,7 +568,7 @@ function shareCreateHistoryPredHistogram(best, row) {
     const currentClass = item.value === targetBin ? " chart-pred-histogram__bar--current" : "";
     const bar = shareCreate("span", "chart-pred-histogram__bar" + currentClass);
     bar.style.height = height.toFixed(2) + "%";
-    bar.title = "Pred " + item.value.toFixed(2) + ": " + item.count + "譜面";
+    bar.title = "Pred " + item.value.toFixed(1) + ": " + item.count + "譜面";
     histogram.append(bar);
   });
 
@@ -588,7 +588,7 @@ function shareCreateHistoryPredHistogram(best, row) {
       } else if (position >= 100) {
         edgeClass = " chart-pred-position__axis-label--end";
       }
-      const label = shareCreate("span", "chart-pred-position__axis-label" + edgeClass, value.toFixed(2));
+      const label = shareCreate("span", "chart-pred-position__axis-label" + edgeClass, value.toFixed(1));
       label.style.left = position.toFixed(2) + "%";
       const color = sharePredColor(value);
       if (color) label.style.setProperty("--numeric-color", color);
@@ -629,7 +629,7 @@ function scheduleShareHistoryHistogramResize() {
     shareRefreshHistoryPredHistograms();
   }, 100);
 }
-function shareAppendHistoryBestEvent(parent, best, showBestClearUpdate) {
+function shareAppendHistoryEvent(parent, best, showBestClearUpdate) {
   const article = shareCreate("article", "mypage-history__event");
   const body = shareCreate("div", "mypage-history__event-body");
   const row = shareRowsById.get(String(best?.i ?? ""));
@@ -667,7 +667,7 @@ function shareAppendHistoryBestEvent(parent, best, showBestClearUpdate) {
     levelPredLine.append(shareCreate("span", "mypage-history__pred mypage-history__pred--missing", "－"));
   } else {
     const predLabel = shareCreate("span", "mypage-history__pred-label", "Pred");
-    const predValue = shareCreate("strong", "mypage-history__pred numeric-value numeric-value--pred", pred.toFixed(2));
+    const predValue = shareCreate("strong", "mypage-history__pred numeric-value numeric-value--pred", pred.toFixed(1));
     shareApplyPredColor(predValue, pred);
     const predGroup = shareCreate("span", "mypage-history__pred-group");
     predGroup.append(predLabel, predValue);
@@ -697,7 +697,7 @@ function shareAppendHistoryBestEvent(parent, best, showBestClearUpdate) {
 
 function shareRenderHistory(payload, content) {
   const section = shareCreate("section", "mypage-history-panel share-history-panel");
-  section.append(shareCreate("p", "share-muted share-history-description", "共有したプレイヤーの" + shareFormatDate(payload.d) + "の更新概要と最高クリアを表示しています。"));
+  section.append(shareCreate("p", "share-muted share-history-description", "共有したプレイヤーの" + shareFormatDate(payload.d) + "のクリア更新を表示しています。"));
 
 
   const counts = payload.c && typeof payload.c === "object" ? payload.c : {};
@@ -722,17 +722,27 @@ function shareRenderHistory(payload, content) {
   const best = payload.b && typeof payload.b === "object" ? payload.b : null;
   const bestId = shareSafeId(best?.i);
   if (best && bestId) {
-    shareAppendHistoryBestEvent(dayEvents, best, payload.u === 1);
+    shareAppendHistoryEvent(dayEvents, best, payload.u === 1);
   } else {
     dayEvents.append(shareCreate("p", "share-muted", "共有された更新がありません。"));
   }
 
+  const history = window.cpiSharePayload?.history;
+  const seenIds = new Set(bestId ? [bestId] : []);
+  if (bestId && history && Array.isArray(payload.l)) {
+    for (const raw of payload.l.slice(0, history.limit - 1)) {
+      const event = history.decodeEntry(raw);
+      if (!event || seenIds.has(event.i)) continue;
+      seenIds.add(event.i);
+      shareAppendHistoryEvent(dayEvents, event, false);
+    }
+  }
   const totalCount = ["a", "e", "c", "h"].reduce((total, code) => {
     const count = Number(counts[code]);
     return total + (Number.isInteger(count) && count > 0 && count <= 9999 ? count : 0);
   }, 0);
-  if (bestId && totalCount > 1) {
-    dayEvents.append(shareCreate("p", "share-history-other", "他" + (totalCount - 1) + "曲"));
+  if (bestId && totalCount > seenIds.size) {
+    dayEvents.append(shareCreate("p", "share-history-other", "他" + (totalCount - seenIds.size) + "曲"));
   }
   day.append(dayEvents);
   const events = shareCreate("div", "mypage-history__events");
@@ -888,7 +898,7 @@ function shareRenderDaily(payload, content) {
 
     const predCell = shareCreate("td", "mono share-daily-table__pred");
     const predValue = row ? row[shareDailyPredKeys[goal]] : null;
-    const pred = shareCreate("span", "numeric-value numeric-value--pred", shareFormatPred(predValue));
+    const pred = shareCreate("span", "numeric-value numeric-value--pred", shareFormatPred(predValue, 1));
     shareApplyPredColor(pred, predValue);
     predCell.append(pred);
 

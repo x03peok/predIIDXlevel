@@ -1788,23 +1788,26 @@ function mypageBuildHistoryShareUrl(dateKey, events, bestClearUpdateEvent) {
     const code = statusCodes[String(event?.afterStatus ?? "").trim().toLowerCase()];
     if (code) counts[code] = (counts[code] ?? 0) + 1;
   }
-  const bestEvent = (Array.isArray(events) ? events : []).slice().sort(mypageCompareUpdateHistoryEvents)[0] ?? null;
-  const bestPayload = bestEvent
-    ? {
-      i: String(bestEvent.chartId ?? ""),
-      b: String(bestEvent.beforeStatus ?? "").trim().toLowerCase(),
-      s: String(bestEvent.afterStatus ?? "").trim().toLowerCase(),
-      p: (() => {
-        const pred = mypageGetHistoryEventPred(bestEvent);
-        return pred === null ? null : Math.round(pred * 100) / 100;
-      })(),
-    }
-    : null;
+  const sorted = (Array.isArray(events) ? events : []).slice().sort(mypageCompareUpdateHistoryEvents);
+  const bestEvent = sorted[0] ?? null;
+  const toPayload = (event) => {
+    const pred = mypageGetHistoryEventPred(event);
+    return {
+      i: String(event.chartId ?? ""),
+      b: String(event.beforeStatus ?? "").trim().toLowerCase(),
+      s: String(event.afterStatus ?? "").trim().toLowerCase(),
+      p: pred === null ? null : Math.round(pred * 100) / 100,
+    };
+  };
+  const history = window.cpiSharePayload?.history;
+  const additional = history ? sorted.slice(1, history.limit)
+    .map(event => history.encodeEntry(toPayload(event))).filter(Boolean) : [];
   const payload = {
     d: String(dateKey ?? ""),
     c: counts,
-    b: bestPayload,
+    b: bestEvent ? toPayload(bestEvent) : null,
     u: bestEvent !== null && bestEvent === bestClearUpdateEvent ? 1 : 0,
+    ...(additional.length ? { l: additional } : {}),
   };
   try {
     return window.cpiSharePayload?.buildUrl?.("history", payload)

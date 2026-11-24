@@ -77,6 +77,29 @@ const origin = 'https://cpi-next.com';
     await page.waitForFunction(() => window.dataLayer?.some(entry => entry[0] === 'event' && entry[1] === 'page_view'));
     assert.equal((await events())[0].params.share_status, 'valid');
     assert.equal((await events())[0].params.share_type, 'overview');
+    await page.goto(urls[1]);
+    assert.equal(await page.locator('.mypage-history__event').count(), 1);
+    assert.equal(await page.locator('.share-history-other').innerText(), '他31曲');
+    assert.equal(await page.locator('.mypage-history__event .numeric-value--pred').innerText(), '12.1');
+    assert.equal(await page.evaluate(() => new URL(location.href).searchParams.get('d')), new URL(urls[1]).searchParams.get('d'));
+    const extended = await page.evaluate(() => {
+      const rows = Array.from(shareRowsById.keys()).filter(id => id !== '4583').slice(0, 23);
+      const l = rows.map((id, index) => [id, 3, 5, 1200 - index]);
+      return cpiSharePayload.buildUrl('history', {
+        d: '2026-11-24', c: { e: 24 }, b: { i: '4583', b: 'unregistered', s: 'easy', p: 12.11 }, u: 1, l,
+      });
+    });
+    await page.goto(extended);
+    assert.equal(await page.locator('.mypage-history__event').count(), 20);
+    assert.equal(await page.locator('.mypage-history__best-clear-update').count(), 1);
+    assert.equal(await page.locator('.share-history-other').innerText(), '他4曲');
+    const preds = await page.locator('.mypage-history__event .numeric-value--pred').allTextContents();
+    assert.equal(preds[0], '12.1');
+    assert.equal(preds.at(-1), '11.8');
+    assert.equal(await page.evaluate(() => new URL(location.href).searchParams.get('d')), new URL(extended).searchParams.get('d'));
+    await page.goto(urls[2]);
+    const dailyPred = await page.locator('.share-daily-table__pred').first().innerText();
+    assert.match(dailyPred, /^\d+\.\d$/);
     await page.goto(origin + '/share.html?t=d&v=1&d=SECRET&h=bad');
     await page.waitForFunction(() => window.dataLayer?.some(entry => entry[0] === 'event'));
     assert.equal((await events())[0].params.share_status, 'invalid');

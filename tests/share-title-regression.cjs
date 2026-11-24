@@ -7,6 +7,7 @@ const vm = require("node:vm");
 const root = path.resolve(__dirname, "..");
 const read = name => fs.readFileSync(path.join(root, name), "utf8");
 const context = vm.createContext({
+  URL, TextEncoder, TextDecoder, btoa, atob,
   window: { addEventListener() {}, dispatchEvent() {} },
   document: { createElement: () => ({}), addEventListener() {} },
 });
@@ -28,7 +29,7 @@ const extract = (source, name) => {
   const end = source.indexOf("\nfunction ", start + 1);
   return source.slice(start, end < 0 ? source.length : end);
 };
-for (const name of ["mypageBuildShareText", "mypageBuildUpdateHistoryShareText"]) {
+for (const name of ["mypageBuildShareText", "mypageBuildHistoryShareUrl", "mypageBuildUpdateHistoryShareText"]) {
   vm.runInContext(extract(read("mypage.js"), name), context);
 }
 context.mypageGetFeatureShareTendencies = () => ({ strong: [], weak: [] });
@@ -49,6 +50,27 @@ for (const title of ["BLACK.by X-Cross Fade", "D.C.fish", "D.C.Fish"]) {
     assert(text.includes(url.replace("https://", "")));
   }
 }
+
+vm.runInContext(read("share-payload.js"), context);
+context.window.location = { href: "https://cpi-next.com/mypage.html" };
+const historyEvents = Array.from({ length: 25 }, (_, i) => ({
+  chartId: String(i + 1), title: "Chart " + (i + 1), beforeStatus: "clear", afterStatus: "hard", pred: 10 + i / 100,
+}));
+const historyUrl = context.mypageBuildHistoryShareUrl("2026-11-24", historyEvents, historyEvents[24]);
+const sharePayload = context.window.cpiSharePayload;
+const historyPayload = sharePayload.decodeUrl(historyUrl).payload;
+assert.equal(historyPayload.c.h, 25);
+assert.equal(historyPayload.b.i, "25");
+assert.equal(historyPayload.u, 1);
+assert.equal(historyPayload.l.length, 19);
+assert.equal(historyPayload.l.map(entry => sharePayload.history.decodeEntry(entry).i).join(","),
+  Array.from({ length: 19 }, (_, i) => 24 - i).join(","));
+assert.equal(sharePayload.history.decodeEntry(["4", 0, 4, null]).p, null);
+assert.equal(sharePayload.history.decodeEntry(["4", 0, 4, "1247"]), null);
+assert.ok(historyUrl.length < 1000);
+const post = context.mypageBuildUpdateHistoryShareText("2026-11-24", historyEvents, historyEvents[24], historyUrl);
+assert.ok(post.includes("Chart 25"));
+assert.ok(!post.includes("Chart 24"));
 
 vm.runInContext(read("daily-target.js"), context);
 vm.runInContext(`

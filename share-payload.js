@@ -10,6 +10,23 @@
   const typeNames = Object.freeze({ o: "overview", h: "history", d: "daily" });
   const allowedTypes = new Set(Object.keys(typeCodes));
   const maxPayloadLength = 12000;
+  const historyLimit = 20;
+  const historyStatuses = ["unregistered", "unowned", "no-play", "failed", "assisted", "easy", "clear", "hard"];
+
+  function decodeHistoryEntry(entry) {
+    if (!Array.isArray(entry) || entry.length !== 4) return null;
+    const [id, before, after, pred] = entry;
+    if (typeof id !== "string" || !/^\d{1,16}$/.test(id)
+      || !Number.isInteger(before) || !historyStatuses[before]
+      || !Number.isInteger(after) || after < 4 || !historyStatuses[after]
+      || (pred !== null && (!Number.isInteger(pred) || Math.abs(pred) > 10000))) return null;
+    return { i: id, b: historyStatuses[before], s: historyStatuses[after], p: pred === null ? null : pred / 100 };
+  }
+
+  function encodeHistoryEntry({ i, b, s, p }) {
+    const entry = [i, historyStatuses.indexOf(b), historyStatuses.indexOf(s), p === null ? null : Math.round(p * 100)];
+    return decodeHistoryEntry(entry) ? entry : null;
+  }
 
   function encodeUtf8(value) {
     const text = String(value ?? "");
@@ -106,5 +123,6 @@
     version,
     buildUrl,
     decodeUrl,
+    history: Object.freeze({ limit: historyLimit, encodeEntry: encodeHistoryEntry, decodeEntry: decodeHistoryEntry }),
   });
 })();
