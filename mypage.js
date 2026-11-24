@@ -73,6 +73,14 @@ const mypageStoredStatusValues = new Set([...mypageStatusValues, "failed"]);
 const mypageRecommendationPageSize = 3;
 const mypageUpdateTargetPreviewCount = 5;
 const mypageHistoryPageSize = 10;
+const mypageDanSurveyFormUrl = "https://docs.google.com/forms/d/e/1FAIpQLScTOL7wNAXJxE9cK1xggOqLYslrWJmcI_PrUGs-ZBAtrctJhA/viewform";
+// Google Forms entry IDs for the four Pred lower/upper pairs.
+const mypageDanSurveyPredFields = [
+  { key: "overallResult", lower: "2074822408", upper: "800071441" },
+  { key: "easy", lower: "1306827066", upper: "989537501" },
+  { key: "normal", lower: "385359961", upper: "1351667012" },
+  { key: "hard", lower: "1975866538", upper: "961165116" },
+];
 const mypageUpdateTargetByStatus = Object.freeze({
   failed: { mode: "easy", label: "EASY" },
   assisted: { mode: "easy", label: "EASY" },
@@ -931,6 +939,31 @@ function mypageFormatPredRange(lower, upper) {
   return lowerText === upperText ? lowerText : lowerText + "-" + upperText;
 }
 
+function mypageBuildDanSurveyUrl(analysis) {
+  const url = new URL(mypageDanSurveyFormUrl);
+  url.searchParams.set("usp", "pp_url");
+  for (const field of mypageDanSurveyPredFields) {
+    const result = field.key === "overallResult"
+      ? analysis?.overallResult
+      : analysis?.lampResults?.[field.key];
+    if (!result) continue;
+
+    if (Number.isFinite(result.rangeLower) && Number.isFinite(result.rangeUpper)) {
+      url.searchParams.set("entry." + field.lower, mypageFormatPredValue(result.rangeLower));
+      url.searchParams.set("entry." + field.upper, mypageFormatPredValue(result.rangeUpper));
+    } else if (Number.isFinite(result.rangeLower)) {
+      const isUpperBound = result.rangeQualifier === "未満";
+      url.searchParams.set(
+        "entry." + (isUpperBound ? field.upper : field.lower),
+        mypageFormatPredValue(result.rangeLower),
+      );
+    } else if (Number.isFinite(result.rangeUpper)) {
+      url.searchParams.set("entry." + field.upper, mypageFormatPredValue(result.rangeUpper));
+    }
+  }
+  return url.toString();
+}
+
 function mypageBuildPredInsufficientResult(observations, counts, message) {
   return {
     range: "ー",
@@ -1504,6 +1537,9 @@ function mypageRenderRecommendationLists(analysis) {
 function mypageRenderPredEstimate() {
   const analysis = mypageGetAnalysis();
   const { overallResult, lampResults } = analysis;
+  if (mypageElements.danSurveyLink) {
+    mypageElements.danSurveyLink.href = mypageBuildDanSurveyUrl(analysis);
+  }
   mypageRenderPredResult(
     mypageElements.predEstimate,
     overallResult,
@@ -2623,6 +2659,7 @@ function mypageInitializeElements() {
   mypageElements.updateTargetMessage = document.getElementById("mypageUpdateTargetMessage");
   mypageElements.shareButton = document.getElementById("mypageShareButton");
   mypageElements.shareButtonTop = document.getElementById("mypageShareButtonTop");
+  mypageElements.danSurveyLink = document.getElementById("mypageDanSurveyLink");
 }
 
 async function mypageInitialize() {

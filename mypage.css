@@ -2,6 +2,18 @@
   width: min(1200px, 100%);
 }
 
+.mypage-survey-cta a {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.mypage-survey-cta a:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
 .mypage-pred-estimate {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
