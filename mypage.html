@@ -29,6 +29,7 @@
   <script defer src="analytics.js?v=20261013-1"></script>
   <link rel="stylesheet" href="styles.css?v=20261122-1">
   <link rel="stylesheet" href="mypage.css?v=20261125-3">
+  <link rel="stylesheet" href="data-contribution.css?v=20261126-3">
   <link rel="stylesheet" href="menu.css?v=20260904-2">
   <link rel="stylesheet" href="page-loading.css?v=20261018-1">
   <link rel="stylesheet" href="personal-platform.css?v=20261121-4">
@@ -46,6 +47,8 @@
   <script defer src="share-text.js?v=20261018-1"></script>
   <script defer src="mypage.js?v=20261125-2"></script>
   <script defer src="platform-migration.js?v=20261121-1"></script>
+  <script defer src="data-contribution-config.js?v=20261125-1"></script>
+  <script defer src="data-contribution.js?v=20261126-5"></script>
 </head>
 <body data-page="mypage">
   <main class="app">
@@ -81,6 +84,39 @@
     </div>
     <noscript><p>このページを利用するにはJavaScriptを有効にしてください。</p></noscript>
     <section id="personalPageContent" class="view view--mypage personal-page-content" aria-live="polite" aria-busy="true" hidden inert>
+      <section id="dataContributionInvite" class="data-contribution" aria-label="Pred精度向上へのデータ提供" hidden>
+        <div class="data-contribution__copy">
+          <button id="dataContributionOpen" class="data-contribution__prompt" type="button" aria-haspopup="dialog" aria-controls="dataContributionDialog">Predの精度向上にご協力ください</button>
+          <p id="dataContributionCompleted" class="data-contribution__completed" hidden></p>
+        </div>
+        <p id="dataContributionStatus" class="data-contribution__status" role="status" aria-live="polite" hidden></p>
+        <dialog id="dataContributionDialog" class="data-contribution__dialog" aria-labelledby="dataContributionDialogTitle">
+          <div class="data-contribution__dialog-header">
+            <h2 id="dataContributionDialogTitle">クリアランプ情報提供のお願い</h2>
+            <button id="dataContributionClose" class="data-contribution__close" type="button" aria-label="閉じる">×</button>
+          </div>
+          <div class="data-contribution__dialog-body">
+            <p class="data-contribution__lead">CPI:NextのPred精度向上のために、登録したクリアランプデータを提供していただける方を募集しています。</p>
+            <section class="data-contribution__info-group" aria-labelledby="dataContributionSentTitle">
+              <h3 id="dataContributionSentTitle">送信する情報</h3>
+              <p>同意いただいた場合、AC版とINFINITAS版それぞれの<strong>譜面IDと現在Status</strong>がCPI:Next管理者に送信されます。また、匿名化された参加者ID、受付期間ID、受信日時も保存します。</p>
+            </section>
+            <section class="data-contribution__info-group" aria-labelledby="dataContributionNotSentTitle">
+              <h3 id="dataContributionNotSentTitle">送信しない情報</h3>
+              <p>適正Pred・得意譜面傾向・手動メモ・オプションメモ・更新履歴・今日の10曲は送信されません。</p>
+            </section>
+            <section class="data-contribution__info-group" aria-labelledby="dataContributionPurposeTitle">
+              <h3 id="dataContributionPurposeTitle">利用目的と保存先</h3>
+              <p>データは難易度推定の検証・改善にのみ利用し、管理者の非公開Google Driveに保存します。</p>
+            </section>
+            <p id="dataContributionCounts" class="data-contribution__counts"></p>
+            <label class="data-contribution__consent"><input id="dataContributionConsent" type="checkbox"><span>提供内容と利用目的を確認し、クリアランプ情報の提供に同意します。</span></label>
+            <p id="dataContributionError" class="data-contribution__error" role="alert" hidden></p>
+            <button id="dataContributionSubmit" class="data-contribution__submit" type="button" disabled>同意して提供する</button>
+            <button id="dataContributionDecline" class="data-contribution__decline" type="button">同意しない</button>
+          </div>
+        </dialog>
+      </section>
       <div class="panel mypage-panel">
         <div class="mypage-tabs" role="tablist" aria-label="マイページ表示切り替え">
           <button id="mypageSummaryTab" class="mypage-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="mypageSummaryPanel" data-mypage-tab="summary">概要</button>
