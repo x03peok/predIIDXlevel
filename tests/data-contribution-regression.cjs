@@ -142,3 +142,14 @@ test("declining is remembered per campaign and sent status uses the requested on
   assert.match(source, /pendingSuccessCampaignId = campaignId/);
   assert.match(source, /if \(successNoticeShown\) return/);
 });
+
+test("confirmed submissions close the receipt tab and update My Page without navigating the receipt tab back", () => {
+  const gas = fs.readFileSync(path.join(root, "data-contribution-gas", "Code.gs"), "utf8");
+  assert.match(source, /async function waitForSubmission\(participantId, campaignId, receiptWindow\)/);
+  assert.match(source, /state\.alreadySubmitted[\s\S]*?state\.lastSubmittedCampaignId === campaignId/);
+  assert.match(source, /receiptWindow\.close\(\)/);
+  assert.match(source, /送信結果を確認しています…/);
+  assert.match(gas, /受付完了を元のCPI:Next画面で確認できます/);
+  assert.match(gas, /success\s*\?[\s\S]*?close-note/);
+  assert.match(gas, /target="_top">CPI:Nextに戻る/);
+});

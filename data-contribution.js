@@ -328,6 +328,38 @@
     invite.hidden = false;
   }
 
+  async function waitForSubmission(participantId, campaignId, receiptWindow) {
+    const deadline = Date.now() + 45_000;
+    let delayMs = 1_000;
+    while (Date.now() < deadline) {
+      try {
+        const state = await readRemoteState(participantId);
+        if (state?.campaignId === campaignId && state.alreadySubmitted
+          && state.lastSubmittedCampaignId === campaignId) {
+          markCompleted(campaignId);
+          try { if (receiptWindow && !receiptWindow.closed) receiptWindow.close(); } catch { /* Best-effort tab close. */ }
+          const consent = document.getElementById("dataContributionConsent");
+          const submit = document.getElementById("dataContributionSubmit");
+          if (consent) consent.checked = false;
+          if (submit) submit.disabled = true;
+          showSubmittedNotice();
+          return;
+        }
+      } catch { /* Retry transient read failures while the receipt is being saved. */ }
+      if (Date.now() >= deadline) break;
+      await new Promise(resolve => window.setTimeout(resolve, delayMs));
+      delayMs = Math.min(5_000, Math.round(delayMs * 1.5));
+    }
+    if (!successNoticeShown) {
+      const open = document.getElementById("dataContributionOpen");
+      if (open) {
+        open.disabled = false;
+        open.textContent = "Predの精度向上にご協力ください";
+      }
+      setInviteStatus("送信結果を確認できませんでした。受付画面をご確認ください。");
+    }
+  }
+
   function showPreview() {
     if (previewDeclined) { hideInvite(); return; }
     showInvite(null, { campaignId: "preview", startAt: new Date().toISOString() }, { preview: true });
@@ -423,7 +455,7 @@
         markCompleted(remoteState.campaignId);
         receiptWindow?.close();
         document.getElementById("dataContributionDialog").close();
-        hideInvite();
+        showSubmittedNotice();
         return;
       }
       if (getEligibleVisitCount(remoteState) < 2) {
@@ -458,9 +490,10 @@
       document.getElementById("dataContributionDialog").close();
       const openButton = document.getElementById("dataContributionOpen");
       openButton.disabled = true;
-      openButton.textContent = "受付確認中";
+      openButton.textContent = "送信確認中";
       consent.checked = false;
-      setInviteStatus("送信画面を開きました。受付結果を確認し、このページへ戻ってください。");
+      setInviteStatus("送信結果を確認しています…");
+      void waitForSubmission(participantId, remoteState.campaignId, receiptWindow);
     } catch (cause) {
       receiptWindow?.close();
       error.textContent = cause.message || "送信できませんでした。";

@@ -177,10 +177,13 @@ function resultPage_(success, title, message, campaignId) {
     .add("contribution", success ? "sent" : "error")
     .add("campaign", CAMPAIGN_ID_PATTERN.test(String(campaignId || "")) ? campaignId : "")
     .toString();
+  const action = success
+    ? '<p class="close-note">受付完了を元のCPI:Next画面で確認できます。この画面が閉じない場合は、タブを手動で閉じてください。</p>'
+    : '<a href="' + escapeHtml_(url) + '" target="_top">CPI:Nextに戻る</a>';
   const html = '<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
     + '<title>' + escapeHtml_(title) + '｜CPI:Next</title>'
-    + '<style>body{margin:0;padding:24px;background:#f3f6fb;color:#243247;font:16px/1.7 system-ui,sans-serif}.card{max-width:560px;margin:8vh auto;padding:24px;border:1px solid #cbd7e6;border-radius:18px;background:#fff;box-shadow:0 12px 36px #18345b18}h1{margin:0 0 10px;color:' + (success ? '#2458aa' : '#a33b32') + ';font-size:1.35rem}p{margin:0 0 18px}a{display:inline-block;padding:10px 16px;border-radius:10px;background:#2563eb;color:#fff;text-decoration:none;font-weight:700}</style>'
-    + '<main class="card"><h1>' + escapeHtml_(title) + '</h1><p>' + escapeHtml_(message) + '</p><a href="' + escapeHtml_(url) + '">CPI:Nextに戻る</a></main></html>';
+    + '<style>body{margin:0;padding:24px;background:#f3f6fb;color:#243247;font:16px/1.7 system-ui,sans-serif}.card{max-width:560px;margin:8vh auto;padding:24px;border:1px solid #cbd7e6;border-radius:18px;background:#fff;box-shadow:0 12px 36px #18345b18}h1{margin:0 0 10px;color:' + (success ? '#2458aa' : '#a33b32') + ';font-size:1.35rem}p{margin:0 0 18px}.close-note{color:#526174;font-size:.9rem}a{display:inline-block;padding:10px 16px;border-radius:10px;background:#2563eb;color:#fff;text-decoration:none;font-weight:700}</style>'
+    + '<main class="card"><h1>' + escapeHtml_(title) + '</h1><p>' + escapeHtml_(message) + '</p>' + action + '</main></html>';
   return HtmlService.createHtmlOutput(html).setTitle(title);
 }
 
